@@ -1,0 +1,35 @@
+name: Assemble exact BioBes frontend
+on:
+  push:
+    paths:
+      - 'payload2/READY'
+permissions:
+  contents: write
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rebuild and verify exact frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, lzma, hashlib
+          parts=sorted(Path('payload2').glob('part-*.b85'))
+          assert len(parts)==24, f'expected 24 parts, got {len(parts)}'
+          encoded=b''.join(p.read_bytes() for p in parts)
+          compressed=base64.b85decode(encoded)
+          data=lzma.decompress(compressed)
+          assert len(data)==1581751, len(data)
+          sha=hashlib.sha256(data).hexdigest()
+          assert sha=='c10706a0c67dd1d0066f28116aad4e6c888eee5479cdb65cee5d7e2243834017', sha
+          Path('index.html').write_bytes(data)
+          PY
+          rm -rf payload2 chunks frontend.xz
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Deploy exact BioBes ERP frontend'
+          git push
