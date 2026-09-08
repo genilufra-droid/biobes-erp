@@ -1,9 +1,14 @@
-# BioBes ERP — Static Site on Render (single-file app, no build step)
+# BioBes ERP — Render Static Site
+# Exact frontend source is stored compressed as frontend.xz.
+# Render reconstructs index.html during build and verifies byte size + SHA-256.
 services:
   - type: web
     name: biobes-erp
     runtime: static
-    buildCommand: echo "static site - no build needed"
+    buildCommand: >-
+      xz -dc frontend.xz > index.html &&
+      test "$(wc -c < index.html)" = "1581751" &&
+      test "$(sha256sum index.html | awk '{print $1}')" = "c10706a0c67dd1d0066f28116aad4e6c888eee5479cdb65cee5d7e2243834017"
     staticPublishPath: ./
     routes:
       - type: rewrite
