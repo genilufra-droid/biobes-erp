@@ -1,0 +1,11 @@
+# BioBes ERP — Static Site on Render (single-file app, no build step)
+services:
+  - type: web
+    name: biobes-erp
+    runtime: static
+    buildCommand: echo "static site - no build needed"
+    staticPublishPath: ./
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
