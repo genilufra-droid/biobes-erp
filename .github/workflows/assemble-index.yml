@@ -2,7 +2,7 @@ name: Assemble BioBes frontend
 on:
   push:
     paths:
-      - 'chunks/READY'
+      - 'frontend.xz'
 permissions:
   contents: write
 jobs:
@@ -14,20 +14,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          [ -f chunks/READY ] || exit 0
-          cat chunks/part-*.b85 > /tmp/index.html.xz.b85
-          python3 - <<'PY'
-          from pathlib import Path
-          import base64
-          src=Path('/tmp/index.html.xz.b85').read_bytes()
-          Path('/tmp/index.html.xz').write_bytes(base64.b85decode(src))
-          PY
-          xz -dc /tmp/index.html.xz > index.html
+          xz -dc frontend.xz > index.html
           test "$(wc -c < index.html)" = "1581751"
           test "$(sha256sum index.html | awk '{print $1}')" = "c10706a0c67dd1d0066f28116aad4e6c888eee5479cdb65cee5d7e2243834017"
-          rm -rf chunks
+          rm frontend.xz
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html chunks
-          git commit -m "Deploy exact BioBes ERP frontend" || exit 0
+          git add index.html frontend.xz
+          git commit -m "Deploy exact BioBes ERP frontend"
           git push
