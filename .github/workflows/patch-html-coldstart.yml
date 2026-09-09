@@ -3,7 +3,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'render-wakeup.js'
+      - '.github/coldstart-inline.js'
       - '.github/workflows/patch-html-coldstart.yml'
 permissions:
   contents: write
@@ -21,7 +21,7 @@ jobs:
           import re
 
           html_path=Path('index.html')
-          helper_path=Path('render-wakeup.js')
+          helper_path=Path('.github/coldstart-inline.js')
           s=html_path.read_text(encoding='utf-8')
           helper=helper_path.read_text(encoding='utf-8').strip()
 
