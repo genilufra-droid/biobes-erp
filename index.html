@@ -3,7 +3,7 @@
 <html lang="sq">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>BioBes ERP — Prototip</title>
+<title>BioBes ERP</title>
 <style>
 :root{--brand:#176b49;--brand2:#21825c;--accent:#8bbf3f;--ink:#27332e;--muted:#718079;--bg:#f3f5f4;--card:#fff;--line:#dfe6e2;--danger:#b63c46;--warn:#d28b13;--shadow:0 3px 16px #173b2b12}*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,-apple-system,Segoe UI,Arial;color:var(--ink);background:var(--bg)}button,input,select,textarea{font:inherit}.top{height:60px;background:var(--brand);color:#fff;display:flex;align-items:center;padding:0 18px;gap:14px;position:sticky;top:0;z-index:30}.logo{font-size:22px;font-weight:800}.logo span{color:#b7dc74}.top-search{flex:1;max-width:620px;position:relative}.top-search input{width:100%;border:0;border-radius:8px;padding:10px 14px;background:#ffffff20;color:#fff;outline:none}.top-search input::placeholder{color:#dcece4}.top-actions{margin-left:auto;display:flex;gap:8px}.icon-btn{border:0;background:#ffffff16;color:#fff;border-radius:7px;padding:9px 11px;cursor:pointer}.shell{display:flex;min-height:calc(100vh - 60px)}aside{width:230px;background:#fff;border-right:1px solid var(--line);padding:13px 9px;position:sticky;top:60px;height:calc(100vh - 60px);overflow:auto}.nav-title{padding:8px 12px;color:var(--muted);font-size:11px;text-transform:uppercase;font-weight:700}.nav button{width:100%;border:0;background:transparent;padding:10px 12px;border-radius:7px;text-align:left;color:#34433c;cursor:pointer;display:flex;gap:10px;align-items:center}.nav button:hover,.nav button.active{background:#e8f3ed;color:var(--brand);font-weight:650}.nav .ico{width:22px;text-align:center;font-size:16px}main{flex:1;padding:24px;min-width:0}.page-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}.page-head h1{font-size:25px;margin:0}.page-head p{margin:4px 0 0;color:var(--muted)}.btn{border:1px solid var(--line);background:#fff;border-radius:7px;padding:9px 13px;cursor:pointer;color:var(--ink)}.btn:hover{background:#f7faf8}.btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}.btn.danger{color:var(--danger)}.btn.small{padding:6px 9px;font-size:12px}.actions{display:flex;gap:8px;flex-wrap:wrap}.apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:15px}.app{background:#fff;border:1px solid var(--line);border-radius:10px;padding:19px 12px;text-align:center;cursor:pointer;box-shadow:var(--shadow)}.app:hover{transform:translateY(-2px);border-color:#a8cdbb}.app i{display:grid;place-items:center;width:55px;height:55px;margin:0 auto 10px;border-radius:13px;background:#e8f4ed;font-style:normal;font-size:27px}.app b{display:block}.app small{color:var(--muted)}.kpis{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:14px;margin-bottom:20px}.kpi{background:#fff;border:1px solid var(--line);border-radius:9px;padding:16px;box-shadow:var(--shadow)}.kpi small{color:var(--muted)}.kpi strong{display:block;font-size:26px;margin-top:4px}.grid2{display:grid;grid-template-columns:1.3fr 1fr;gap:16px}.card{background:#fff;border:1px solid var(--line);border-radius:9px;padding:16px;box-shadow:var(--shadow);margin-bottom:16px}.card h3{margin:0 0 13px;font-size:16px}.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}.toolbar input,.toolbar select{border:1px solid var(--line);background:#fff;border-radius:7px;padding:9px 10px}.toolbar input{min-width:240px}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:8px}table{border-collapse:collapse;width:100%;background:#fff}th{background:#f5f8f6;text-align:left;color:#5d6e65;font-size:12px;white-space:nowrap}th,td{padding:10px 11px;border-bottom:1px solid var(--line);vertical-align:top}tr:last-child td{border-bottom:0}tr:hover td{background:#fbfdfc}.link{color:var(--brand);font-weight:650;cursor:pointer;text-decoration:none}.pill{display:inline-block;border-radius:99px;padding:3px 8px;font-size:11px;font-weight:700;background:#edf1ef;color:#526158}.pill.green{background:#e1f4e8;color:#167044}.pill.orange{background:#fff0d4;color:#975e00}.pill.red{background:#fbe5e7;color:#a32934}.pill.blue{background:#e4effb;color:#29649b}.modal-bg{display:none;position:fixed;inset:0;background:#13251d88;z-index:80;align-items:flex-start;justify-content:center;padding:35px 14px;overflow:auto}.modal-bg.above-lock{z-index:100001}.modal-bg.open{display:flex}.modal{background:#fff;width:min(900px,100%);border-radius:11px;box-shadow:0 20px 70px #0004}.modal-head{padding:16px 19px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}.modal-head h2{margin:0;font-size:20px}.modal-body{padding:19px}.modal-foot{padding:14px 19px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.field{display:flex;flex-direction:column;gap:5px}.field.full{grid-column:1/-1}.field label{font-size:12px;font-weight:700;color:#596961}.field input,.field select,.field textarea{border:1px solid #cfd9d4;border-radius:7px;padding:10px;background:#fff;width:100%}.field textarea{min-height:75px;resize:vertical}.hint{font-size:11px;color:var(--muted)}.totals{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.total{background:#f1f6f3;padding:10px;border-radius:7px}.total small{color:var(--muted);display:block}.total b{font-size:17px}.stepbar{display:flex;gap:4px;margin:0 0 18px;overflow:auto}.step{padding:7px 12px;background:#edf1ef;color:#617068;white-space:nowrap;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 50%,calc(100% - 8px) 100%,0 100%,8px 50%)}.step.on{background:var(--brand);color:#fff}.empty{text-align:center;padding:40px;color:var(--muted)}.rack-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}.rack{border:1px solid var(--line);border-radius:8px;padding:12px;background:#fff}.rack b{display:block}.rack .bar{height:7px;background:#e8ecea;border-radius:8px;margin:9px 0}.rack .bar span{display:block;height:100%;border-radius:8px;background:var(--accent)}.timeline{border-left:2px solid #bad7c8;margin-left:7px;padding-left:18px}.event{position:relative;padding:0 0 15px}.event:before{content:'';position:absolute;width:10px;height:10px;background:var(--brand);border-radius:50%;left:-24px;top:4px}.event small{color:var(--muted)}.toast{position:fixed;right:18px;bottom:18px;background:#243d31;color:#fff;padding:12px 16px;border-radius:8px;display:none;z-index:100}.toast.show{display:block}.mobile-nav{display:none}@media(max-width:900px){aside{width:74px}.nav-title{display:none}.nav button{justify-content:center}.nav button span:last-child{display:none}.kpis{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}@media(max-width:620px){.top{padding:0 10px}.top-search{display:none}.shell{display:block}aside{display:none}main{padding:15px 12px 78px}.page-head{align-items:flex-start}.page-head h1{font-size:21px}.kpis{grid-template-columns:1fr 1fr;gap:9px}.kpi{padding:12px}.kpi strong{font-size:21px}.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.totals{grid-template-columns:1fr 1fr}.mobile-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);z-index:40;justify-content:space-around;padding:7px}.mobile-nav button{border:0;background:none;font-size:11px;color:#516158}.mobile-nav i{display:block;font-style:normal;font-size:20px}.apps{grid-template-columns:repeat(3,1fr);gap:8px}.app{padding:12px 5px}.app i{width:43px;height:43px;font-size:21px}.app small{display:none}}
 @media print{.top,aside,.mobile-nav,.page-head .actions,.toolbar{display:none!important}main{padding:0}.card{box-shadow:none;border:0}.shell{display:block}}
@@ -116,6 +116,129 @@ function importProducts(inp){let f=inp.files[0];if(!f)return;let r=new FileReade
 function xlsHtml(headers,rows){return `<html><head><meta charset="UTF-8"></head><body><table border="1"><tr>${headers.map(x=>`<th>${x}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('')}</table>
 
 
+<script id="biobes-coldstart-v3">
+// BioBes ERP — Render Free cold-start recovery v3.
+(function(){
+  if(window.__biobesColdStartV3)return;
+  window.__biobesColdStartV3=true;
+  document.title='BioBes ERP';
+
+  window.__loginRetryDelays=[0,2500,5000,8000,12000,15000];
+  window.__loginRetryTimeout=12000;
+
+  const nativeUpdateSyncUI=updateSyncUI;
+  const nativePullState=pullState;
+  const nativePushState=pushState;
+  const nativeAfterLocalLogin=afterLocalLogin;
+  let wakeBusy=false;
+  let wakeCooldownUntil=0;
+
+  const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
+
+  function setSyncStatus(text){
+    try{
+      const el=document.getElementById('syncStatus');
+      if(el)el.textContent=text;
+    }catch(e){}
+  }
+
+  async function healthCheck(timeoutMs=12000){
+    const base=serverBaseUrl();
+    if(!base)return false;
+    const ctl=new AbortController();
+    const timer=setTimeout(()=>ctl.abort(),timeoutMs);
+    try{
+      const r=await fetch(base+'/api/health',{cache:'no-store',signal:ctl.signal});
+      if(!r.ok)return false;
+      let j={};
+      try{j=await r.json()}catch(e){}
+      return !!(j&&j.ok===true&&j.db!==false);
+    }catch(e){
+      return false;
+    }finally{
+      clearTimeout(timer);
+    }
+  }
+
+  function canWake(){
+    try{return !!serverBaseUrl()&&!!serverToken&&!serverOnline}catch(e){return false}
+  }
+
+  async function wakeServerAndSync(){
+    if(wakeBusy||!canWake()||Date.now()<wakeCooldownUntil)return false;
+    wakeBusy=true;
+    const waits=[0,2500,5000,8000,12000,15000,15000];
+    try{
+      for(let i=0;i<waits.length;i++){
+        if(waits[i])await sleep(waits[i]);
+        if(!canWake())return false;
+        setSyncStatus('🟡 Duke u lidhur me serverin…'+(i?(' tentativa '+(i+1)+'/'+waits.length):''));
+        if(await healthCheck()){
+          let r={ok:false,offline:true};
+          try{r=await nativePullState()}catch(e){}
+          if((r&&r.ok)||serverOnline){
+            wakeCooldownUntil=0;
+            try{nativeUpdateSyncUI()}catch(e){}
+            try{toast('Lidhja me serverin u rikthye')}catch(e){}
+            return true;
+          }
+        }
+      }
+      wakeCooldownUntil=Date.now()+30000;
+      try{nativeUpdateSyncUI()}catch(e){}
+      return false;
+    }finally{
+      wakeBusy=false;
+    }
+  }
+
+  updateSyncUI=function(){
+    try{
+      if(canWake()&&Date.now()>=wakeCooldownUntil){
+        setSyncStatus('🟡 Duke u lidhur me serverin…');
+        if(!wakeBusy)setTimeout(()=>wakeServerAndSync(),0);
+        return;
+      }
+    }catch(e){}
+    return nativeUpdateSyncUI();
+  };
+
+  pullState=async function(){
+    if(canWake())setSyncStatus('🟡 Duke u lidhur me serverin…');
+    const r=await nativePullState();
+    if(r&&r.offline&&canWake()&&!wakeBusy)setTimeout(()=>wakeServerAndSync(),0);
+    return r;
+  };
+
+  pushState=async function(force){
+    const r=await nativePushState(force);
+    if(canWake()&&!wakeBusy)setTimeout(()=>wakeServerAndSync(),0);
+    return r;
+  };
+
+  afterLocalLogin=function(){
+    try{normalizeState()}catch(e){}
+    serverOnline=false;
+    if(serverBaseUrl()){
+      syncSetDirty(true);
+      setSyncStatus('🟡 Serveri po zgjohet — puna po ruhet lokalisht');
+      try{toast('Serveri po zgjohet — ndryshimet ruhen lokalisht derisa të rilidhet')}catch(e){}
+      if(serverToken&&!wakeBusy)setTimeout(()=>wakeServerAndSync(),0);
+      return;
+    }
+    return nativeAfterLocalLogin();
+  };
+
+  window.addEventListener('online',()=>{
+    wakeCooldownUntil=0;
+    if(canWake()&&!wakeBusy)wakeServerAndSync();
+  });
+
+  setInterval(()=>{
+    if(canWake()&&!wakeBusy&&Date.now()>=wakeCooldownUntil)wakeServerAndSync();
+  },30000);
+})();
+</script>
 </body></html>`}
 function exportProductsXls(){downloadBlob('BioBes-produkte.xls',xlsHtml(['Kodi','Shqip','Botanik','Anglisht','Kategoria'],state.products.map(x=>[x.code,x.name,x.botanical,x.english,x.category])),'application/vnd.ms-excel')}
 function exportSuppliersXls(){downloadBlob('BioBes-furnitore.xls',xlsHtml(['Kodi','Emri','Zona','Telefon','Gjendja'],state.suppliers.map(x=>[x.code,x.name,x.region,x.phone,x.balance])),'application/vnd.ms-excel')}
