@@ -1,10 +1,9 @@
 # BioBes ERP — Render Static Site
-# Uses the exact frontend version uploaded as index-1-2.html.
 services:
   - type: web
     name: biobes-erp
     runtime: static
-    buildCommand: cp index-1-2.html index.html
+    buildCommand: echo "BioBes static frontend - no build required"
     staticPublishPath: ./
     routes:
       - type: rewrite
