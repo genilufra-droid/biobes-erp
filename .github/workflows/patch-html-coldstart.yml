@@ -3,6 +3,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'render-wakeup.js'
       - '.github/workflows/patch-html-coldstart.yml'
 permissions:
   contents: write
@@ -11,146 +12,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch index.html directly
+      - name: Inject cold-start recovery directly into index.html
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('index.html')
-          s=p.read_text(encoding='utf-8')
+          import re
+
+          html_path=Path('index.html')
+          helper_path=Path('render-wakeup.js')
+          s=html_path.read_text(encoding='utf-8')
+          helper=helper_path.read_text(encoding='utf-8').strip()
+
           s=s.replace('<title>BioBes ERP — Prototip</title>','<title>BioBes ERP</title>')
-          marker='id="biobes-coldstart-v3"'
-          if marker not in s:
-              patch=r'''<script id="biobes-coldstart-v3">
-(function(){
-  if(window.__biobesColdStartV3)return;
-  window.__biobesColdStartV3=true;
-  document.title='BioBes ERP';
+          s=s.replace('<script src="/render-wakeup.js"></script>','')
 
-  window.__loginRetryDelays=[0,2500,5000,8000,12000,15000];
-  window.__loginRetryTimeout=12000;
+          start='<script id="biobes-coldstart-v3">'
+          inline=start+'\n'+helper+'\n</script>'
+          pattern=r'<script id="biobes-coldstart-v3">.*?</script>'
 
-  const nativeUpdateSyncUI=updateSyncUI;
-  const nativePullState=pullState;
-  const nativePushState=pushState;
-  let wakeBusy=false;
-  let wakeCooldownUntil=0;
-
-  const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
-
-  function setSyncStatus(text){
-    try{
-      const el=document.getElementById('syncStatus');
-      if(el)el.textContent=text;
-    }catch(e){}
-  }
-
-  async function healthCheck(timeoutMs=12000){
-    const base=serverBaseUrl();
-    if(!base)return false;
-    const ctl=new AbortController();
-    const timer=setTimeout(()=>ctl.abort(),timeoutMs);
-    try{
-      const r=await fetch(base+'/api/health',{cache:'no-store',signal:ctl.signal});
-      if(!r.ok)return false;
-      let j={};
-      try{j=await r.json()}catch(e){}
-      return !!(j&&j.ok===true&&j.db!==false);
-    }catch(e){
-      return false;
-    }finally{
-      clearTimeout(timer);
-    }
-  }
-
-  function canWake(){
-    try{return !!serverBaseUrl()&&!!serverToken&&!serverOnline}catch(e){return false}
-  }
-
-  async function wakeServerAndSync(){
-    if(wakeBusy||!canWake()||Date.now()<wakeCooldownUntil)return false;
-    wakeBusy=true;
-    const waits=[0,2500,5000,8000,12000,15000,15000];
-    try{
-      for(let i=0;i<waits.length;i++){
-        if(waits[i])await sleep(waits[i]);
-        if(!canWake())return false;
-        setSyncStatus('🟡 Duke u lidhur me serverin…'+(i?(' tentativa '+(i+1)+'/'+waits.length):''));
-        if(await healthCheck()){
-          let r={ok:false,offline:true};
-          try{r=await nativePullState()}catch(e){}
-          if((r&&r.ok)||serverOnline){
-            wakeCooldownUntil=0;
-            try{nativeUpdateSyncUI()}catch(e){}
-            try{toast('Lidhja me serverin u rikthye')}catch(e){}
-            return true;
-          }
-        }
-      }
-      wakeCooldownUntil=Date.now()+30000;
-      try{nativeUpdateSyncUI()}catch(e){}
-      return false;
-    }finally{
-      wakeBusy=false;
-    }
-  }
-
-  updateSyncUI=function(){
-    try{
-      if(canWake()&&Date.now()>=wakeCooldownUntil){
-        setSyncStatus('🟡 Duke u lidhur me serverin…');
-        if(!wakeBusy)setTimeout(()=>wakeServerAndSync(),0);
-        return;
-      }
-    }catch(e){}
-    return nativeUpdateSyncUI();
-  };
-
-  pullState=async function(){
-    if(canWake())setSyncStatus('🟡 Duke u lidhur me serverin…');
-    const r=await nativePullState();
-    if(r&&r.offline&&canWake()&&!wakeBusy)setTimeout(()=>wakeServerAndSync(),0);
-    return r;
-  };
-
-  pushState=async function(force){
-    const r=await nativePushState(force);
-    if(canWake()&&!wakeBusy)setTimeout(()=>wakeServerAndSync(),0);
-    return r;
-  };
-
-  const nativeAfterLocalLogin=afterLocalLogin;
-  afterLocalLogin=function(){
-    try{normalizeState()}catch(e){}
-    serverOnline=false;
-    if(serverBaseUrl()){
-      syncSetDirty(true);
-      setSyncStatus('🟡 Serveri po zgjohet — puna po ruhet lokalisht');
-      try{toast('Serveri po zgjohet — ndryshimet ruhen lokalisht derisa të rilidhet')}catch(e){}
-      if(serverToken&&!wakeBusy)setTimeout(()=>wakeServerAndSync(),0);
-      return;
-    }
-    return nativeAfterLocalLogin();
-  };
-
-  window.addEventListener('online',()=>{
-    wakeCooldownUntil=0;
-    if(canWake()&&!wakeBusy)wakeServerAndSync();
-  });
-
-  setInterval(()=>{
-    if(canWake()&&!wakeBusy&&Date.now()>=wakeCooldownUntil)wakeServerAndSync();
-  },30000);
-})();
-</script>'''
+          if re.search(pattern,s,flags=re.S):
+              s=re.sub(pattern,lambda m:inline,s,count=1,flags=re.S)
+          else:
               if '</body>' not in s:
                   raise SystemExit('ERROR: </body> not found')
-              s=s.replace('</body>',patch+'\n</body>',1)
-          p.write_text(s,encoding='utf-8')
+              s=s.replace('</body>',inline+'\n</body>',1)
+
+          html_path.write_text(s,encoding='utf-8')
           PY
-          grep -q 'biobes-coldstart-v3' index.html
+          grep -q 'id="biobes-coldstart-v3"' index.html
           grep -q '<title>BioBes ERP</title>' index.html
+          grep -q 'Duke u lidhur me serverin' index.html
           git diff --check
       - name: Commit patched HTML
         shell: bash
