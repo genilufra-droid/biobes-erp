@@ -32,18 +32,27 @@ jobs:
           inline=start+'\n'+helper+'\n</script>'
           pattern=r'<script id="biobes-coldstart-v3">.*?</script>'
 
-          if re.search(pattern,s,flags=re.S):
-              s=re.sub(pattern,lambda m:inline,s,count=1,flags=re.S)
-          else:
-              if '</body>' not in s:
-                  raise SystemExit('ERROR: </body> not found')
-              s=s.replace('</body>',inline+'\n</body>',1)
+          # Remove any previous placement, including an earlier bad insertion
+          # inside a JS template string, then inject only at the final real body end.
+          s=re.sub(pattern,'',s,flags=re.S)
+          if '</body>' not in s:
+              raise SystemExit('ERROR: </body> not found')
+          before,after=s.rsplit('</body>',1)
+          s=before+inline+'\n</body>'+after
 
           html_path.write_text(s,encoding='utf-8')
           PY
           grep -q 'id="biobes-coldstart-v3"' index.html
           grep -q '<title>BioBes ERP</title>' index.html
           grep -q 'Duke u lidhur me serverin' index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          assert s.count('id="biobes-coldstart-v3"')==1, 'cold-start patch must appear exactly once'
+          assert s.rfind('id="biobes-coldstart-v3"') > s.rfind('setTimeout(syncBoot,600)'), 'patch must be after app scripts'
+          assert s.rfind('id="biobes-coldstart-v3"') < s.rfind('</body>'), 'patch must be before final body close'
+          assert s.rstrip().endswith('</html>'), 'document must end with </html>'
+          PY
           git diff --check
       - name: Commit patched HTML
         shell: bash
@@ -56,5 +65,5 @@ jobs:
             echo 'HTML already patched'
             exit 0
           fi
-          git commit -m 'Fix Render cold-start handling directly in BioBes HTML'
+          git commit -m 'Place Render cold-start recovery at final BioBes HTML body'
           git push
