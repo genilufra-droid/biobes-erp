@@ -3,20 +3,7 @@ services:
   - type: web
     name: biobes-erp
     runtime: static
-    buildCommand: |
-      set -e
-      mkdir -p public
-      cp index.html public/index.html
-      cp render-wakeup.js public/render-wakeup.js
-      python3 - <<'PY'
-      from pathlib import Path
-      p=Path('public/index.html')
-      s=p.read_text(encoding='utf-8')
-      tag='<script src="/render-wakeup.js"></script>'
-      if tag not in s:
-          s=s.replace('</body>',tag+'</body>',1)
-      p.write_text(s,encoding='utf-8')
-      PY
+    buildCommand: mkdir -p public && cp index.html public/index.html
     staticPublishPath: ./public
     routes:
       - type: rewrite
