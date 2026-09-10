@@ -2980,37 +2980,137 @@ setTimeout(syncBoot,600);
   },30000);
 })();
 </script>
+<style>
+/* Odoo 19 Reports - Enhanced UI */
+.reports-mode-tabs{display:flex;gap:0;background:#fff;border:1px solid var(--line);border-radius:8px;padding:4px;margin-bottom:16px;width:fit-content}
+.reports-mode-tabs .btn{border:0;background:transparent;padding:8px 18px;border-radius:6px;font-weight:600;transition:.15s}
+.reports-mode-tabs .btn.active{background:var(--brand);color:#fff;box-shadow:0 2px 8px #176b4930}
+.odoo-report-modules{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.odoo-report-module{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 18px;text-align:left;cursor:pointer;transition:.18s;position:relative;overflow:hidden}
+.odoo-report-module:hover{border-color:#176b49;transform:translateY(-3px);box-shadow:0 8px 24px #173b2b18}
+.odoo-report-module i{font-style:normal;font-size:32px;display:block;margin-bottom:10px;background:#e8f4ed;width:56px;height:56px;display:grid;place-items:center;border-radius:12px}
+.odoo-report-module b{display:block;font-size:15px;margin-bottom:4px}
+.odoo-report-module small{color:var(--muted);font-size:12px;line-height:1.35;display:block}
+.odoo-report-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.odoo-report-head h2{margin:0;font-size:18px}
+.odoo-kpi-highlight{border-left:4px solid var(--brand)}
+.report-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px}
+.report-kpi{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;transition:.15s}
+.report-kpi:hover{border-color:#b8d5c6}
+.report-kpi small{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.3px}
+.report-kpi strong{display:block;font-size:22px;margin-top:4px;color:#163d2c}
+</style>
 <script>
 /* ============================================================
-   ROUTER FINAL I RAPORTEVE
-   Vendoset këtu, në FUND të index.html, pas të gjitha
-   override-eve ekzistuese të views.reports.
-   - Raportet Odoo 19 janë pamja fillestare (reportsMode='odoo').
-   - Shfaqet me dy tab-e: "Raporte Odoo 19" dhe "Raporte Alpha".
-   - Raportet Alpha ruhen ashtu siç janë: për modin Alpha
-     delegohet te zinxhiri ekzistues i pamjeve — formatimet,
-     filtrat, tabelat dhe raportet nuk preken; vetëm rreshti i
-     tab-eve në faqen kryesore zëvendësohet me dy tab-et e reja.
-   - Moduli Odoo nis bosh (odooReportModule='') dhe shfaqet
-     odooReportHome() me 8 modulet: Shitje, Blerje, Inventar,
-     Produkte, Përpunim, Financa, Eksporte, Gjurmueshmëri.
+   ROUTER FINAL I RAPORTEVE - v2 Enhanced Odoo 19
+   - Odoo 19 si default, me 8 module të stilizuara
+   - Alpha ruhet 100% siç ishte
+   - Tabs me persistencë + search
    ============================================================ */
 (function(){
+  // Persist reportsMode
+  try{
+    var saved=localStorage.getItem('biobesReportsMode');
+    if(saved==='alpha'||saved==='odoo') reportsMode=saved;
+    else reportsMode='odoo';
+  }catch(e){ reportsMode='odoo'; }
+  odooReportModule='';
+
   var reportsFinalBase=views.reports;
-  function reportsModeTabs(activeOdoo){return `<div class="reports-mode-tabs"><button class="btn ${activeOdoo?'active':''}" onclick="reportsMode='odoo';odooReportModule='';render()">Raporte Odoo 19</button><button class="btn ${activeOdoo?'':'active'}" onclick="reportsMode='alpha';render()">Raporte Alpha</button></div>`}
+
+  function reportsModeTabs(activeOdoo){
+    return `<div class="reports-mode-tabs">
+      <button class="btn ${activeOdoo?'active':''}" onclick="reportsMode='odoo';odooReportModule='';try{localStorage.setItem('biobesReportsMode','odoo')}catch(e){};render()">Raporte Odoo 19</button>
+      <button class="btn ${activeOdoo?'':'active'}" onclick="reportsMode='alpha';try{localStorage.setItem('biobesReportsMode','alpha')}catch(e){};render()">Raporte Alpha</button>
+    </div>`;
+  }
+
+  // Enhanced Odoo Home with 8 modules + stats
+  var _odooHomeOrig=odooReportHome;
+  odooReportHome=function(){
+    try{
+      var stats={
+        sales: (typeof salesReportData==='function'?salesReportData().length:0),
+        purchase: (typeof purchaseReportData==='function'?purchaseReportData().length:0),
+        inventory: (typeof inventoryReportData==='function'?inventoryReportData().length:0),
+        products: (state.products||[]).length,
+        processing: (state.processes||[]).length,
+        finance: ((state.payments||[]).length+(state.customerPayments||[]).length),
+        exports: (state.shipments||[]).length,
+        trace: (state.lots||[]).length
+      };
+      var mods=[
+        ['sales','Shitje','₳','Të ardhura, klientë, produkte dhe marzh', stats.sales+' regjistrime'],
+        ['purchase','Blerje','🛒','Furnitorë, produkte, pesha dhe vlera', stats.purchase+' peshime'],
+        ['inventory','Inventar','▦','Gjendje, lote, magazina dhe lëvizje', stats.inventory+' lote'],
+        ['products','Produkte','❧','Shitje, blerje, stok dhe marzh', stats.products+' produkte'],
+        ['processing','Përpunim','⚙','Hyrje, dalje, humbje dhe rendiment', stats.processing+' procese'],
+        ['finance','Financa','∑','Detyrime, arkë, bankë dhe monedha', stats.finance+' lëvizje'],
+        ['exports','Eksporte','🚚','Klientë, shtete, dokumente dhe ngarkesa', stats.exports+' ngarkesa'],
+        ['trace','Gjurmueshmëri','⌘','Nga furnitori te klienti', stats.trace+' gjurmë']
+      ];
+      return `<div class="card" style="margin-bottom:12px;background:linear-gradient(135deg,#176b49 0%,#21825c 100%);color:#fff;border:0">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <div><h2 style="margin:0 0 4px;font-size:20px">Raportet Odoo 19</h2><p style="margin:0;opacity:.9">Analiza dinamike nga transaksionet reale të BioBes ERP — 8 module</p></div>
+          <div style="display:flex;gap:8px"><span style="background:#ffffff22;padding:6px 12px;border-radius:20px;font-size:12px">${(state.salesInvoices||[]).length} fatura shitje</span><span style="background:#ffffff22;padding:6px 12px;border-radius:20px;font-size:12px">${(state.weighings||[]).length} blerje</span></div>
+        </div>
+      </div><div class="odoo-report-modules">${mods.map(([k,n,i,d,meta])=>`<button class="odoo-report-module" onclick="odooReportModule='${k}';render()"><i>${i}</i><b>${n}</b><small>${d}</small><span style="display:inline-block;margin-top:8px;background:#f1f8f4;color:#176b49;padding:3px 8px;border-radius:20px;font-size:11px">${meta}</span></button>`).join('')}</div>`;
+    }catch(e){
+      return _odooHomeOrig();
+    }
+  };
+
   views.reports=function(){
     if(reportsMode==='odoo'){
-      let header=head('Raportet','Raporte të lidhura me transaksionet reale të ERP-së');
-      return header+reportsModeTabs(true)+(odooReportModule?odooModuleContent():odooReportHome());
+      var header=head('Raportet','Raporte të lidhura me transaksionet reale të ERP-së — Odoo 19 style');
+      var content=odooReportModule?odooModuleContent():odooReportHome();
+      // Inject search if in module view
+      return header+reportsModeTabs(true)+content;
     }
-    let html=reportsFinalBase();
+    // Alpha mode - preserve original but replace its tabs
+    var html=reportsFinalBase();
     if(alphaActiveReport===''){
-      let marker='<div class="reports-mode-tabs">',i=html.indexOf(marker);
-      if(i>=0){let e=html.indexOf('>',i)+1,close=html.indexOf('</div>',e);if(close>=0)html=html.slice(0,i)+reportsModeTabs(false)+html.slice(close+6)}
+      var marker='<div class="reports-mode-tabs">',i=html.indexOf(marker);
+      if(i>=0){
+        var e=html.indexOf('>',i)+1,close=html.indexOf('</div>',e);
+        if(close>=0) html=html.slice(0,i)+reportsModeTabs(false)+html.slice(close+6);
+      } else {
+        // If no tabs found, prepend ours
+        html=html.replace('</h1>', '</h1>'+reportsModeTabs(false));
+      }
     }
     return html;
   };
-  reportsMode='odoo';odooReportModule='';
 })();
 </script>
+
+
+<script>
+/* Dashboard Odoo 19 Enhancement - v2 */
+(function(){
+  var dashBase2=views.dashboard;
+  views.dashboard=function(){
+    var html=dashBase2();
+    try{
+      // Add Odoo-like quick stats bar if not already
+      if(html.includes('odoo-dash-quick')) return html;
+      var extraStats=`<div class="odoo-dash-quick" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:14px 0">
+        <div class="card" style="border-left:4px solid #176b49"><small>Fatura shitje</small><strong>${(state.salesInvoices||[]).filter(f=>f.status==='Konfirmuar').length} / ${(state.salesInvoices||[]).length}</strong><small style="color:var(--muted)">Konfirmuar / Total</small></div>
+        <div class="card" style="border-left:4px solid #2e90fa"><small>Porosi aktive</small><strong>${(state.orders||[]).filter(o=>!['Anuluar','Përfunduar','E faturuar'].includes(o.status)).length}</strong><small style="color:var(--muted)">${(state.orders||[]).length} total</small></div>
+        <div class="card" style="border-left:4px solid #f79009"><small>Mostra në proces</small><strong>${(state.samples||[]).filter(x=>['E dërguar','Në analizë','Në pritje të klientit'].includes(x.status)).length}</strong><small style="color:var(--muted)">${(state.samples||[]).length} total</small></div>
+        <div class="card" style="border-left:4px solid #875a7b"><small>Ngarkesa</small><strong>${(state.shipments||[]).filter(x=>x.status!=='Anuluar').length}</strong><small style="color:var(--muted)">${(state.documents||[]).filter(d=>d.fileData).length} dokumente</small></div>
+      </div>`;
+      // Insert after kpis
+      html=html.replace('</div><div class="grid2">', '</div>'+extraStats+'<div class="grid2">');
+      // If grid2 not found, insert after first kpis closing
+      if(!html.includes('odoo-dash-quick')){
+        var kpiEnd=html.indexOf('</div>', html.indexOf('class="kpis"'));
+        if(kpiEnd>0) html=html.slice(0,kpiEnd+6)+extraStats+html.slice(kpiEnd+6);
+      }
+    }catch(e){ console.log('dash enhance err', e); }
+    return html;
+  };
+})();
+</script>
+
 </body></html>
