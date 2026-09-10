@@ -3084,4 +3084,33 @@ setTimeout(syncBoot,600);
 })();
 </script>
 
+
+<script>
+/* Dashboard Odoo 19 Enhancement - v2 */
+(function(){
+  var dashBase2=views.dashboard;
+  views.dashboard=function(){
+    var html=dashBase2();
+    try{
+      // Add Odoo-like quick stats bar if not already
+      if(html.includes('odoo-dash-quick')) return html;
+      var extraStats=`<div class="odoo-dash-quick" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:14px 0">
+        <div class="card" style="border-left:4px solid #176b49"><small>Fatura shitje</small><strong>${(state.salesInvoices||[]).filter(f=>f.status==='Konfirmuar').length} / ${(state.salesInvoices||[]).length}</strong><small style="color:var(--muted)">Konfirmuar / Total</small></div>
+        <div class="card" style="border-left:4px solid #2e90fa"><small>Porosi aktive</small><strong>${(state.orders||[]).filter(o=>!['Anuluar','Përfunduar','E faturuar'].includes(o.status)).length}</strong><small style="color:var(--muted)">${(state.orders||[]).length} total</small></div>
+        <div class="card" style="border-left:4px solid #f79009"><small>Mostra në proces</small><strong>${(state.samples||[]).filter(x=>['E dërguar','Në analizë','Në pritje të klientit'].includes(x.status)).length}</strong><small style="color:var(--muted)">${(state.samples||[]).length} total</small></div>
+        <div class="card" style="border-left:4px solid #875a7b"><small>Ngarkesa</small><strong>${(state.shipments||[]).filter(x=>x.status!=='Anuluar').length}</strong><small style="color:var(--muted)">${(state.documents||[]).filter(d=>d.fileData).length} dokumente</small></div>
+      </div>`;
+      // Insert after kpis
+      html=html.replace('</div><div class="grid2">', '</div>'+extraStats+'<div class="grid2">');
+      // If grid2 not found, insert after first kpis closing
+      if(!html.includes('odoo-dash-quick')){
+        var kpiEnd=html.indexOf('</div>', html.indexOf('class="kpis"'));
+        if(kpiEnd>0) html=html.slice(0,kpiEnd+6)+extraStats+html.slice(kpiEnd+6);
+      }
+    }catch(e){ console.log('dash enhance err', e); }
+    return html;
+  };
+})();
+</script>
+
 </body></html>
