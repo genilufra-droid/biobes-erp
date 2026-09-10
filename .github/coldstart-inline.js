@@ -53,14 +53,13 @@
       for(let i=0;i<waits.length;i++){
         if(waits[i])await sleep(waits[i]);
         if(!canWake())return false;
-        setSyncStatus('🟡 Duke u lidhur me serverin…'+(i?(' tentativa '+(i+1)+'/'+waits.length):''));
+        setSyncStatus('');
         if(await healthCheck()){
           let r={ok:false,offline:true};
           try{r=await nativePullState()}catch(e){}
           if((r&&r.ok)||serverOnline){
             wakeCooldownUntil=0;
             try{nativeUpdateSyncUI()}catch(e){}
-            try{toast('Lidhja me serverin u rikthye')}catch(e){}
             return true;
           }
         }
@@ -76,7 +75,7 @@
   updateSyncUI=function(){
     try{
       if(canWake()&&Date.now()>=wakeCooldownUntil){
-        setSyncStatus('🟡 Duke u lidhur me serverin…');
+        setSyncStatus('');
         if(!wakeBusy)setTimeout(()=>wakeServerAndSync(),0);
         return;
       }
@@ -85,7 +84,7 @@
   };
 
   pullState=async function(){
-    if(canWake())setSyncStatus('🟡 Duke u lidhur me serverin…');
+    if(canWake())setSyncStatus('');
     const r=await nativePullState();
     if(r&&r.offline&&canWake()&&!wakeBusy)setTimeout(()=>wakeServerAndSync(),0);
     return r;
@@ -102,8 +101,7 @@
     serverOnline=false;
     if(serverBaseUrl()){
       syncSetDirty(true);
-      setSyncStatus('🟡 Serveri po zgjohet — puna po ruhet lokalisht');
-      try{toast('Serveri po zgjohet — ndryshimet ruhen lokalisht derisa të rilidhet')}catch(e){}
+      setSyncStatus('');
       if(serverToken&&!wakeBusy)setTimeout(()=>wakeServerAndSync(),0);
       return;
     }
