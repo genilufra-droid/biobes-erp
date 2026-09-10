@@ -32,7 +32,7 @@ function save(){if(!db)return;try{let sq=db.transaction('app','readwrite').objec
 let __uidc=0;function uid(p){return p+'-'+Date.now().toString(36).toUpperCase()+'-'+(++__uidc).toString(36).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase()}
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function n(v,d=2){return Number(v||0).toLocaleString('sq-AL',{maximumFractionDigits:d})}
-function by(a,id){return state[a].find(x=>x.id===id)||{}}
+function by(a,id){return(state&&state[a]&&Array.isArray(state[a]))?(state[a].find(x=>x&&(x.id===id||x.code===id))||{}):{}}
 function toast(t){let e=document.getElementById('toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2300)}
 function status(s){let c=/aprov|magazin|përfund|nisur/i.test(s)?'green':/prit|prodhim|ngarkim|pastrim/i.test(s)?'orange':/refuz|anull/i.test(s)?'red':'blue';return `<span class="pill ${c}">${esc(s)}</span>`}
 function renderNav(){let list=modules;try{list=modules.filter(x=>userCan(x[0],'view'))}catch(e){list=modules}nav.innerHTML='<div class="nav-title">Operacionet</div>'+list.map(x=>`<button data-page="${x[0]}" class="${x[0]===page?'active':''}" onclick="go('${x[0]}')"><span class="ico">${x[1]}</span><span>${x[2]}</span></button>`).join('')}
@@ -1842,26 +1842,851 @@ function liveEntityKind(sel){let id=sel.id||'',label=sel.closest('.field')?.quer
 function quickCreateFromLive(sel,text){let kind=liveEntityKind(sel);if(!kind)return;if(kind==='product')return productFormV2();if(kind==='supplier')return entityForm('supplier');if(kind==='customer'&&typeof customerForm==='function')return customerForm();if(['warehouse','rack','machine'].includes(kind))return simpleForm(kind);toast('Hapni regjistrin përkatës për ta shtuar')}
 function installLiveQuickCreate(root=document){dedupeLiveSearches(root);root.querySelectorAll('.global-live-search').forEach(w=>{let sel=w.nextElementSibling;if(!sel?.matches('select')||w.dataset.quickReady)return;w.dataset.quickReady='1';let inp=w.querySelector('input'),res=w.querySelector('.global-live-results');if(!inp||!res)return;inp.addEventListener('input',()=>setTimeout(()=>{let empty=res.querySelector('.global-live-empty'),kind=liveEntityKind(sel);res.querySelector('.quick-create-live')?.remove();if(empty&&kind){let b=document.createElement('div');b.className='quick-create-live';b.textContent='+ Shto regjistrin e ri';b.onmousedown=e=>{e.preventDefault();quickCreateFromLive(sel,inp.value.trim())};res.appendChild(b)}},0))})}
 const modalUrgentBase=modal;modal=function(t,b,f){modalUrgentBase(t,b,f);setTimeout(()=>{dedupeLiveSearches(document.getElementById('modalBody'));globalizeAllSelects(document.getElementById('modalBody'));dedupeLiveSearches(document.getElementById('modalBody'));installLiveQuickCreate(document.getElementById('modalBody'))},70)}
-function sampleEditForm(id){let x=by('samples',id);if(!x)return;modal('Ndrysho mostrën — '+id,`<div class="form-grid"><div class="field"><label>Data</label><input id="seDate" type="date" value="${x.date||''}"></div><div class="field"><label>Klienti</label><select id="seCustomer">${opts(state.customers,c=>c.code+' — '+c.name,x.customer)}</select></div><div class="field"><label>Produkti</label><select id="seProduct">${opts(state.products,p=>p.code+' — '+p.name,x.product)}</select></div><div class="field"><label>Loti burimor</label><select id="seLot">${opts(state.lots,l=>l.code,x.lot)}</select></div><div class="field"><label>Tracking</label><input id="seTrack" value="${esc(x.tracking||'')}"></div><div class="field"><label>Statusi</label><select id="seStatus">${['E dërguar','Në analizë','Në pritje të klientit','E aprovuar','E refuzuar'].map(v=>`<option ${x.status===v?'selected':''}>${v}</option>`).join('')}</select></div><div class="field full"><label>Analiza / aprovimi</label><input id="seFile" type="file" accept="image/*,.pdf"></div></div>`,`<button class="btn" onclick="goBackModal()">Mbyll</button><button class="btn primary" onclick="saveSampleEdit('${id}')">Ruaj ndryshimet</button>`)}
-function saveSampleEdit(id){let x=by('samples',id),file=seFile.files[0],done=data=>{let old=x.status;Object.assign(x,{date:seDate.value,customer:seCustomer.value,product:seProduct.value,lot:seLot.value,tracking:seTrack.value,status:seStatus.value});if(data)Object.assign(x,{approvalData:data,approvalName:file.name,approvalType:file.type});state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Ndryshim mostre',ref:id,text:`Statusi: ${old} → ${x.status}`});save();closeModal();render();setTimeout(()=>sampleCard(id),80);toast('Mostra u ndryshua')};if(file)readAsData(file,done);else done('')}
-function deleteSampleSafe(id){if(!requireAdmin('fshijë mostrën'))return;let used=state.orders.some(o=>o.sample===id);if(used)return toast('Mostra nuk fshihet sepse është lidhur me porosi');let reason=prompt('Arsyeja e fshirjes:');if(!reason)return;state.samples=state.samples.filter(x=>x.id!==id);state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Fshirje mostre',ref:id,text:reason});save();closeModal();render();toast('Mostra u fshi')}
-sampleCard=function(id){let x=by('samples',id),c=by('customers',x.customer),p=by('products',x.product),l=by('lots',x.lot);modal(x.id+' — Mostra',`<div class="form-grid"><div class="card"><b>Klienti</b><p>${esc(c?.name||'—')}</p></div><div class="card"><b>Produkti</b><p>${esc(p?.name||'—')}</p></div></div><div class="card"><p><b>Data:</b> ${x.date||'—'}</p><p><b>Loti:</b> ${esc(l?.code||'—')}</p><p><b>Tracking:</b> ${esc(x.tracking||'—')}</p><p><b>Status:</b> ${status(x.status)}</p>${x.approvalData?`<p class="doc-ok">✓ ${esc(x.approvalName)}</p>`:''}</div>`,`<button class="btn" onclick="closeModal()">Mbyll</button><button class="btn" onclick="sampleEditForm('${id}')">Modifiko / Statusi</button><button class="btn" onclick="sampleEditForm('${id}')">Ruaj ndryshime</button><button class="btn danger" data-admin-only onclick="deleteSampleSafe('${id}')">Fshi</button>`)}
-const addSampleValidatedBase=addSample;addSample=function(){if(!sCustomer.value||!sProduct.value||!sLot.value)return toast('Plotësoni klientin, produktin dhe lotin');return addSampleValidatedBase()}
-</script>
-<style>.order-new-grid input{min-width:90px}.order-new-grid td:nth-child(2){min-width:240px}</style><script>
-orderForm=function(){modal('Porosi e re',`<div class="form-grid"><div class="field"><label>Data</label><input id="oDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field"><label>Klienti</label><select id="oCustomer">${opts(state.customers,x=>x.code+' — '+x.name+' — '+(x.country||''))}</select></div><div class="field"><label>Mostra e aprovuar</label><select id="oSample"><option value="">— Pa mostër</option>${opts(state.samples.filter(x=>x.status==='E aprovuar'),x=>x.id+' — '+(by('products',x.product)?.name||''))}</select></div><div class="field"><label>Dokumenti origjinal</label><input id="oFile" type="file" accept="image/*,.pdf,.xlsx"></div></div><div class="card"><div class="toolbar"><b>Produktet e porosisë</b><button type="button" class="btn small primary" onclick="addNewOrderItem()">+ Shto produkt</button></div><div class="table-wrap"><table class="order-new-grid"><thead><tr><th>Nr.</th><th>Produkti — Live Search</th><th>Sasia e kërkuar kg</th><th></th></tr></thead><tbody id="newOrderItems"></tbody></table></div><p class="hint">Një klient mund të porosisë shumë produkte. Tab nga sasia e rreshtit të fundit shton produkt të ri.</p></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addOrder()">Ruaj porosinë</button>`);setTimeout(()=>{addNewOrderItem();globalizeAllSelects(document.getElementById('modalBody'));dedupeLiveSearches(document.getElementById('modalBody'));installLiveQuickCreate(document.getElementById('modalBody'))},50)}
-function addNewOrderItem(data={}){let body=document.getElementById('newOrderItems');if(!body||body.children.length>=100)return toast('Maksimumi 100 produkte për porosi');let i=body.children.length,tr=document.createElement('tr');tr.innerHTML=`<td class="oni-no">${i+1}</td><td><select id="oniProduct_${Date.now()}_${i}" class="oni-product"><option value="">Kërko produktin...</option>${opts(state.products,p=>p.code+' — '+p.name,data.product||'')}</select></td><td><input class="oni-qty" inputmode="decimal" value="${data.qty?fmt2(data.qty):''}" placeholder="0,00"></td><td><button type="button" class="btn small danger" onclick="this.closest('tr').remove();renumberNewOrderItems()">✕</button></td>`;body.appendChild(tr);let qty=tr.querySelector('.oni-qty');qty.addEventListener('keydown',e=>{if(e.key==='Tab'&&!e.shiftKey&&tr===body.lastElementChild&&parseLocal(qty.value)>0){e.preventDefault();addNewOrderItem();setTimeout(()=>body.lastElementChild.querySelector('.global-live-search input,.search-select input')?.focus(),50)}});globalizeAllSelects(tr);dedupeLiveSearches(tr);installLiveQuickCreate(tr);setTimeout(()=>tr.querySelector('.global-live-search input,.search-select input')?.focus(),20)}
-function renumberNewOrderItems(){document.querySelectorAll('#newOrderItems tr').forEach((tr,i)=>tr.querySelector('.oni-no').textContent=i+1)}
-function collectNewOrderItems(){return[...document.querySelectorAll('#newOrderItems tr')].map(tr=>({product:tr.querySelector('.oni-product').value,qty:parseLocal(tr.querySelector('.oni-qty').value),done:0})).filter(x=>x.product||x.qty)}
-addOrder=function(){let items=collectNewOrderItems(),file=document.getElementById('oFile')?.files?.[0];if(!oCustomer.value)return toast('Zgjidhni klientin');if(!items.length)return toast('Shtoni të paktën një produkt');if(items.some(x=>!x.product||!(x.qty>0)))return toast('Plotësoni produktin dhe sasinë pozitive në çdo rresht');let duplicates=items.filter((x,i)=>items.findIndex(y=>y.product===x.product)!==i);if(duplicates.length)return toast('I njëjti produkt është vendosur dy herë; bashkoni sasinë në një rresht');let finish=data=>{let x={id:'PO-'+new Date().getFullYear()+'-'+String(state.orders.length+1).padStart(4,'0'),date:oDate.value,customer:oCustomer.value,sample:oSample.value,items,status:'E re',createdAt:new Date().toISOString()};if(data)Object.assign(x,{attachmentData:data,attachmentName:file.name,attachmentType:file.type});state.orders.push(x);state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Porosi e re',ref:x.id,text:`${x.id}: ${items.length} produkte, ${fmt2(items.reduce((a,z)=>a+z.qty,0))} kg`});save();closeModal();render();toast(`Porosia u ruajt me ${items.length} produkte`)};if(file)readAsData(file,finish);else finish('')}
-</script>
-<script>
-function orderRelations(id){return{processes:state.processes.filter(x=>(x.orders||[]).includes(id)||x.order===id),shipments:state.shipments.filter(x=>x.order===id),sales:salesInvoices().filter(x=>x.order===id),packs:packs().filter(x=>x.order===id)}}
-function orderActions(id){let x=by('orders',id),r=orderRelations(id);modal('Veprime — '+id,`<div class="card"><p><b>Statusi:</b> ${status(x.status||'E re')}</p><p><b>Klienti:</b> ${esc(by('customers',x.customer)?.name||'—')}</p><p><b>Lidhje:</b> ${r.processes.length} procese · ${r.packs.length} paketime · ${r.sales.length} fatura · ${r.shipments.length} ngarkesa</p></div><div class="apps" style="grid-template-columns:repeat(2,minmax(130px,1fr))"><div class="app" onclick="editOperationalOrder('${id}')"><i>✎</i><b>Modifiko</b><small>Ndrysho rreshtat e porosisë</small></div><div class="app" onclick="cloneOrder('${id}')"><i>⧉</i><b>Klono</b><small>Krijo porosi të re nga kjo</small></div><div class="app" onclick="cancelOrderSafe('${id}')"><i>⊘</i><b>Anulo</b><small>Klienti anuloi porosinë</small></div><div class="app" data-admin-only onclick="deleteOrderSafe('${id}')" style="color:#b42318"><i>⌫</i><b>Fshi</b><small>Vetëm porosi e papërdorur</small></div></div>`,`<button class="btn" onclick="goBackModal()">Mbyll</button>`)}
-function cancelOrderSafe(id){let x=by('orders',id);if(!x)return;if(x.status==='Anuluar')return toast('Porosia është anuluar më parë');let r=orderRelations(id),blocking=[...r.processes,...r.packs,...r.shipments,...r.sales].filter(z=>!['Draft','Anuluar','Planifikuar'].includes(z.status));if(blocking.length)return toast('Porosia ka proces, paketim, faturë ose ngarkesë aktive. Anuloni fillimisht dokumentet pasuese me kundërveprim.');let reason=prompt('Arsyeja e anulimit nga klienti:');if(!reason?.trim())return toast('Arsyeja e anulimit është e detyrueshme');if(!confirm('Të anulohet porosia? Historiku do të ruhet.'))return;x.status='Anuluar';x.cancelReason=reason.trim();x.cancelledAt=new Date().toISOString();x.cancelledBy=activeUser()?.id||currentRole();state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Anulim porosie',ref:id,text:reason.trim()});save();closeModal();render();toast('Porosia u anulua; historiku u ruajt')}
-function cloneOrder(id){let old=by('orders',id);if(!old)return;let x=clone(old);x.id='PO-'+new Date().getFullYear()+'-'+String(state.orders.length+1).padStart(4,'0');x.date=new Date().toISOString().slice(0,10);x.status='E re';x.items=(old.items||[]).map(i=>({...i,done:0}));x.createdAt=new Date().toISOString();x.clonedFrom=id;delete x.cancelReason;delete x.cancelledAt;delete x.cancelledBy;delete x.attachmentData;delete x.attachmentName;state.orders.push(x);state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Klonim porosie',ref:x.id,text:`U klonua nga ${id}`});save();closeModal();render();setTimeout(()=>orderCard(x.id),80);toast('U krijua '+x.id+' nga '+id)}
-function deleteOrderSafe(id){if(!requireAdmin('fshijë porosinë'))return;let x=by('orders',id),r=orderRelations(id);if(r.processes.length||r.packs.length||r.sales.length||r.shipments.length)return toast('Porosia nuk fshihet sepse ka dokumente të lidhura');if(!['E re','Draft','Anuluar'].includes(x.status))return toast('Vetëm porosia e re, Draft ose e anuluar mund të fshihet');let reason=prompt('Arsyeja e fshirjes:');if(!reason?.trim())return;state.orders=state.orders.filter(o=>o.id!==id);state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Fshirje porosie',ref:id,text:reason.trim()});securityAudit?.('ORDER_DELETE',id+': '+reason.trim());save();closeModal();render();toast('Porosia u fshi')}
-const orderCardActionsBase=orderCard;orderCard=function(id){orderCardActionsBase(id);let x=by('orders',id);setTimeout(()=>{if(!document.getElementById('modalFoot'))return;modalFoot.insertAdjacentHTML('afterbegin',`<button class="btn" onclick="orderActions('${id}')">⋮ Veprime</button>${x.status==='Anuluar'?`<span class="pill red">Anuluar: ${esc(x.cancelReason||'')}</span>`:''}`)},40)}
+
+/* =========================================================================
+   BIOBES ERP: PROTOKOLLI I MOSTRAVE (SAMPLES) & MENAXHIMI I POROSIVE (ORDERS)
+   ========================================================================= */
+
+let sampleFilter = { status: 'all', q: '' };
+let orderFilter = { status: 'all', q: '' };
+
+/* ----------------- PROTOKOLLI I MOSTRAVE (SAMPLES) ----------------- */
+
+views.samples = function() {
+  let list = state.samples || [];
+  let total = list.length;
+  let approved = list.filter(x => x.status === 'E aprovuar').length;
+  let inAnalysis = list.filter(x => ['Në analizë', 'Në pritje të klientit'].includes(x.status)).length;
+  let sent = list.filter(x => x.status === 'E dërguar').length;
+  let rejected = list.filter(x => x.status === 'E refuzuar').length;
+
+  let filtered = list.filter(x => {
+    if (sampleFilter.status !== 'all' && x.status !== sampleFilter.status) return false;
+    if (sampleFilter.q) {
+      let q = sampleFilter.q.toLowerCase();
+      let c = by('customers', x.customer);
+      let p = by('products', x.product);
+      let l = by('lots', x.lot);
+      let text = [x.id, x.date, x.tracking, x.courier, x.notes, c?.name, c?.country, p?.name, p?.code, l?.code].filter(Boolean).join(' ').toLowerCase();
+      if (!text.includes(q)) return false;
+    }
+    return true;
+  });
+
+  let kpiHtml = `
+    <div class="report-kpis">
+      <div class="report-kpi"><small>Gjithsej Mostra</small><strong>${total}</strong></div>
+      <div class="report-kpi" style="border-left:4px solid #12b76a"><small>Të Aprovuara</small><strong style="color:#027a48">${approved}</strong></div>
+      <div class="report-kpi" style="border-left:4px solid #f79009"><small>Në Analizë / Pritje</small><strong style="color:#b54708">${inAnalysis}</strong></div>
+      <div class="report-kpi" style="border-left:4px solid #2e90fa"><small>Të Dërguara</small><strong style="color:#175cd3">${sent}</strong></div>
+      <div class="report-kpi" style="border-left:4px solid #f04438"><small>Të Refuzuara</small><strong style="color:#b42318">${rejected}</strong></div>
+    </div>
+  `;
+
+  let tabsHtml = `
+    <div class="toolbar" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn small ${sampleFilter.status==='all'?'primary':''}" onclick="sampleFilter.status='all';render()">Të gjitha (${total})</button>
+        <button class="btn small ${sampleFilter.status==='E dërguar'?'primary':''}" onclick="sampleFilter.status='E dërguar';render()">E dërguar (${sent})</button>
+        <button class="btn small ${sampleFilter.status==='Në analizë'?'primary':''}" onclick="sampleFilter.status='Në analizë';render()">Në analizë (${list.filter(x=>x.status==='Në analizë').length})</button>
+        <button class="btn small ${sampleFilter.status==='Në pritje të klientit'?'primary':''}" onclick="sampleFilter.status='Në pritje të klientit';render()">Në pritje (${list.filter(x=>x.status==='Në pritje të klientit').length})</button>
+        <button class="btn small ${sampleFilter.status==='E aprovuar'?'primary':''}" onclick="sampleFilter.status='E aprovuar';render()">E aprovuar (${approved})</button>
+        <button class="btn small ${sampleFilter.status==='E refuzuar'?'primary':''}" onclick="sampleFilter.status='E refuzuar';render()">E refuzuar (${rejected})</button>
+      </div>
+      <div style="display:flex;gap:6px">
+        <input style="max-width:240px" placeholder="Kërko mostër / klient / lot..." value="${esc(sampleFilter.q)}" oninput="sampleFilter.q=this.value;render()">
+        <button class="btn" onclick="samplesReportModal()">📊 Raporti</button>
+      </div>
+    </div>
+  `;
+
+  let rows = filtered.map(x => {
+    let c = by('customers', x.customer);
+    let p = by('products', x.product);
+    let l = by('lots', x.lot);
+    let courierInfo = [x.qty || '', x.courier || ''].filter(Boolean).join(' · ') || '—';
+    let trackHtml = x.tracking ? `<span style="font-family:monospace;font-size:12px">${esc(x.tracking)}</span>` : '—';
+    let docHtml = x.approvalData ? `<span class="pill green" title="${esc(x.approvalName||'Dokument')}">✓ CoA</span>` : '<span style="color:#98a2b3">—</span>';
+    let actionBtn = x.status === 'E aprovuar' 
+      ? `<button class="btn small primary" style="padding:3px 8px;font-size:11px" onclick="createOrderFromSample('${x.id}')">🛒 Krijo Porosi</button>` 
+      : `<button class="btn small" style="padding:3px 8px;font-size:11px" onclick="sampleEditForm('${x.id}')">Modifiko</button>`;
+    return [
+      `<a class="link" onclick="sampleCard('${x.id}')"><b>${esc(x.id)}</b></a>`,
+      x.date || '—',
+      `<b>${esc(c?.name || '—')}</b>${c?.country ? `<br><small style="color:var(--muted)">${esc(c.country)}</small>` : ''}`,
+      `<b>${esc(p?.name || '—')}</b>${p?.code ? `<br><small style="color:var(--muted)">${esc(p.code)}</small>` : ''}`,
+      x.lot ? `<a class="link" onclick="lotCard('${x.lot}')">${esc(l?.code || x.lot)}</a>` : '—',
+      courierInfo,
+      trackHtml,
+      status(x.status || 'E dërguar'),
+      docHtml,
+      `<div style="display:flex;gap:4px"><button class="btn small" style="padding:3px 8px;font-size:11px" onclick="sampleCard('${x.id}')">Hap</button>${actionBtn}</div>`
+    ];
+  });
+
+  return head('Protokolli i Mostrave', 'Mostra, analiza laboratorike, tracking dhe miratimi nga klienti', `<button class="btn primary" onclick="sampleForm()">+ Mostër e re</button>`)
+    + kpiHtml + tabsHtml + tableCard(['Mostra', 'Data', 'Klienti', 'Produkti', 'Loti Burimor', 'Sasia / Korrieri', 'Tracking', 'Statusi', 'CoA', 'Veprime'], rows);
+};
+
+function sampleForm(prefill = {}) {
+  let today = new Date().toISOString().slice(0, 10);
+  let cOpts = opts(state.customers, x => (x.code ? x.code + ' — ' : '') + x.name + (x.country ? ' (' + x.country + ')' : ''), prefill.customer || '');
+  let pOpts = opts(state.products, x => x.code + ' — ' + x.name, prefill.product || '');
+  let lOpts = opts(state.lots, x => x.code + (x.net ? ' (' + fmt2(x.net) + ' kg)' : ''), prefill.lot || '');
+
+  modal('Mostër e re', `
+    <div class="form-grid">
+      <div class="field"><label>Data e dërgimit *</label><input id="sDate" type="date" value="${today}"></div>
+      <div class="field"><label>Klienti *</label><select id="sCustomer">${cOpts}</select></div>
+      <div class="field"><label>Produkti *</label><select id="sProduct">${pOpts}</select></div>
+      <div class="field"><label>Loti burimor *</label><select id="sLot">${lOpts}</select></div>
+      <div class="field"><label>Sasia e mostrës</label><input id="sQty" placeholder="p.sh. 250 gr / 0.5 kg" value="${esc(prefill.qty||'250 gr')}"></div>
+      <div class="field"><label>Korrieri / Transportuesi</label>
+        <select id="sCourier">
+          <option>DHL Express</option>
+          <option>FedEx</option>
+          <option>UPS</option>
+          <option>Posta Shqiptare</option>
+          <option>Tirana Express</option>
+          <option>Dorëzim Personal</option>
+        </select>
+      </div>
+      <div class="field"><label>Tracking Number</label><input id="sTrack" placeholder="Numri i dërgesës..."></div>
+      <div class="field"><label>Statusi fillestar</label>
+        <select id="sStatus">
+          <option selected>E dërguar</option>
+          <option>Në analizë</option>
+          <option>Në pritje të klientit</option>
+          <option>E aprovuar</option>
+          <option>E refuzuar</option>
+        </select>
+      </div>
+      <div class="field full"><label>Kërkesa specifike / Qëllimi / Shënime</label><input id="sNotes" placeholder="Përmbajtja e vajit eterik, lagështia, parametri i kërkuar nga blerësi..."></div>
+      <div class="field full"><label>Analiza laboratorike / CoA / Foto (PDF ose Imazh)</label><input id="sFile" type="file" accept="image/*,.pdf"></div>
+    </div>
+  `, `<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addSample()">Ruaj Mostrën</button>`);
+}
+
+function addSample() {
+  if (!sCustomer.value || !sProduct.value || !sLot.value) return toast('Plotësoni klientin, produktin dhe lotin');
+  let file = document.getElementById('sFile')?.files?.[0];
+  let year = new Date().getFullYear();
+  let nextId = 'SM-' + year + '-' + String((state.samples || []).length + 1).padStart(4, '0');
+  while (state.samples.some(s => s.id === nextId)) {
+    nextId = 'SM-' + year + '-' + String(Math.floor(Math.random() * 9000) + 1000);
+  }
+
+  let finish = data => {
+    let sample = {
+      id: nextId,
+      date: sDate.value || new Date().toISOString().slice(0, 10),
+      customer: sCustomer.value,
+      product: sProduct.value,
+      lot: sLot.value,
+      qty: sQty.value || '250 gr',
+      courier: sCourier.value || 'DHL Express',
+      tracking: sTrack.value || '',
+      status: sStatus.value || 'E dërguar',
+      notes: sNotes.value || '',
+      createdAt: new Date().toISOString()
+    };
+    if (data && file) {
+      sample.approvalData = data;
+      sample.approvalName = file.name;
+      sample.approvalType = file.type;
+    }
+    state.samples.push(sample);
+    state.events.push({
+      date: new Date().toLocaleString('sq-AL'),
+      type: 'Mostër e re',
+      ref: sample.id,
+      text: `U regjistrua mostra ${sample.id} për ${by('customers', sample.customer)?.name || 'klientin'}`
+    });
+    save();
+    closeModal();
+    render();
+    toast('Mostra ' + sample.id + ' u regjistrua');
+    setTimeout(() => sampleCard(sample.id), 60);
+  };
+
+  if (file) readAsData(file, finish);
+  else finish('');
+}
+
+function sampleCard(id) {
+  let x = by('samples', id);
+  if (!x || !x.id) return toast('Mostra nuk u gjet');
+  let c = by('customers', x.customer);
+  let p = by('products', x.product);
+  let l = by('lots', x.lot);
+  let linkedOrders = (state.orders || []).filter(o => o.sample === id);
+
+  let trackLink = '';
+  if (x.tracking) {
+    let cleanTrack = x.tracking.replace(/[^a-zA-Z0-9]/g, '');
+    if ((x.courier || '').toLowerCase().includes('dhl') || /^[0-9]{10}$/.test(cleanTrack)) {
+      trackLink = `<a href="https://www.dhl.com/en/express/tracking.html?AWB=${encodeURIComponent(cleanTrack)}" target="_blank" class="link" style="font-weight:bold">Gjurmo në DHL ↗</a>`;
+    } else if ((x.courier || '').toLowerCase().includes('fedex')) {
+      trackLink = `<a href="https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(cleanTrack)}" target="_blank" class="link" style="font-weight:bold">Gjurmo në FedEx ↗</a>`;
+    } else if ((x.courier || '').toLowerCase().includes('ups')) {
+      trackLink = `<a href="https://www.ups.com/track?tracknum=${encodeURIComponent(cleanTrack)}" target="_blank" class="link" style="font-weight:bold">Gjurmo në UPS ↗</a>`;
+    }
+  }
+
+  let docBlock = x.approvalData ? `
+    <div style="margin-top:10px;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;display:flex;align-items:center;justify-content:space-between">
+      <div><b>Dokumenti i Bashkëngjitur:</b> ${esc(x.approvalName || 'CoA / Analiza')}</div>
+      <button class="btn small primary" onclick="openAttachedSampleDoc('${x.id}')">Shiko / Shkarko</button>
+    </div>
+  ` : '';
+
+  let ordersBlock = linkedOrders.length ? `
+    <div style="margin-top:12px;padding:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px">
+      <b>Porosi të Lidhura nga kjo Mostër:</b>
+      <div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap">
+        ${linkedOrders.map(o => `<button class="btn small" onclick="orderCard('${o.id}')">Porosia ${o.id} (${status(o.status)})</button>`).join('')}
+      </div>
+    </div>
+  ` : '';
+
+  modal(x.id + ' — Kartela e Mostrës', `
+    <div class="form-grid">
+      <div class="card">
+        <small style="color:var(--muted)">Klienti</small>
+        <p style="font-size:16px;font-weight:600;margin:4px 0">${esc(c?.name || '—')}</p>
+        <p style="margin:0;color:var(--muted)">${esc(c?.country || '')} ${c?.phone ? ' · ' + esc(c.phone) : ''}</p>
+      </div>
+      <div class="card">
+        <small style="color:var(--muted)">Produkti & Loti Burimor</small>
+        <p style="font-size:16px;font-weight:600;margin:4px 0">${esc(p?.name || '—')} ${p?.code ? '(' + esc(p.code) + ')' : ''}</p>
+        <p style="margin:0"><button class="btn small" onclick="lotCard('${x.lot}')">Hap Lotin: ${esc(l?.code || x.lot || '—')}</button></p>
+      </div>
+    </div>
+    <div class="card" style="margin-top:10px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">
+        <div><small style="color:var(--muted)">Data e Dërgimit</small><div><b>${x.date || '—'}</b></div></div>
+        <div><small style="color:var(--muted)">Sasia</small><div><b>${esc(x.qty || '—')}</b></div></div>
+        <div><small style="color:var(--muted)">Korrieri</small><div><b>${esc(x.courier || '—')}</b></div></div>
+        <div><small style="color:var(--muted)">Statusi</small><div>${status(x.status || 'E dërguar')}</div></div>
+      </div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
+        <small style="color:var(--muted)">Tracking / Numri i Dërgesës</small>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:2px">
+          <span style="font-family:monospace;font-size:14px;font-weight:600">${esc(x.tracking || '—')}</span>
+          ${trackLink}
+        </div>
+      </div>
+      ${x.notes ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)"><small style="color:var(--muted)">Shënime / Kërkesa Laboratorike</small><p style="margin:4px 0">${esc(x.notes)}</p></div>` : ''}
+      ${docBlock}
+      ${ordersBlock}
+    </div>
+  `, `
+    <button class="btn" onclick="closeModal()">Mbyll</button>
+    <button class="btn" onclick="sampleEditForm('${id}')">✎ Modifiko / Statusi</button>
+    ${x.status === 'E aprovuar' ? `<button class="btn primary" onclick="createOrderFromSample('${id}')">🛒 Krijo Porosi</button>` : ''}
+    <button class="btn danger" data-admin-only onclick="deleteSampleSafe('${id}')">Fshi</button>
+  `);
+}
+
+function openAttachedSampleDoc(id) {
+  let x = by('samples', id);
+  if (!x || !x.approvalData) return toast('Dokumenti nuk ekziston');
+  let w = window.open();
+  if (!w) return toast('Lejoni dritaret pop-up për të parë dokumentin');
+  if (x.approvalType?.includes('pdf') || x.approvalData.startsWith('data:application/pdf')) {
+    w.document.write(`<iframe src="${x.approvalData}" style="width:100vw;height:100vh;border:0"></iframe>`);
+  } else {
+    w.document.write(`<img src="${x.approvalData}" style="max-width:100%;height:auto;display:block;margin:auto">`);
+  }
+}
+
+function sampleEditForm(id) {
+  let x = by('samples', id);
+  if (!x) return toast('Mostra nuk u gjet');
+  modal('Ndrysho mostrën — ' + id, `
+    <div class="form-grid">
+      <div class="field"><label>Data</label><input id="seDate" type="date" value="${x.date || ''}"></div>
+      <div class="field"><label>Klienti</label><select id="seCustomer">${opts(state.customers, c => c.code + ' — ' + c.name, x.customer)}</select></div>
+      <div class="field"><label>Produkti</label><select id="seProduct">${opts(state.products, p => p.code + ' — ' + p.name, x.product)}</select></div>
+      <div class="field"><label>Loti burimor</label><select id="seLot">${opts(state.lots, l => l.code, x.lot)}</select></div>
+      <div class="field"><label>Sasia e mostrës</label><input id="seQty" value="${esc(x.qty || '')}"></div>
+      <div class="field"><label>Korrieri</label>
+        <select id="seCourier">
+          ${['DHL Express','FedEx','UPS','Posta Shqiptare','Tirana Express','Dorëzim Personal'].map(v => `<option ${x.courier===v?'selected':''}>${v}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Tracking</label><input id="seTrack" value="${esc(x.tracking || '')}"></div>
+      <div class="field"><label>Statusi</label>
+        <select id="seStatus">
+          ${['E dërguar','Në analizë','Në pritje të klientit','E aprovuar','E refuzuar'].map(v => `<option ${x.status===v?'selected':''}>${v}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field full"><label>Shënime / Kërkesa</label><input id="seNotes" value="${esc(x.notes || '')}"></div>
+      <div class="field full"><label>Analiza / Aprovimi i ri (CoA PDF/Foto)</label><input id="seFile" type="file" accept="image/*,.pdf"></div>
+    </div>
+  `, `<button class="btn" onclick="goBackModal()">Mbyll</button><button class="btn primary" onclick="saveSampleEdit('${id}')">Ruaj Ndryshimet</button>`);
+}
+
+function saveSampleEdit(id) {
+  let x = by('samples', id);
+  if (!x) return toast('Mostra nuk u gjet');
+  let file = document.getElementById('seFile')?.files?.[0];
+  let done = data => {
+    let oldStatus = x.status;
+    Object.assign(x, {
+      date: seDate.value,
+      customer: seCustomer.value,
+      product: seProduct.value,
+      lot: seLot.value,
+      qty: seQty.value,
+      courier: seCourier.value,
+      tracking: seTrack.value,
+      status: seStatus.value,
+      notes: seNotes.value
+    });
+    if (data && file) {
+      x.approvalData = data;
+      x.approvalName = file.name;
+      x.approvalType = file.type;
+    }
+    state.events.push({
+      date: new Date().toLocaleString('sq-AL'),
+      type: 'Ndryshim mostre',
+      ref: id,
+      text: `U përditësua mostra ${id} (Statusi: ${oldStatus} → ${x.status})`
+    });
+    save();
+    closeModal();
+    render();
+    setTimeout(() => sampleCard(id), 80);
+    toast('Mostra u përditësua me sukses');
+  };
+  if (file) readAsData(file, done);
+  else done('');
+}
+
+function createOrderFromSample(sampleId) {
+  let x = by('samples', sampleId);
+  if (!x) return toast('Mostra nuk u gjet');
+  closeModal();
+  setTimeout(() => {
+    orderForm({
+      customer: x.customer,
+      sample: x.id,
+      product: x.product
+    });
+    toast('U plotësua klienti, mostra dhe produkti nga ' + sampleId);
+  }, 100);
+}
+
+function deleteSampleSafe(id) {
+  if (!requireAdmin('fshijë mostrën')) return;
+  let used = (state.orders || []).some(o => o.sample === id);
+  if (used) return toast('Mostra nuk mund të fshihet sepse është e lidhur me një ose më shumë porosi');
+  let reason = prompt('Arsyeja e fshirjes së mostrës:');
+  if (!reason?.trim()) return;
+  state.samples = (state.samples || []).filter(x => x.id !== id);
+  state.events.push({
+    date: new Date().toLocaleString('sq-AL'),
+    type: 'Fshirje mostre',
+    ref: id,
+    text: reason.trim()
+  });
+  save();
+  closeModal();
+  render();
+  toast('Mostra ' + id + ' u fshi');
+}
+
+/* ----------------- MENAXHIMI I POROSIVE (ORDERS) ----------------- */
+
+views.orders = function() {
+  let list = state.orders || [];
+  let total = list.length;
+  let newOrders = list.filter(x => ['E re', 'Draft'].includes(x.status)).length;
+  let inProduction = list.filter(x => ['Në prodhim', 'Në përpunim', 'Në paketim'].includes(x.status)).length;
+  let ready = list.filter(x => ['E gatshme', 'Në ngarkim', 'Ngarkuar'].includes(x.status)).length;
+  let completed = list.filter(x => ['E faturuar', 'E përfunduar', 'Përfunduar'].includes(x.status)).length;
+  let cancelled = list.filter(x => x.status === 'Anuluar').length;
+
+  let totalKg = list.reduce((sum, o) => sum + (o.items || []).reduce((a, i) => a + (+i.qty || 0), 0), 0);
+  let doneKg = list.reduce((sum, o) => sum + (o.items || []).reduce((a, i) => a + (+i.done || 0), 0), 0);
+  let pctGlobal = totalKg > 0 ? Math.min(100, Math.round((doneKg / totalKg) * 100)) : 0;
+
+  let filtered = list.filter(x => {
+    if (orderFilter.status !== 'all') {
+      if (orderFilter.status === 'E re' && !['E re', 'Draft'].includes(x.status)) return false;
+      if (orderFilter.status === 'Në prodhim' && !['Në prodhim', 'Në përpunim', 'Në paketim'].includes(x.status)) return false;
+      if (orderFilter.status === 'E gatshme' && !['E gatshme', 'Në ngarkim', 'Ngarkuar'].includes(x.status)) return false;
+      if (orderFilter.status === 'Përfunduar' && !['E faturuar', 'E përfunduar', 'Përfunduar'].includes(x.status)) return false;
+      if (orderFilter.status === 'Anuluar' && x.status !== 'Anuluar') return false;
+    }
+    if (orderFilter.q) {
+      let q = orderFilter.q.toLowerCase();
+      let c = by('customers', x.customer);
+      let pNames = (x.items || []).map(i => by('products', i.product)?.name || '').join(' ');
+      let text = [x.id, x.date, c?.name, c?.country, pNames, x.sample].filter(Boolean).join(' ').toLowerCase();
+      if (!text.includes(q)) return false;
+    }
+    return true;
+  });
+
+  let kpiHtml = `
+    <div class="report-kpis">
+      <div class="report-kpi"><small>Gjithsej Porosi</small><strong>${total}</strong></div>
+      <div class="report-kpi" style="border-left:4px solid #2e90fa"><small>Të Reja</small><strong style="color:#175cd3">${newOrders}</strong></div>
+      <div class="report-kpi" style="border-left:4px solid #f79009"><small>Në Prodhim</small><strong style="color:#b54708">${inProduction}</strong></div>
+      <div class="report-kpi" style="border-left:4px solid #7a5af8"><small>Të Gatshme</small><strong style="color:#6938ef">${ready}</strong></div>
+      <div class="report-kpi" style="border-left:4px solid #12b76a"><small>Përfunduar</small><strong style="color:#027a48">${completed}</strong></div>
+      <div class="report-kpi" style="border-left:4px solid #067647"><small>Realizimi Total</small><strong>${fmt2(doneKg)} / ${fmt2(totalKg)} kg (${pctGlobal}%)</strong></div>
+    </div>
+  `;
+
+  let tabsHtml = `
+    <div class="toolbar" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn small ${orderFilter.status==='all'?'primary':''}" onclick="orderFilter.status='all';render()">Të gjitha (${total})</button>
+        <button class="btn small ${orderFilter.status==='E re'?'primary':''}" onclick="orderFilter.status='E re';render()">Të reja (${newOrders})</button>
+        <button class="btn small ${orderFilter.status==='Në prodhim'?'primary':''}" onclick="orderFilter.status='Në prodhim';render()">Në prodhim (${inProduction})</button>
+        <button class="btn small ${orderFilter.status==='E gatshme'?'primary':''}" onclick="orderFilter.status='E gatshme';render()">Të gatshme (${ready})</button>
+        <button class="btn small ${orderFilter.status==='Përfunduar'?'primary':''}" onclick="orderFilter.status='Përfunduar';render()">Përfunduar (${completed})</button>
+        ${cancelled ? `<button class="btn small ${orderFilter.status==='Anuluar'?'primary':''}" onclick="orderFilter.status='Anuluar';render()">Anuluar (${cancelled})</button>` : ''}
+      </div>
+      <div style="display:flex;gap:6px">
+        <input style="max-width:240px" placeholder="Kërko porosi / klient / produkt..." value="${esc(orderFilter.q)}" oninput="orderFilter.q=this.value;render()">
+      </div>
+    </div>
+  `;
+
+  let rows = filtered.map(x => {
+    let c = by('customers', x.customer);
+    let items = x.items || [];
+    let oQty = items.reduce((a, i) => a + (+i.qty || 0), 0);
+    let oDone = items.reduce((a, i) => a + (+i.done || 0), 0);
+    let pct = oQty > 0 ? Math.min(100, Math.round((oDone / oQty) * 100)) : 0;
+    let itemsSummary = items.map(i => {
+      let p = by('products', i.product);
+      return `${esc(p?.name || 'Produkt')}: ${fmt2(i.qty)} kg`;
+    }).join('<br>') || '—';
+
+    let progressHtml = `
+      <div style="min-width:140px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px">
+          <span><b>${fmt2(oDone)}</b> / ${fmt2(oQty)} kg</span>
+          <span><b>${pct}%</b></span>
+        </div>
+        <div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:${pct>=100?'#12b76a':pct>0?'#2e90fa':'#cbd5e1'};border-radius:3px"></div>
+        </div>
+      </div>
+    `;
+
+    return [
+      `<a class="link" onclick="orderCard('${x.id}')"><b>${esc(x.id)}</b></a>`,
+      x.date || '—',
+      `<b>${esc(c?.name || '—')}</b>${c?.country ? `<br><small style="color:var(--muted)">${esc(c.country)}</small>` : ''}`,
+      `<small>${itemsSummary}</small>`,
+      `<b>${fmt2(oQty)} kg</b>`,
+      progressHtml,
+      status(x.status || 'E re'),
+      `<div style="display:flex;gap:4px">
+        <button class="btn small" style="padding:3px 8px;font-size:11px" onclick="orderCard('${x.id}')">Kartela</button>
+        <button class="btn small" style="padding:3px 8px;font-size:11px" onclick="editOperationalOrder('${x.id}')">Formulari</button>
+        <button class="btn small" style="padding:3px 8px;font-size:11px" onclick="orderActions('${x.id}')">⋮</button>
+      </div>`
+    ];
+  });
+
+  return head('Porositë', 'Kërkesa e klientit, prodhimi, paketimi dhe realizimi progresiv', `<button class="btn primary" onclick="orderForm()">+ Porosi e re</button>`)
+    + kpiHtml + tabsHtml + tableCard(['Porosia', 'Data', 'Klienti', 'Artikujt e Porositur', 'Sasia Totale', 'Progresi i Realizuar', 'Statusi', 'Veprime'], rows);
+};
+
+orderForm = function(prefill = {}) {
+  let today = new Date().toISOString().slice(0, 10);
+  let cOpts = opts(state.customers, x => x.code + ' — ' + x.name + ' — ' + (x.country || ''), prefill.customer || '');
+  let approvedSamples = (state.samples || []).filter(x => x.status === 'E aprovuar');
+  let sOpts = `<option value="">— Pa mostër</option>` + opts(approvedSamples, x => x.id + ' — ' + (by('products', x.product)?.name || '') + ' (' + (by('customers', x.customer)?.name || '') + ')', prefill.sample || '');
+
+  modal('Porosi e re', `
+    <div class="form-grid">
+      <div class="field"><label>Data e Porosisë *</label><input id="oDate" type="date" value="${today}"></div>
+      <div class="field"><label>Klienti *</label><select id="oCustomer">${cOpts}</select></div>
+      <div class="field"><label>Mostra e miratuar (Opsionale)</label><select id="oSample" onchange="orderSampleChanged()">${sOpts}</select></div>
+      <div class="field"><label>Dokumenti origjinal i klientit (PO)</label><input id="oFile" type="file" accept="image/*,.pdf,.xlsx"></div>
+      <div class="field full"><label>Shënime / Udhëzime operacionale</label><input id="oNotes" placeholder="Kërkesa të veçanta për paketimin, etiketat, plumbçet ose transportin..."></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="toolbar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <b>Produktet e Porosisë</b>
+        <button type="button" class="btn small primary" onclick="addNewOrderItem()">+ Shto produkt</button>
+      </div>
+      <div class="table-wrap">
+        <table class="order-new-grid">
+          <thead>
+            <tr>
+              <th style="width:40px">Nr.</th>
+              <th>Produkti — Live Search</th>
+              <th style="width:160px">Sasia e kërkuar kg</th>
+              <th style="width:50px"></th>
+            </tr>
+          </thead>
+          <tbody id="newOrderItems"></tbody>
+        </table>
+      </div>
+      <p class="hint" style="margin-top:6px;font-size:12px;color:var(--muted)">Shtoni një ose disa produkte për porosinë. Tab nga sasia e rreshtit të fundit shton produkt të ri.</p>
+    </div>
+  `, `<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addOrder()">Ruaj Porosinë</button>`);
+
+  setTimeout(() => {
+    addNewOrderItem(prefill.product ? { product: prefill.product, qty: prefill.qty || '' } : {});
+    globalizeAllSelects(document.getElementById('modalBody'));
+    dedupeLiveSearches(document.getElementById('modalBody'));
+    installLiveQuickCreate(document.getElementById('modalBody'));
+  }, 50);
+};
+
+function orderSampleChanged() {
+  let sampleId = document.getElementById('oSample')?.value;
+  if (!sampleId) return;
+  let s = by('samples', sampleId);
+  if (!s) return;
+  if (s.customer && document.getElementById('oCustomer')) {
+    document.getElementById('oCustomer').value = s.customer;
+  }
+  let body = document.getElementById('newOrderItems');
+  if (body && body.children.length === 1 && s.product) {
+    let sel = body.querySelector('.oni-product');
+    if (sel && !sel.value) sel.value = s.product;
+  }
+}
+
+function addNewOrderItem(data={}){
+  let body = document.getElementById('newOrderItems');
+  if (!body || body.children.length >= 100) return toast('Maksimumi 100 produkte për porosi');
+  let i = body.children.length;
+  let tr = document.createElement('tr');
+  tr.innerHTML = `<td class="oni-no">${i+1}</td><td><select id="oniProduct_${Date.now()}_${i}" class="oni-product"><option value="">Kërko produktin...</option>${opts(state.products, p => p.code + ' — ' + p.name, data.product || '')}</select></td><td><input class="oni-qty" inputmode="decimal" value="${data.qty ? fmt2(data.qty) : ''}" placeholder="0,00"></td><td><button type="button" class="btn small danger" onclick="this.closest('tr').remove();renumberNewOrderItems()">✕</button></td>`;
+  body.appendChild(tr);
+  let qty = tr.querySelector('.oni-qty');
+  qty.addEventListener('keydown', e => {
+    if (e.key === 'Tab' && !e.shiftKey && tr === body.lastElementChild && parseLocal(qty.value) > 0) {
+      e.preventDefault();
+      addNewOrderItem();
+      setTimeout(() => body.lastElementChild.querySelector('.global-live-search input,.search-select input')?.focus(), 50);
+    }
+  });
+  globalizeAllSelects(tr);
+  dedupeLiveSearches(tr);
+  installLiveQuickCreate(tr);
+  setTimeout(() => tr.querySelector('.global-live-search input,.search-select input')?.focus(), 20);
+}
+
+function renumberNewOrderItems() {
+  document.querySelectorAll('#newOrderItems tr').forEach((tr, i) => tr.querySelector('.oni-no').textContent = i + 1);
+}
+
+function collectNewOrderItems() {
+  return [...document.querySelectorAll('#newOrderItems tr')].map(tr => ({
+    product: tr.querySelector('.oni-product')?.value || '',
+    qty: parseLocal(tr.querySelector('.oni-qty')?.value || '0'),
+    done: 0
+  })).filter(x => x.product || x.qty);
+}
+
+addOrder = function() {
+  let items = collectNewOrderItems();
+  let file = document.getElementById('oFile')?.files?.[0];
+  if (!oCustomer.value) return toast('Zgjidhni klientin');
+  if (!items.length) return toast('Shtoni të paktën një produkt');
+  if (items.some(x => !x.product || !(x.qty > 0))) return toast('Plotësoni produktin dhe sasinë pozitive në çdo rresht');
+
+  let duplicates = items.filter((x, i) => items.findIndex(y => y.product === x.product) !== i);
+  if (duplicates.length) return toast('I njëjti produkt është vendosur dy herë; bashkoni sasinë në një rresht');
+
+  let year = new Date().getFullYear();
+  let nextId = 'PO-' + year + '-' + String((state.orders || []).length + 1).padStart(4, '0');
+  while (state.orders.some(o => o.id === nextId)) {
+    nextId = 'PO-' + year + '-' + String(Math.floor(Math.random() * 9000) + 1000);
+  }
+
+  let finish = data => {
+    let order = {
+      id: nextId,
+      date: oDate.value || new Date().toISOString().slice(0, 10),
+      customer: oCustomer.value,
+      sample: oSample.value || '',
+      notes: oNotes.value || '',
+      items,
+      status: 'E re',
+      createdAt: new Date().toISOString()
+    };
+    if (data && file) {
+      order.attachmentData = data;
+      order.attachmentName = file.name;
+      order.attachmentType = file.type;
+    }
+    state.orders.push(order);
+    state.events.push({
+      date: new Date().toLocaleString('sq-AL'),
+      type: 'Porosi e re',
+      ref: order.id,
+      text: `${order.id}: ${items.length} produkte, ${fmt2(items.reduce((a, z) => a + z.qty, 0))} kg`
+    });
+    save();
+    closeModal();
+    render();
+    toast(`Porosia ${order.id} u ruajt me sukses`);
+    setTimeout(() => orderCard(order.id), 80);
+  };
+
+  if (file) readAsData(file, finish);
+  else finish('');
+};
+
+function orderRelations(id) {
+  return {
+    processes: (state.processes || []).filter(x => (x.orders || []).includes(id) || x.order === id),
+    shipments: (state.shipments || []).filter(x => x.order === id),
+    sales: (typeof salesInvoices === 'function' ? salesInvoices() : []).filter(x => x.order === id),
+    packs: (typeof packs === 'function' ? packs() : []).filter(x => x.order === id)
+  };
+}
+
+function orderActions(id) {
+  let x = by('orders', id);
+  if (!x || !x.id) return toast('Porosia nuk u gjet');
+  let r = orderRelations(id);
+  modal('Veprime — ' + id, `
+    <div class="card">
+      <p><b>Statusi:</b> ${status(x.status || 'E re')}</p>
+      <p><b>Klienti:</b> ${esc(by('customers', x.customer)?.name || '—')}</p>
+      <p><b>Lidhje:</b> ${r.processes.length} procese · ${r.packs.length} paketime · ${r.sales.length} fatura · ${r.shipments.length} ngarkesa</p>
+    </div>
+    <div class="apps" style="grid-template-columns:repeat(2,minmax(130px,1fr))">
+      <div class="app" onclick="editOperationalOrder('${id}')"><i>✎</i><b>Modifiko</b><small>Ndrysho rreshtat e porosisë</small></div>
+      <div class="app" onclick="createProcessFromOrder('${id}')"><i>⚙</i><b>Fillo Proces</b><small>Krijo proces përpunimi</small></div>
+      <div class="app" onclick="createShipmentFromOrder('${id}')"><i>🚚</i><b>Krijo Ngarkesë</b><small>Përgatit ngarkesën e eksportit</small></div>
+      <div class="app" onclick="createInvoiceFromOrder('${id}')"><i>₳</i><b>Faturë Shitje</b><small>Gjenero faturë nga porosia</small></div>
+      <div class="app" onclick="cloneOrder('${id}')"><i>⧉</i><b>Klono</b><small>Krijo porosi të re nga kjo</small></div>
+      <div class="app" onclick="cancelOrderSafe('${id}')"><i>⊘</i><b>Anulo</b><small>Klienti anuloi porosinë</small></div>
+      <div class="app" data-admin-only onclick="deleteOrderSafe('${id}')" style="color:#b42318"><i>⌫</i><b>Fshi</b><small>Vetëm porosi e papërdorur</small></div>
+    </div>
+  `, `<button class="btn" onclick="goBackModal()">Mbyll</button>`);
+}
+
+function cancelOrderSafe(id) {
+  let x = by('orders', id);
+  if (!x) return;
+  if (x.status === 'Anuluar') return toast('Porosia është anuluar më parë');
+  let r = orderRelations(id);
+  let blocking = [...r.processes, ...r.packs, ...r.shipments, ...r.sales].filter(z => !['Draft', 'Anuluar', 'Planifikuar'].includes(z.status));
+  if (blocking.length) return toast('Porosia ka proces, paketim, faturë ose ngarkesë aktive. Anuloni fillimisht dokumentet pasuese me kundërveprim.');
+  let reason = prompt('Arsyeja e anulimit nga klienti:');
+  if (!reason?.trim()) return toast('Arsyeja e anulimit është e detyrueshme');
+  if (!confirm('Të anulohet porosia? Historiku do të ruhet.')) return;
+  x.status = 'Anuluar';
+  x.cancelReason = reason.trim();
+  x.cancelledAt = new Date().toISOString();
+  x.cancelledBy = (typeof activeUser === 'function' ? activeUser()?.id : null) || (typeof currentRole === 'function' ? currentRole() : 'Admin');
+  state.events.push({
+    date: new Date().toLocaleString('sq-AL'),
+    type: 'Anulim porosie',
+    ref: id,
+    text: reason.trim()
+  });
+  save();
+  closeModal();
+  render();
+  toast('Porosia u anulua; historiku u ruajt');
+}
+
+function cloneOrder(id) {
+  let old = by('orders', id);
+  if (!old) return;
+  let x = clone(old);
+  let year = new Date().getFullYear();
+  x.id = 'PO-' + year + '-' + String((state.orders || []).length + 1).padStart(4, '0');
+  while (state.orders.some(o => o.id === x.id)) {
+    x.id = 'PO-' + year + '-' + String(Math.floor(Math.random() * 9000) + 1000);
+  }
+  x.date = new Date().toISOString().slice(0, 10);
+  x.status = 'E re';
+  x.items = (old.items || []).map(i => ({ ...i, done: 0 }));
+  x.createdAt = new Date().toISOString();
+  x.clonedFrom = id;
+  delete x.cancelReason;
+  delete x.cancelledAt;
+  delete x.cancelledBy;
+  delete x.attachmentData;
+  delete x.attachmentName;
+  state.orders.push(x);
+  state.events.push({
+    date: new Date().toLocaleString('sq-AL'),
+    type: 'Klonim porosie',
+    ref: x.id,
+    text: `U klonua nga ${id}`
+  });
+  save();
+  closeModal();
+  render();
+  setTimeout(() => orderCard(x.id), 80);
+  toast('U krijua ' + x.id + ' nga ' + id);
+}
+
+function deleteOrderSafe(id) {
+  if (!requireAdmin('fshijë porosinë')) return;
+  let x = by('orders', id);
+  if (!x) return;
+  let r = orderRelations(id);
+  if (r.processes.length || r.packs.length || r.sales.length || r.shipments.length) {
+    return toast('Porosia nuk fshihet sepse ka dokumente të lidhura');
+  }
+  if (!['E re', 'Draft', 'Anuluar'].includes(x.status)) {
+    return toast('Vetëm porosia e re, Draft ose e anuluar mund të fshihet');
+  }
+  let reason = prompt('Arsyeja e fshirjes:');
+  if (!reason?.trim()) return;
+  state.orders = (state.orders || []).filter(o => o.id !== id);
+  state.events.push({
+    date: new Date().toLocaleString('sq-AL'),
+    type: 'Fshirje porosie',
+    ref: id,
+    text: reason.trim()
+  });
+  if (typeof securityAudit === 'function') securityAudit('ORDER_DELETE', id + ': ' + reason.trim());
+  save();
+  closeModal();
+  render();
+  toast('Porosia u fshi');
+}
+
+/* ----------------- WORKFLOW CREATION HELPERS ----------------- */
+
+function createProcessFromOrder(orderId) {
+  let o = by('orders', orderId);
+  if (!o) return toast('Porosia nuk u gjet');
+  closeModal();
+  setTimeout(() => {
+    processForm();
+    setTimeout(() => {
+      let prOrder = document.getElementById('prOrder');
+      if (prOrder) prOrder.value = orderId;
+      if (o.items && o.items[0] && document.getElementById('prProduct')) {
+        document.getElementById('prProduct').value = o.items[0].product;
+      }
+    }, 50);
+  }, 80);
+}
+
+function createShipmentFromOrder(orderId) {
+  let o = by('orders', orderId);
+  if (!o) return toast('Porosia nuk u gjet');
+  closeModal();
+  setTimeout(() => {
+    shipmentForm();
+    setTimeout(() => {
+      let shOrder = document.getElementById('shOrder');
+      if (shOrder) {
+        shOrder.value = orderId;
+        syncShipCustomer();
+      }
+    }, 50);
+  }, 80);
+}
+
+function createInvoiceFromOrder(orderId) {
+  let o = by('orders', orderId);
+  if (!o) return toast('Porosia nuk u gjet');
+  closeModal();
+  setTimeout(() => {
+    saleInvoiceForm();
+    setTimeout(() => {
+      let sfOrder = document.getElementById('sfOrder');
+      if (sfOrder) {
+        sfOrder.value = orderId;
+        syncSaleOrder();
+      }
+    }, 50);
+  }, 80);
+}
+
+/* ----------------- RAPORTI I MOSTRAVE (SAMPLES REPORT) ----------------- */
+
+function samplesReportData() {
+  let list = state.samples || [];
+  return list.map(x => {
+    let c = by('customers', x.customer);
+    let p = by('products', x.product);
+    let l = by('lots', x.lot);
+    let hasOrder = (state.orders || []).some(o => o.sample === x.id);
+    return {
+      id: x.id,
+      date: x.date,
+      customer: c?.name || '—',
+      country: c?.country || '—',
+      product: p?.name || '—',
+      lot: l?.code || x.lot || '—',
+      qty: x.qty || '—',
+      courier: x.courier || '—',
+      tracking: x.tracking || '—',
+      status: x.status || 'E dërguar',
+      hasDoc: !!x.approvalData,
+      hasOrder
+    };
+  });
+}
+
+function samplesReport() {
+  let rows = samplesReportData();
+  let total = rows.length;
+  let approved = rows.filter(r => r.status === 'E aprovuar').length;
+  let rejected = rows.filter(r => r.status === 'E refuzuar').length;
+  let inProgress = rows.filter(r => ['E dërguar', 'Në analizë', 'Në pritje të klientit'].includes(r.status)).length;
+  let withOrders = rows.filter(r => r.hasOrder).length;
+  let convRate = approved > 0 ? Math.round((withOrders / approved) * 100) : 0;
+
+  return `
+    <div class="report-kpis">
+      <div class="report-kpi"><small>Gjithsej Mostra</small><strong>${total}</strong></div>
+      <div class="report-kpi"><small>Norma e Aprovimit</small><strong style="color:#027a48">${total>0?Math.round((approved/total)*100):0}%</strong></div>
+      <div class="report-kpi"><small>Në Proces / Analizë</small><strong style="color:#b54708">${inProgress}</strong></div>
+      <div class="report-kpi"><small>Të Refuzuara</small><strong style="color:#b42318">${rejected}</strong></div>
+      <div class="report-kpi"><small>Konvertuar në Porosi</small><strong style="color:#175cd3">${withOrders} (${convRate}%)</strong></div>
+    </div>
+    ${tableCard(['Mostra', 'Data', 'Klienti', 'Shteti', 'Produkti', 'Loti', 'Korrieri', 'Tracking', 'Statusi', 'Porosi e Lidhur'], rows.map(r => [
+      `<a class="link" onclick="sampleCard('${r.id}')">${r.id}</a>`,
+      r.date,
+      r.customer,
+      r.country,
+      r.product,
+      r.lot,
+      r.courier,
+      r.tracking,
+      status(r.status),
+      r.hasOrder ? '<span class="pill green">✓ Po</span>' : '<span style="color:#98a2b3">Jo</span>'
+    ]))}
+  `;
+}
+
+function samplesReportModal() {
+  modal('Raporti Analitik i Mostrave', samplesReport(), `<button class="btn" onclick="closeModal()">Mbyll</button><button class="btn primary" onclick="exportSamplesReportXlsx()">Eksporto XLSX</button>`);
+}
+
+function exportSamplesReportXlsx() {
+  let rows = samplesReportData().map(r => [r.id, r.date, r.customer, r.country, r.product, r.lot, r.qty, r.courier, r.tracking, r.status, r.hasDoc ? 'Po' : 'Jo', r.hasOrder ? 'Po' : 'Jo']);
+  makeXlsx('RAPORT-MOSTRAT.xlsx', ['Mostra', 'Data', 'Klienti', 'Shteti', 'Produkti', 'Loti', 'Sasia', 'Korrieri', 'Tracking', 'Statusi', 'CoA', 'Porosi'], rows);
+  toast('Raporti i mostrave u eksportua');
+}
+
+const orderCardActionsBase = orderCard;
+orderCard = function(id) {
+  orderCardActionsBase(id);
+  let x = by('orders', id);
+  setTimeout(() => {
+    if (!document.getElementById('modalFoot')) return;
+    modalFoot.insertAdjacentHTML('afterbegin', `<button class="btn" onclick="orderActions('${id}')">⋮ Veprime</button>${x?.status==='Anuluar'?`<span class="pill red">Anuluar: ${esc(x.cancelReason||'')}</span>`:''}`);
+  }, 40);
+};
 </script>
 <script>
 /* Customer receivables use invoice gross total; product/revenue analysis remains net of VAT. */
