@@ -3,7 +3,7 @@
 # Ndryshimet e fundit (2026-09-10 rev3): pagesa furnitorësh, kartela e klikueshme,
 # mostra & porositë upgrade, cold-start v3 inline, backup ditor automatik (çdo 24h/05:00,
 # POST /api/backup) + pastrim komplet ADMIN me wipeUsers:true — gati për prodhim.
-# Redeploy trigger: 2026-09-10 rev3 — sync main për Render (arena/01a08a94-biobes-erp).
+# Redeploy trigger: 2026-09-10 rev3 r2 — sync main për Render (arena/01a08af7-biobes-erp).
 services:
   - type: web
     name: biobes-erp
