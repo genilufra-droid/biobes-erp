@@ -1683,7 +1683,7 @@ const e2eAlphaReportIds=['purchaseSummary','purchaseAnalytic','purchaseAnalytica
 const e2eOdooModules=['sales','purchase','inventory','products','processing','finance','exports','trace'];
 function reportMarkupHealthy(html){let text=String(html||'');return text.length>80&&!/NaN|undefined|\[object Object\]/.test(text)}
 function configureE2EReportFilters(){salesReportFilters={from:'2026-09-01',to:'2026-09-30',q:''};Object.assign(alphaPurchaseFilters,{docFrom:'2026-09-01',docTo:'2026-09-30',supplier:'TST-S001',docNo:'',currency:''});Object.assign(alphaPurchaseAnalyticFilters,{docFrom:'2026-09-01',docTo:'2026-09-30',supplier:'TST-S001',product:'TST-105',warehouse:'TST-WH',docNo:'',currency:''});Object.assign(alphaSalesSummaryFilters,{docFrom:'2026-09-01',docTo:'2026-09-30',customer:'TST-C001',product:'TST-105',warehouse:'TST-WH',docNo:'',currency:''});Object.assign(alphaStockFilters,{docFrom:'2026-09-01',docTo:'2026-09-30',warehouse:'TST-WH',product:'TST-105'});Object.assign(alphaAccountingFilters,{from:'2026-09-01',to:'2026-09-30'});alphaShowResult=alphaPurchaseShow=alphaPurchaseAnalyticShow=alphaArticleShow=alphaStockShow=alphaAccountingShow=alphaCashShow=true}
-function runAllReportSmokeChecks(){configureE2EReportFilters();let saveActive=alphaActiveReport,saveGroup=alphaReportGroup,saveMode=reportsMode,saveOdoo=odooReportModule;e2eAlphaReportIds.forEach(id=>{try{alphaActiveReport=id;alphaReportGroup=id.startsWith('purchase')||id==='articleCard'?'purchase':id.startsWith('sales')||id==='unsoldProducts'?'sales':id.startsWith('acc')?'finance':id==='customerCard'?'clients':'inventory';let html=views.reports();e2eAdd('Raporte Alpha','Hapet '+id,true,reportMarkupHealthy(html),id,reportMarkupHealthy(html)?'':'Dalje bosh ose token i pavlefshëm')}catch(e){e2eAdd('Raporte Alpha','Hapet '+id,true,false,id,e.message)}});e2eOdooModules.forEach(id=>{try{reportsMode='odoo';odooReportModule=id;odooAdv={customer:'',product:'',supplier:'',warehouse:'',status:'',currency:'',country:'',organic:'',group1:'',group2:'',measure:['inventory','purchase','products','processing'].includes(id)?'qty':id==='trace'?'count':'revenue'};let raw=odooRawDataset(),html=odooModuleContent();e2eAdd('Raporte Odoo','Hapet '+id,true,reportMarkupHealthy(html)&&Array.isArray(raw),id)}catch(e){e2eAdd('Raporte Odoo','Hapet '+id,true,false,id,e.message)}});alphaActiveReport=saveActive;alphaReportGroup=saveGroup;reportsMode=saveMode;odooReportModule=saveOdoo}
+function runAllReportSmokeChecks(){configureE2EReportFilters();let saveActive=alphaActiveReport,saveGroup=alphaReportGroup,saveMode=reportsMode,saveOdoo=odooReportModule;e2eAlphaReportIds.forEach(id=>{try{alphaActiveReport=id;alphaReportGroup=id.startsWith('purchase')||id==='articleCard'?'purchase':id.startsWith('sales')||id==='unsoldProducts'?'sales':id.startsWith('acc')?'finance':id==='customerCard'?'clients':'inventory';reportsMode='alpha';let html=views.reports();e2eAdd('Raporte Alpha','Hapet '+id,true,reportMarkupHealthy(html),id,reportMarkupHealthy(html)?'':'Dalje bosh ose token i pavlefshëm')}catch(e){e2eAdd('Raporte Alpha','Hapet '+id,true,false,id,e.message)}});e2eOdooModules.forEach(id=>{try{reportsMode='odoo';odooReportModule=id;odooAdv={customer:'',product:'',supplier:'',warehouse:'',status:'',currency:'',country:'',organic:'',group1:'',group2:'',measure:['inventory','purchase','products','processing'].includes(id)?'qty':id==='trace'?'count':'revenue'};let raw=odooRawDataset(),html=odooModuleContent();e2eAdd('Raporte Odoo','Hapet '+id,true,reportMarkupHealthy(html)&&Array.isArray(raw),id)}catch(e){e2eAdd('Raporte Odoo','Hapet '+id,true,false,id,e.message)}});alphaActiveReport=saveActive;alphaReportGroup=saveGroup;reportsMode=saveMode;odooReportModule=saveOdoo}
 const runE2EChecksStage3=runE2EChecks;runE2EChecks=function(){runE2EChecksStage3();runAllReportSmokeChecks();let before={...salesReportFilters};salesReportFilters={from:'',to:'',q:''};e2eAdd('Raporte','Pastro filtrat — nga','',salesReportFilters.from);e2eAdd('Raporte','Pastro filtrat — deri','',salesReportFilters.to);e2eAdd('Raporte','Pastro filtrat — kërkim','',salesReportFilters.q);salesReportFilters=before;save();renderE2EReport()}
 </script>
 <script>
@@ -2978,6 +2978,39 @@ setTimeout(syncBoot,600);
   setInterval(()=>{
     if(canWake()&&!wakeBusy&&Date.now()>=wakeCooldownUntil)wakeServerAndSync();
   },30000);
+})();
+</script>
+<script>
+/* ============================================================
+   ROUTER FINAL I RAPORTEVE
+   Vendoset këtu, në FUND të index.html, pas të gjitha
+   override-eve ekzistuese të views.reports.
+   - Raportet Odoo 19 janë pamja fillestare (reportsMode='odoo').
+   - Shfaqet me dy tab-e: "Raporte Odoo 19" dhe "Raporte Alpha".
+   - Raportet Alpha ruhen ashtu siç janë: për modin Alpha
+     delegohet te zinxhiri ekzistues i pamjeve — formatimet,
+     filtrat, tabelat dhe raportet nuk preken; vetëm rreshti i
+     tab-eve në faqen kryesore zëvendësohet me dy tab-et e reja.
+   - Moduli Odoo nis bosh (odooReportModule='') dhe shfaqet
+     odooReportHome() me 8 modulet: Shitje, Blerje, Inventar,
+     Produkte, Përpunim, Financa, Eksporte, Gjurmueshmëri.
+   ============================================================ */
+(function(){
+  var reportsFinalBase=views.reports;
+  function reportsModeTabs(activeOdoo){return `<div class="reports-mode-tabs"><button class="btn ${activeOdoo?'active':''}" onclick="reportsMode='odoo';odooReportModule='';render()">Raporte Odoo 19</button><button class="btn ${activeOdoo?'':'active'}" onclick="reportsMode='alpha';render()">Raporte Alpha</button></div>`}
+  views.reports=function(){
+    if(reportsMode==='odoo'){
+      let header=head('Raportet','Raporte të lidhura me transaksionet reale të ERP-së');
+      return header+reportsModeTabs(true)+(odooReportModule?odooModuleContent():odooReportHome());
+    }
+    let html=reportsFinalBase();
+    if(alphaActiveReport===''){
+      let marker='<div class="reports-mode-tabs">',i=html.indexOf(marker);
+      if(i>=0){let e=html.indexOf('>',i)+1,close=html.indexOf('</div>',e);if(close>=0)html=html.slice(0,i)+reportsModeTabs(false)+html.slice(close+6)}
+    }
+    return html;
+  };
+  reportsMode='odoo';odooReportModule='';
 })();
 </script>
 </body></html>
