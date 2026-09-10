@@ -1,10 +1,20 @@
-# BioBes ERP — Render Static Site
+# BioBes ERP — Render Static Site (Blueprint)
+# Deploy: push në main → Render ribën build automatikisht (static, pa server).
+# Ndryshimet e fundit (2026-09-10): pagesa furnitorësh, kartela e klikueshme,
+# mostra & porositë upgrade, cold-start v3 inline — gati për prodhim.
 services:
   - type: web
     name: biobes-erp
     runtime: static
     buildCommand: mkdir -p public && cp index.html public/index.html
     staticPublishPath: ./public
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+      - path: /index.html
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
     routes:
       - type: rewrite
         source: /*
