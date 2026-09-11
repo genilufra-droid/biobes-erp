@@ -3293,6 +3293,80 @@ function packagingDelete(id){
   toast('Paketimi '+id+' u fshi — '+fmt2(net)+' kg u kthyen në stok');
 }
 </script>
+<script id="biobes-multilot-v2">
+/* ============ Shumë-lotësh v2 — Paketim / Ngarkesë / Përpunim / Eksport (2026-09-11) ============
+   - Paketim: fushë e gjerë "KG nga ky lot", gjithmonë e editueshme, placeholder 0.00, buton X në
+     kolonë më vete, shpërndarje njëlloj me saktësi miligrami dhe rrillogaritje live e totalit/diferencës.
+   - Ngarkesa: 2-3 porosi të të njëjtit klient në një kontejner (përzgjedhës shto/hiq), klient auto,
+     neto/thasë auto nga paketimet, zbritje stoku për të gjitha lotet; "Krijo Ngarkesë" nga porositë
+     e shton porosinë automatikisht.
+   - Përpunim: disa lote lënde të parë me kg për lot (hyrje auto si shumë, readonly, e shpërndarë
+     njëlloj); coreProcess bën një lëvizje OUT për lot dhe një IN; loti dalës me kosto mesatare të
+     ponderuar dhe sourceLots; refuzohen tejkalimi i stokut, produkti tjetër dhe loti i përsëritur.
+   - Eksport: dosja bashkon porositë/faturat e kontejnerit dhe tregon manifestin e ngarkimit
+     (produkt, lot BioBes, lote burimore, kg, thasë, neto).
+   - Prapëpërputhshmëri e plotë me të dhënat e vjetra një-porosi/një-lot; të gjitha tekstet në shqip. */
+
+/* ---------- saktësia miligram & shpërndarja njëlloj ---------- */
+function mgRound(v){let r=Math.round((+v||0)*1e6)/1e6;return Object.is(r,-0)?0:r}
+function mgStr(v){let s=mgRound(v).toFixed(6).replace(/\.?0+$/,'');return s===''||s==='-'?'0':s}
+function distributeEvenMg(total,count){total=mgRound(total);count=Math.max(1,Math.floor(count)||1);if(count===1)return[total];let each=Math.floor(total/count*1e6)/1e6,out=[];for(let i=0;i<count;i++)out.push(i===count-1?mgRound(total-each*(count-1)):each);return out}
+
+/* ---------- Paketim: rreshtat e loteve burimore (KG e gjerë, gjithmonë e editueshme) ---------- */
+function packSourceRowHtml(prefix,lotId,qty,oldMap){
+  oldMap=oldMap||{};let lot=by('lots',lotId);if(!lot||!lot.id)return'';
+  let p=by('products',lot.product)||{},free=lotUnpacked(lot)+(((+oldMap[lotId])||0));
+  return '<div data-pack-source-row="'+prefix+'" data-lot="'+lotId+'" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:6px 8px;border:1px solid #d4dcd6;border-radius:8px;background:#f7faf8">'
+    +'<div style="flex:1;min-width:150px"><b>'+esc(lot.code)+'</b><br><small>'+esc((p.code||'')+' — '+(p.name||''))+' · të lira '+fmt2(free)+' kg</small></div>'
+    +'<div style="flex:0 0 210px;display:flex;align-items:center;gap:6px"><input type="number" step="0.000001" min="0" inputmode="decimal" placeholder="0.00" title="KG nga ky lot" '+(qty===''||qty==null?'':('value="'+mgStr(+qty||0)+'"'))+' data-pack-qty oninput="packSourceSum(\''+prefix+'\')" style="width:150px;font-size:15px;padding:9px 10px"> <span>kg</span></div>'
+    +'<div style="flex:0 0 42px;text-align:right"><button type="button" class="btn small danger" title="Hiq lotin" onclick="packSourceRemoveRow(this,\''+prefix+'\')">✕</button></div></div>';
+}
+function packSourceSum(prefix){
+  let c=packSourceContainer(prefix);if(!c)return;let rows=packSourceRows(prefix);
+  let total=packSourceTarget(prefix);
+  let sum=mgRound(rows.reduce((a,r)=>a+(parseFloat(r.querySelector('[data-pack-qty]').value)||0),0)),diff=mgRound(total-sum);
+  let el=c.querySelector('[data-pack-sum="'+prefix+'"]');
+  if(el)el.innerHTML='Nga lotet: <b>'+fmt2(sum)+' kg</b> / duhet '+fmt2(total)+' kg · '+(Math.abs(diff)<=.001?'<b style="color:#1e7e34">✓ balancuar</b>':'<b style="color:#b63c46">diferencë '+fmt2(diff)+' kg</b>')+(rows.length>1?' · <span class="pill orange">përzierje '+rows.length+' lotësh</span>':'');
+}
+function packSourceDistribute(prefix){
+  let rows=packSourceRows(prefix),total=packSourceTarget(prefix);if(!rows.length||!(total>0))return;
+  let parts=distributeEvenMg(total,rows.length);
+  rows.forEach((r,i)=>{r.querySelector('[data-pack-qty]').value=mgStr(parts[i])});
+  packSourceSum(prefix);
+}
+function packSourceAddRow(prefix){
+  let sel=document.getElementById(prefix+'AddLot');let lotId=sel?sel.value:'';if(!lotId)return;
+  let rows=packSourceRows(prefix);
+  if(rows.some(r=>r.dataset.lot===lotId))return toast('Ai lot është tashmë në listë');
+  let c=packSourceContainer(prefix),oldMap=packSourceOldMap(prefix),total=packSourceTarget(prefix);
+  if(rows.length===1){let q1=parseFloat(rows[0].querySelector('[data-pack-qty]').value)||0;if(Math.abs(q1-total)<=.001){let half=mgRound(total/2);rows[0].querySelector('[data-pack-qty]').value=mgStr(half)}}
+  let cur=mgRound(packSourceRows(prefix).reduce((a,r)=>a+(parseFloat(r.querySelector('[data-pack-qty]').value)||0),0));
+  let rest=mgRound(total-cur);
+  c.querySelector('[data-pack-rows="'+prefix+'"]').insertAdjacentHTML('beforeend',packSourceRowHtml(prefix,lotId,rest>0?rest:'',oldMap));
+  sel.value='';
+  let lot=by('lots',lotId),prod=document.getElementById(prefix+'Product');
+  if(lot&&lot.id&&prod&&!prod.value){try{fillSearchSelect(prefix+'Product',lot.product)}catch(e){prod.value=lot.product}}
+  packSourceRefreshAdd(prefix,prod?prod.value:'');
+  packSourceSum(prefix);
+}
+function collectPackSources(prefix,totalNet,productId,oldMap){
+  let rows=readPackSourceRows(prefix);
+  if(!rows.length)return{error:'Zgjidhni të paktën një lot burimor'};
+  let ids=[],qtys={},sum=0,seen=new Set();
+  for(let r of rows){
+    let lot=by('lots',r.lot);if(!lot||!lot.id)return{error:'Loti burimor nuk u gjet'};
+    if(seen.has(lot.id))return{error:'Loti '+lot.code+' është dy herë në listë'};seen.add(lot.id);
+    if(!(r.qty>0))return{error:'Sasia për lotin '+lot.code+' duhet të jetë pozitive'};
+    let cap=lotUnpacked(lot)+(((oldMap||{})[lot.id]!=null?+(oldMap[lot.id]):0));
+    if(r.qty>cap+.001)return{error:'Tejkalim stoku te loti '+lot.code+': të lira '+fmt2(cap)+' kg'};
+    if(productId&&lot.product!==productId)return{error:'Loti '+lot.code+' është i produktit tjetër'};
+    let q=mgRound(r.qty);qtys[lot.id]=q;ids.push(lot.id);sum=mgRound(sum+q);
+  }
+  if(Math.abs(sum-totalNet)>.001)return{error:'Sasia nga lotet ('+fmt2(sum)+' kg) duhet të jetë '+fmt2(totalNet)+' kg'};
+  return{sources:ids.map(id=>({lot:id,qty:qtys[id]})),qtys,ids};
+}
+
+</script>
 <script id="biobes-coldstart-v3">
 // BioBes ERP — Render Free cold-start recovery v3.
 (function(){
