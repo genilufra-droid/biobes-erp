@@ -3468,6 +3468,146 @@ const settingsRiskCardsBase=views.settings;views.settings=function(){
   }catch(e){return h}
 };
 </script>
+<style id="biobes-admin-tools-css">
+/* Konfigurime — rrjetë për kartat e seksioneve (2026-09-11) */
+.settings-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;align-items:start;margin-top:4px}
+.settings-grid>.card{margin:0;height:100%}
+.settings-grid>.apps{grid-column:1/-1}
+@media(max-width:860px){.settings-grid{grid-template-columns:1fr}}
+</style>
+<script id="biobes-admin-tools-v1">
+/* BioBes ERP — shtesë (2026-09-11):
+   1) Paketim shumë-lotesh -> pkAddSourceRow() shton lot burimor te formulari "pk"
+   2) Peshim -> Blerje     -> confirmExistingWeight() e mbështjellë me try/catch
+   3) Blerje               -> purchaseActions(id): modal "Veprime" + butoni në kolonën Veprime
+   4) Konfigurime          -> rrjetë .settings-grid + butoni "Rivendos passwordin e adminit"
+   Çdo pjesë kthehet te sjellja e mëparshme nëse struktura nuk njihet. */
+
+/* ---------- 1) Paketim shumë-lotesh: lot burimor shtesë ---------- */
+function pkAddSourceRow(lotId){
+  try{
+    if(typeof packSourceAddRow!=='function')return toast('Moduli shumë-lotësh nuk është i ngarkuar');
+    if(lotId){let sel=document.getElementById('pkAddLot');if(sel)sel.value=lotId}
+    return packSourceAddRow('pk');
+  }catch(e){console.error(e);try{toast('Loti burimor nuk u shtua: '+e.message)}catch(_){}}
+}
+const packSourcePickerHtmlBase=packSourcePickerHtml;
+packSourcePickerHtml=function(prefix,selected,productId,packId){
+  let h=packSourcePickerHtmlBase(prefix,selected,productId,packId);
+  try{
+    if(prefix==='pk'){
+      h=h.replace('onclick="packSourceAddRow(\'pk\')"','onclick="pkAddSourceRow()"')
+         .replace('>+ Shto lot</button>','>+ Shto lot burimor</button>');
+    }
+  }catch(e){}
+  return h;
+};
+
+/* ---------- 2) Rregullim peshim -> blerje: try/catch ---------- */
+const confirmExistingWeightBase=confirmExistingWeight;
+confirmExistingWeight=function(id){
+  try{return confirmExistingWeightBase(id)}
+  catch(e){
+    console.error('confirmExistingWeight',e);
+    try{securityAudit('WEIGH_CONFIRM_ERROR','Konfirmimi i peshimit dështoi: '+(e&&e.message||e),id)}catch(_){}
+    try{toast('Konfirmimi dështoi: '+(e&&e.message||e)+' — kontrollo lotin dhe draft-faturën')}catch(_){}
+  }
+};
+
+/* ---------- 3) Blerje: butonat "Veprime" ---------- */
+function purchaseActions(id){
+  try{
+    let f=purchaseInvoices().find(x=>x.id===id||x.weighing===id);
+    if(!f)return toast('Fatura nuk u gjet');
+    let lot=state.lots.find(l=>l.weighing===f.weighing);
+    let locked=f.status==='Konfirmuar';
+    let cell=(fn,ic,ti,sub,extra)=>'<div class="app" onclick="'+fn+'"'+(extra||'')+'><i>'+ic+'</i><b>'+ti+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</div>';
+    let q=(s)=>String(s).replace(/'/g,"\\'");
+    modal('Veprime — '+f.id,
+      '<div class="apps" style="grid-template-columns:repeat(2,minmax(130px,1fr))">'
+      +cell("purchaseCard('"+q(f.id)+"')",'▤','Hap kartelën','Çmimi, TVSH dhe statusi')
+      +(f.weighing?cell("weightCard('"+q(f.weighing)+"')",'⚖','Peshimi '+esc(f.weighing),'Dokumenti i printerit'):'')
+      +(lot?cell("lotCard('"+q(lot.id)+"')",'▣','Hap lotin',esc(lot.code||'')):'')
+      +cell("supplierCard('"+q(f.supplier)+"')",'♙','Furnitori',esc((by('suppliers',f.supplier)||{}).name||f.supplier))
+      +cell("purchaseDocumentView('"+q(f.id)+"')",'🖨','Dokumenti','Pamja për print')
+      +cell("exportPurchaseDocumentXlsx('"+q(f.id)+"')",'⇩','Eksporto Excel','Vetëfaturimi si .xlsx')
+      +(f.attachmentData?cell("openPurchaseAttachment('"+q(f.id)+"')",'📎','Bashkëngjitja','Fatura e furnitorit'):'')
+      +cell("clonePurchaseInvoice('"+q(f.id)+"')",'⧉','Kopjo faturën','Krijon draft të ri')
+      +(locked?cell("unlockPurchaseInvoiceEdit('"+q(f.id)+"')",'🔓','Çel për korrigjim','Vetëm ADMIN',' style="border-color:#e8c98f"'):'')
+      +'</div>',
+      '<button class="btn" onclick="closeModal()">Mbyll</button>');
+  }catch(e){console.error(e);try{toast('Veprimet nuk u hapën: '+e.message)}catch(_){}}
+}
+function purchaseDocumentView(id){
+  try{
+    let f=purchaseInvoices().find(x=>x.id===id);
+    if(!f)return toast('Fatura nuk u gjet');
+    modal('Dokument — '+f.id,purchaseDocumentHtml(f),'<button class="btn" onclick="closeModal()">Mbyll</button><button class="btn primary" onclick="printPurchase(\''+String(id).replace(/'/g,"\\'")+'\')">🖨 Printo</button>');
+  }catch(e){console.error(e);try{toast('Dokumenti nuk u hap: '+e.message)}catch(_){}}
+}
+const purchasesVeprimeBase=views.purchases;
+views.purchases=function(){
+  let h=purchasesVeprimeBase();
+  try{
+    h=h.replace(/<button class="btn small" onclick="clonePurchaseInvoice\('([^']+)'\)">Kopjo<\/button>/g,
+      '<button class="btn small" onclick="clonePurchaseInvoice(\'$1\')">Kopjo</button> <button class="btn small" onclick="purchaseActions(\'$1\')">⋯ Veprime</button>');
+  }catch(e){}
+  return h;
+};
+
+/* ---------- 4) Konfigurime: .settings-grid + rivendosja e passwordit të adminit ---------- */
+function resetAdminPasswordForm(){
+  try{
+    if(!currentUserIsAdmin())return toast('Vetëm ADMINI mund të rivendosë fjalëkalimin e adminit');
+    let adm=resetAdminUser();
+    if(!adm)return toast('Nuk u gjet përdorues admin');
+    let pol=(securityState()||{}).policy||{},min=pol.passwordMin||10;
+    modal('Rivendos passwordin e adminit',
+      '<div class="card"><p class="hint">Llogaria: <b>'+esc(adm.username||adm.name||'admin')+'</b> · kërkon sesion ADMIN aktiv dhe fjalëkalimin e tanishëm.</p>'
+      +'<div class="form-grid">'
+      +'<div class="field"><label>Fjalëkalimi i tanishëm</label><input id="rapOld" type="password" autocomplete="current-password"></div>'
+      +'<div class="field"><label>Fjalëkalimi i ri (min '+min+' karaktere)</label><input id="rapNew1" type="password" autocomplete="new-password"></div>'
+      +'<div class="field"><label>Përsërit fjalëkalimin e ri</label><input id="rapNew2" type="password" autocomplete="new-password"></div>'
+      +'</div></div>'
+      +(serverBaseUrl()?'<p class="hint">Përdoruesit e serverit rivendosen nga backend-i — ky veprim prek llogarinë lokale.</p>':''),
+      '<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="saveAdminPasswordReset()">🔑 Rivendos</button>');
+  }catch(e){console.error(e);try{toast('Formulari nuk u hap: '+e.message)}catch(_){}}
+}
+async function saveAdminPasswordReset(){
+  try{
+    if(!currentUserIsAdmin())return toast('Vetëm ADMINI mund të rivendosë fjalëkalimin e adminit');
+    let adm=resetAdminUser();
+    if(!adm)return toast('Nuk u gjet përdorues admin');
+    let old=$val('rapOld'),a=$val('rapNew1'),b=$val('rapNew2');
+    if(adm.passwordHash){
+      let chk=await hashPassword(old,adm.passwordSalt||'',adm.passwordIterations||150000);
+      if(chk.hash!==adm.passwordHash)return toast('Fjalëkalimi i tanishëm nuk përputhet');
+    }
+    let pol=(securityState()||{}).policy||{},min=pol.passwordMin||10;
+    if(a!==b)return toast('Të dy fushat duhet të përputhen');
+    if(a.length<min)return toast('Fjalëkalimi duhet të ketë të paktën '+min+' karaktere');
+    let h=await hashPassword(a);
+    Object.assign(adm,{passwordHash:h.hash,passwordSalt:h.salt,passwordIterations:h.iterations,mustChangePassword:false,passwordChangedAt:new Date().toISOString(),lockedUntil:null,failedAttempts:0});
+    try{securityState().sessions.forEach(s=>{if(s.user===adm.id&&s.token!==sessionStorage.getItem('biobesSession'))s.active=false})}catch(_){}
+    try{securityAudit('ADMIN_PASSWORD_RESET','Fjalëkalimi i adminit u rivendos',adm.id)}catch(_){}
+    save();closeModal();render();toast('Fjalëkalimi i adminit u rivendos');
+  }catch(e){console.error(e);try{toast('Gabim: '+(e&&e.message||e))}catch(_){}}
+}
+const settingsGridBase=views.settings;
+views.settings=function(){
+  let h=settingsGridBase();
+  try{
+    if(h.indexOf('resetAdminPasswordForm')<0){
+      h+='<div class="card" data-admin-only><h3>🔑 Fjalëkalimi i adminit</h3>'
+        +'<p class="hint">Përdoret kur administratori nuk e mban mend fjalëkalimin. Kërkon sesion ADMIN aktiv dhe fjalëkalimin e tanishëm; seancat e tjera mbyllen.</p>'
+        +'<div class="actions"><button class="btn" onclick="resetAdminPasswordForm()">Rivendos passwordin e adminit</button></div></div>';
+    }
+    let i=h.indexOf('<div class="card"');
+    if(i>0&&h.indexOf('class="settings-grid"')<0)h=h.slice(0,i)+'<div class="settings-grid">'+h.slice(i)+'</div>';
+  }catch(e){}
+  return h;
+};
+</script>
 <script id="biobes-coldstart-v3">
 // BioBes ERP — Render Free cold-start recovery v3.
 (function(){
