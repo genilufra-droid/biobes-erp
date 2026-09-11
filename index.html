@@ -3438,6 +3438,36 @@ function shipmentManifestRows(sh){let os=shipmentOrders(sh),rows=[];os.forEach(o
 function shipmentManifestHtml(sh){let rows=shipmentManifestRows(sh),os=shipmentOrders(sh),inv=salesInvoices().filter(f=>f.status==='Konfirmuar'&&os.includes(f.order));let tKg=mgRound(rows.reduce((a,r)=>a+r.kg,0)),tBags=rows.reduce((a,r)=>a+r.bags,0);return '<div class="card"><h3>Manifesti i ngarkimit — kontejneri '+esc(sh.id)+'</h3><p class="hint">Porositë e kontejnerit: '+os.map(o=>esc(o)).join(', ')+' · Faturat e konfirmuara: '+(inv.map(f=>esc(f.invoiceNumber||f.id)).join(', ')||'—')+'</p>'+tableCard(['Porosia','Produkti','Loti BioBes','Lote burimore','Kg','Thasë','Neto'],rows.map(r=>[esc(r.order),esc(r.product),esc(r.internal),r.sources.map(s=>esc(s)).join(', ')||'—',fmt2(r.kg),r.bags,fmt2(r.net)]).concat([['<b>Gjithsej</b>','','','','<b>'+fmt2(tKg)+'</b>','<b>'+tBags+'</b>','<b>'+fmt2(tKg)+'</b>']]))+'</div>'}
 const exportDossierCardMultiBase=exportDossierCard;exportDossierCard=function(id){exportDossierCardMultiBase(id);let d=exportDossiers().find(x=>x.id===id),sh=by('shipments',d?d.shipment:'');if(sh&&sh.id&&typeof modalBody!=='undefined')modalBody.insertAdjacentHTML('beforeend',shipmentManifestHtml(sh))};
 </script>
+<script id="biobes-settings-ui-v2">
+/* Konfigurime të riorganizuara (2026-09-11): 3 karta sipas rrezikut — Backup (jeshile),
+   Pastrim (portokalli), Zona e rrezikut (e kuqe) — me badge ngjyre, plus seksione me tituj:
+   Regjistrat bazë, Siguria dhe Mjete administrimi. Nëse struktura nuk njihet, faqja mbetet siç ishte. */
+const settingsRiskCardsBase=views.settings;views.settings=function(){
+  let h=settingsRiskCardsBase();
+  try{
+    let iB=h.indexOf('<div class="card"><h3>💾 Backup ditor</h3>');
+    let iP=h.indexOf('<div class="card" style="border-color:#f2c6cb">');
+    let iA=h.indexOf('<div class="card"><h3>Administrimi dhe siguria</h3>');
+    let iR=h.indexOf('<div class="card"><h3>Regjistrat bazë</h3>');
+    let iT=h.indexOf('<div class="card" data-admin-only><h3>Mjete testimi</h3>');
+    let iD=h.indexOf('<div class="card" style="border-color:#edc1c5">');
+    if([iB,iP,iA,iR,iT,iD].some(i=>i<0))return h;
+    if(!(iB<iP&&iP<iA&&iA<iR&&iR<iT&&iT<iD))return h;
+    let head=h.slice(0,iB),backup=h.slice(iB,iP),pastrim=h.slice(iP,iA),admin=h.slice(iA,iR),reg=h.slice(iR,iT),tests=h.slice(iT,iD),dz=h.slice(iD);
+    let pill=(c,l)=>'<span class="pill" style="background:'+c+';color:#fff;margin-left:8px">'+l+'</span>';
+    let backup2=backup.replace('<div class="card">','<div class="card" style="border-color:#b7dbc8;background:#f2f9f4">').replace('<h3>','<h3 style="color:#1e7e34">').replace('</h3>','</h3>'+pill('#1e7e34','Rrezik i ulët'));
+    let pastrim2=pastrim.replace('style="border-color:#f2c6cb"','style="border-color:#e8c98f;background:#fdf7ec"').replace('<h3 style="color:#b63c46">','<h3 style="color:#d28b13">').replace('</h3>','</h3>'+pill('#d28b13','Rrezik i mesëm — vetëm ADMIN'));
+    let dz2=dz.replace('style="border-color:#edc1c5"','style="border-color:#e2a5ab;background:#fdf2f3"').replace('</h3>','</h3>'+pill('#b63c46','Rrezik i lartë — i pakthyeshëm'));
+    let btn=(slice,fn)=>{let m=slice.match(new RegExp('<button[^>]*onclick="'+fn+'\\(\\)"[^>]*>[\\s\\S]*?</button>'));return m?m[0]:''};
+    let sigBtns=[btn(admin,'usersSecurityCenter'),btn(admin,'backupCenter')].filter(Boolean).join(' ');
+    let admBtns=btn(admin,'importCenter');
+    let testsInner=tests.replace(/^<div[^>]*>[\s\S]*?<\/h3>/,'').replace(/<\/div>\s*$/,'');
+    let sig=sigBtns?'<div class="card"><h3>Siguria</h3><p class="hint">Rolet, të drejtat dhe backup-i i sigurt — vetëm për ADMIN.</p><div class="actions">'+sigBtns+'</div></div>':'';
+    let adm=(admBtns||testsInner)?'<div class="card" data-admin-only><h3>Mjete administrimi</h3><p class="hint">Importe, template dhe kontrollë teknikë — jo veprime ditore.</p>'+(admBtns?'<div class="actions">'+admBtns+'</div>':'')+(testsInner?'<div style="margin-top:10px;padding-top:6px;border-top:1px solid #dfe7e2">'+testsInner+'</div>':'')+'</div>':'';
+    return head+backup2+pastrim2+dz2+reg+sig+adm;
+  }catch(e){return h}
+};
+</script>
 <script id="biobes-coldstart-v3">
 // BioBes ERP — Render Free cold-start recovery v3.
 (function(){
