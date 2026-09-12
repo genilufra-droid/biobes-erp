@@ -1,0 +1,9 @@
+{
+  "title": "fix: 7 bugfixe + sintaksë 0 BAD — BioBes ERP",
+  "source_branch": "arena/01a08ce3-biobes-erp",
+  "target_branch": "main",
+  "status": "open",
+  "description": "Kontroll sintakse 0 BAD + 7 bugfixe sipas spec",
+  "commits": 1,
+  "files_changed": ["index.html"]
+}
