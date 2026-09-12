@@ -4117,4 +4117,602 @@ function quickResetAdminPassword(){
   catch(e){try{toast('Gabim: '+(e&&e.message))}catch(_){}}
 }
 </script>
+<script id="biobes-photos-gallery-v1">
+/* BioBes ERP — Ndiq fotot — Galeria e plotë + Trace Photos (2026-09-12) */
+(function(){
+if(window.__biobesPhotosGalleryV1) return;
+window.__biobesPhotosGalleryV1 = true;
+
+/* ---------- CSS ---------- */
+const css = `
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.photo-card{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;box-shadow:var(--shadow);cursor:pointer;transition:.15s}
+.photo-card:hover{transform:translateY(-2px);border-color:#176b49}
+.photo-thumb{height:130px;background:#f3f5f4;display:grid;place-items:center;overflow:hidden;position:relative}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-thumb .pdf-icon{font-size:42px;color:#b63c46}
+.photo-thumb .photo-badge{position:absolute;top:6px;left:6px;background:#176b49;color:#fff;font-size:10px;font-weight:700;padding:3px 7px;border-radius:99px}
+.photo-thumb .photo-badge.pdf{background:#b63c46}
+.photo-thumb .photo-badge.missing{background:#d28b13}
+.photo-info{padding:10px 11px}
+.photo-info b{font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.photo-info small{color:var(--muted);font-size:11px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.photo-empty{border:2px dashed #c9d8d1;border-radius:10px;padding:18px;text-align:center;background:#f8fbf9;color:#6b7d75}
+.photo-lightbox{position:fixed;inset:0;background:#0f1e18ee;z-index:100005;display:none;align-items:center;justify-content:center;padding:20px}
+.photo-lightbox.open{display:flex}
+.photo-lightbox-inner{max-width:96vw;max-height:96vh;background:#fff;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px #0008}
+.photo-lightbox-head{padding:10px 14px;border-bottom:1px solid #e6ece8;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.photo-lightbox-body{flex:1;overflow:auto;display:grid;place-items:center;background:#0f1e18;padding:10px;min-height:300px;min-width:320px}
+.photo-lightbox-body img{max-width:90vw;max-height:80vh;object-fit:contain;background:#fff;border-radius:6px}
+.photo-lightbox-body iframe{width:90vw;height:80vh;border:0;background:#fff;border-radius:6px}
+.photo-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.photo-filter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.photo-filter button{border:1px solid #dfe6e2;background:#fff;border-radius:99px;padding:6px 12px;font-size:12px;cursor:pointer}
+.photo-filter button.active{background:#176b49;color:#fff;border-color:#176b49}
+.photo-count{font-size:12px;color:#5d6e65;margin-left:auto}
+`;
+const st = document.createElement('style');
+st.id = 'biobes-photos-css';
+st.textContent = css;
+document.head.appendChild(st);
+
+/* ---------- Lightbox DOM ---------- */
+let lb = document.createElement('div');
+lb.id = 'photoLightbox';
+lb.className = 'photo-lightbox';
+lb.innerHTML = `<div class="photo-lightbox-inner">
+  <div class="photo-lightbox-head"><b id="lbTitle"></b><div style="display:flex;gap:6px"><button class="btn small" id="lbDownload">Shkarko</button><button class="btn small" onclick="closePhotoLightbox()">✕ Mbyll</button></div></div>
+  <div class="photo-lightbox-body" id="lbBody"></div>
+</div>`;
+lb.addEventListener('click', e=>{ if(e.target===lb) closePhotoLightbox(); });
+document.body.appendChild(lb);
+window.closePhotoLightbox = function(){ lb.classList.remove('open'); document.getElementById('lbBody').innerHTML=''; };
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closePhotoLightbox(); });
+
+function isImageType(t){ return typeof t==='string' && t.startsWith('image/'); }
+function isPdfType(t){ return typeof t==='string' && (t==='application/pdf' || t.includes('pdf')); }
+
+window.openPhotoLightbox = function(data, type, name){
+  if(!data) return toast('Fotoja mungon');
+  const titleEl = document.getElementById('lbTitle');
+  const body = document.getElementById('lbBody');
+  const dl = document.getElementById('lbDownload');
+  if(titleEl) titleEl.textContent = name || 'Foto';
+  if(dl){ dl.onclick = ()=>{ const a=document.createElement('a'); a.href=data; a.download=name||'foto'; a.click(); }; }
+  if(body){
+    if(isPdfType(type)){
+      body.innerHTML = `<iframe src="${data}" title="${esc(name||'PDF')}"></iframe>`;
+    } else if(isImageType(type)){
+      body.innerHTML = `<img src="${data}" alt="${esc(name||'')}">`;
+    } else {
+      // try as image
+      body.innerHTML = `<img src="${data}" alt="${esc(name||'')}"><p class="hint" style="color:#fff;margin-top:8px">${esc(name||'')}</p>`;
+    }
+  }
+  lb.classList.add('open');
+};
+
+/* ---------- Fix: mostra & porosia — ruajtja e fotos ---------- */
+function ensureSampleOrderPhotoFields(){
+  try{
+    (state.samples||[]).forEach(s=>{ if(!s.attachmentData && s.fileData) { s.attachmentData=s.fileData; s.attachmentType=s.fileType; s.attachment=s.fileName; } });
+    (state.orders||[]).forEach(o=>{ if(!o.attachmentData && o.fileData) { o.attachmentData=o.fileData; o.attachmentType=o.fileType; o.attachment=o.fileName; } });
+  }catch(e){}
+}
+
+// Override sampleForm to use sFile id
+const _origSampleForm = window.sampleForm;
+window.sampleForm = function(){
+  modal('Mostër e re',`<div class="form-grid"><div class="field"><label>Data</label><input id="sDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field"><label>Klienti</label><select id="sCustomer">${opts(state.customers,x=>x.name+' — '+x.country)}</select></div><div class="field"><label>Produkti</label><select id="sProduct">${opts(state.products,x=>x.code+' — '+x.name)}</select></div><div class="field"><label>Loti burimor</label><select id="sLot">${opts(state.lots,x=>x.code)}</select></div><div class="field"><label>Tracking number</label><input id="sTrack"></div><div class="field"><label>Statusi</label><select id="sStatus"><option>E dërguar</option><option>Në analizë</option><option>Në pritje të klientit</option><option>E aprovuar</option><option>E refuzuar</option></select></div><div class="field full"><label>Analiza laboratorike / CoA / Foto (PDF ose Imazh)</label><input id="sFile" type="file" accept="image/*,.pdf"><span class="hint">Foto ose PDF ruhet dhe ndiqet në galeri.</span></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addSample()">Ruaj</button>`);
+};
+
+const _origAddSample = window.addSample;
+window.addSample = function(){
+  try{
+    let file = $file('sFile');
+    let doSave = (data, type, name)=>{
+      let obj = {id:'SM-'+new Date().getFullYear()+'-'+String((state.samples||[]).length+1).padStart(4,'0'),date:$val('sDate',new Date().toISOString().slice(0,10)),customer:$val('sCustomer'),product:$val('sProduct'),lot:$val('sLot'),tracking:$val('sTrack'),status:$val('sStatus','E dërguar'),attachment:name||'',attachmentType:type||'',attachmentData:data||'',fileName:name||'',fileType:type||'',fileData:data||''};
+      state.samples.push(obj);
+      save();closeModal();render();toast('Mostra u regjistrua'+(data?' me foto':'')); 
+    };
+    if(file){
+      readAsData(file, data=> doSave(data, file.type, file.name));
+    } else {
+      doSave('', '', '');
+    }
+  }catch(e){ console.error(e); toast('Gabim gjatë ruajtjes: '+e.message); }
+};
+
+// Override orderForm / addOrder
+const _origOrderForm = window.orderForm;
+window.orderForm = function(){
+  modal('Porosi e re',`<div class="form-grid"><div class="field"><label>Data</label><input id="oDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field"><label>Klienti</label><select id="oCustomer">${opts(state.customers,x=>x.name+' — '+x.country)}</select></div><div class="field"><label>Produkti</label><select id="oProduct">${opts(state.products,x=>x.code+' — '+x.name)}</select></div><div class="field"><label>Sasia e kërkuar kg</label><input id="oQty" type="number"></div><div class="field"><label>Mostra e aprovuar</label><select id="oSample"><option value="">—</option>${opts(state.samples.filter(x=>x.status==='E aprovuar'),x=>x.id)}</select></div><div class="field full"><label>Dokumenti origjinal i klientit (PO) — Foto/PDF</label><input id="oFile" type="file" accept="image/*,.pdf"><span class="hint">Ruhet dhe shfaqet në galerinë e fotos.</span></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addOrder()">Ruaj porosinë</button>`);
+};
+const _origAddOrder = window.addOrder;
+window.addOrder = function(){
+  try{
+    let file = $file('oFile');
+    let doSave = (data,type,name)=>{
+      let obj = {id:'PO-'+new Date().getFullYear()+'-'+String((state.orders||[]).length+71).padStart(4,'0'),date:$val('oDate',new Date().toISOString().slice(0,10)),customer:$val('oCustomer'),sample:$val('oSample'),status:'E hapur',items:[{product:$val('oProduct'),qty:$num('oQty',0),done:0}],attachment:name||'',attachmentType:type||'',attachmentData:data||'',fileName:name||'',fileType:type||'',fileData:data||''};
+      state.orders.push(obj);
+      save();closeModal();render();toast('Porosia u krijua'+(data?' me dokument':'')); 
+    };
+    if(file){ readAsData(file, data=> doSave(data, file.type, file.name)); } else { doSave('', '', ''); }
+  }catch(e){ console.error(e); toast('Gabim gjatë ruajtjes: '+e.message); }
+};
+
+// Fix sample edit to allow updating photo
+// Enhance sampleCard to show photo
+const _origSampleCard = window.sampleCard;
+window.sampleCard = function(id){
+  let x=by('samples',id);
+  if(!x) return _origSampleCard(id);
+  let hasPhoto = !!(x.attachmentData || x.fileData);
+  let data = x.attachmentData || x.fileData || '';
+  let type = x.attachmentType || x.fileType || '';
+  let name = x.attachment || x.fileName || '';
+  let photoHtml = hasPhoto
+    ? (isImageType(type) ? `<img src="${data}" style="width:100%;max-height:220px;object-fit:contain;background:#f3f5f4;border-radius:8px;cursor:pointer" onclick="openPhotoLightbox('${data.replace(/'/g,"\\'")}', '${type}', '${esc(name)}')">` : `<div class="pdf-icon" style="text-align:center;padding:20px">📄 ${esc(name||'PDF')}</div><button class="btn small" onclick="openPhotoLightbox('${data.replace(/'/g,"\\'")}', '${type}', '${esc(name)}')">Hap PDF</button>`)
+    : `<div class="photo-empty">Nuk ka foto / CoA të ngarkuar</div><button class="btn small" style="margin-top:8px" onclick="updateSamplePhoto('${x.id}')">Ngarko foto</button>`;
+  modal(x.id,`<div class="form-grid"><div class="card"><b>Klienti</b><p>${esc(by('customers',x.customer).name)}</p></div><div class="card"><b>Produkti</b><p>${esc(by('products',x.product).name)}</p></div></div><div class="card"><p><b>Tracking:</b> ${esc(x.tracking||'—')}</p><p><b>Status:</b> ${status(x.status)}</p><p><b>Loti burimor:</b> <a class="link" onclick="lotCard('${x.lot}')">${esc(by('lots',x.lot).code||x.lot)}</a></p></div><div class="card"><h3>Foto / Analiza</h3>${photoHtml}<div style="margin-top:10px;display:flex;gap:8px"><button class="btn small" onclick="updateSamplePhoto('${x.id}')">${hasPhoto?'Zëvendëso foto':'Ngarko foto'}</button>${hasPhoto?`<button class="btn small" onclick="openPhotoLightbox('${data.replace(/'/g,"\\'")}', '${type}', '${esc(name)}')">Hap</button>`:''}</div></div><div class="actions"><button class="btn" onclick="lotCard('${x.lot}')">Hap lotin burimor</button></div>`);
+};
+
+window.updateSamplePhoto = function(id){
+  modal('Ngarko foto — '+id,`<div class="field full"><label>Zgjidh foto/PDF</label><input id="upSampleFile" type="file" accept="image/*,.pdf"></div>`,`<button class="btn" onclick="sampleCard('${id}')">Anulo</button><button class="btn primary" onclick="saveSamplePhoto('${id}')">Ruaj</button>`);
+};
+window.saveSamplePhoto = function(id){
+  try{
+    let x=by('samples',id); if(!x) return;
+    let f=$file('upSampleFile'); if(!f) return toast('Zgjidhni skedarin');
+    readAsData(f, data=>{
+      Object.assign(x,{attachmentData:data,attachmentType:f.type,attachment:f.name,fileData:data,fileType:f.type,fileName:f.name});
+      save();closeModal();sampleCard(id);toast('Foto u ruajt');
+    });
+  }catch(e){ toast('Gabim: '+e.message); }
+};
+
+// Similarly for order photo update
+window.updateOrderPhoto = function(id){
+  modal('Ngarko dokument — '+id,`<div class="field full"><label>Foto/PDF i porosisë</label><input id="upOrderFile" type="file" accept="image/*,.pdf"></div>`,`<button class="btn" onclick="orderCard('${id}')">Anulo</button><button class="btn primary" onclick="saveOrderPhoto('${id}')">Ruaj</button>`);
+};
+window.saveOrderPhoto = function(id){
+  try{
+    let x=by('orders',id); if(!x) return;
+    let f=$file('upOrderFile'); if(!f) return toast('Zgjidhni skedarin');
+    readAsData(f, data=>{
+      Object.assign(x,{attachmentData:data,attachmentType:f.type,attachment:f.name,fileData:data,fileType:f.type,fileName:f.name});
+      save();closeModal();orderCard(id);toast('Dokumenti u ruajt');
+    });
+  }catch(e){ toast('Gabim: '+e.message); }
+};
+
+// Patch shipmentForm to correctly capture seal photo at creation
+// Save original for fallback
+const _origShipmentFormForPhotos = window.shipmentForm;
+const _origAddShipmentForPhotos = window.addShipment;
+window.shipmentForm = function(){
+  // Use the multilot version but ensure seal file has id
+  _origShipmentFormForPhotos();
+  // after modal, patch file input to have id
+  setTimeout(()=>{
+    const body = document.getElementById('modalBody');
+    if(!body) return;
+    let inp = body.querySelector('input[type="file"][accept="image/*"]:not([id])');
+    if(inp) inp.id = 'shSealPhoto';
+    // if still not, find any file input last
+    if(!document.getElementById('shSealPhoto')){
+      let all = body.querySelectorAll('input[type="file"]');
+      if(all.length) all[all.length-1].id = 'shSealPhoto';
+    }
+  }, 30);
+};
+
+// Patch addShipment to save seal photo data
+window.addShipment = function(){
+  try{
+    let orders = typeof shipOrderIds==='function' ? shipOrderIds() : [];
+    // fallback if old single order mode
+    if(!orders.length && $val('shOrder')) orders = [$val('shOrder')];
+    if(!orders.length) return toast('Shto të paktën një porosi në kontejner');
+    let file = $file('shSealPhoto');
+    let baseData = {
+      id:'NG-'+new Date().getFullYear()+'-'+String((state.shipments||[]).length+1).padStart(4,'0'),
+      date:$val('shDate', new Date().toISOString().slice(0,10)),
+      orders, order: orders[0],
+      customer:$val('shCustomer'),
+      plate:$val('shPlate'), carrier:$val('shCarrier'), seal:$val('shSeal'),
+      net:$num('shNet',0), gross:$num('shGross',0), bags:$num('shBags',0), pallets:$num('shPallets',0)
+    };
+    let doCreate = (data, type, name)=>{
+      if(data) { baseData.sealPhotoData=data; baseData.sealPhotoType=type; baseData.sealPhotoName=name; }
+      let r = typeof atomicTransaction==='function' ? atomicTransaction('Krijim ngarkese', ()=>coreCreateShipment(baseData)) : coreCreateShipment(baseData);
+      if(!r.ok) return toast(r.error);
+      ['Commercial Invoice','Packing List','CMR','Certifikatë fitosanitare','Certifikatë origjine','EUR.1'].forEach((t,i)=>state.documents.push({id:uid('D')+'-'+i,shipment:r.record.id,type:t,number:'',date:r.record.date,status:i<2?'Draft':'Mungon'}));
+      state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Ngarkesë',ref:r.record.id,text:r.record.id+': kontejner me '+orders.length+' porosi ('+orders.join(', ')+')'});
+      save();closeModal();render();toast('Ngarkesa u krijua si Planifikuar');
+    };
+    if(file) readAsData(file, d=> doCreate(d, file.type, file.name));
+    else doCreate('', '', '');
+  }catch(e){ console.error(e); toast('Gabim gjatë ruajtjes: '+e.message); }
+};
+
+/* ---------- Helper to collect photos ---------- */
+function pushPhoto(arr, opts){
+  // opts: {key, group, title, sub, data, type, name, open, date}
+  if(!opts.data) return;
+  arr.push(opts);
+}
+
+window.collectLotPhotos = function(lot){
+  if(!lot || !lot.id) return [];
+  const out = [];
+  try{
+    const w = state.weighings.find(x=> x.id===lot.weighing);
+    if(w && w.attachmentData){
+      pushPhoto(out, {key:'W:'+w.id, group:'Peshimi', title:w.id, sub:(by('suppliers',w.supplier).name||'') + ' · ' + w.date, data:w.attachmentData, type:w.attachmentType, name:w.attachment, date:w.date, open:()=>weightCard(w.id)});
+    }
+    // samples of this lot
+    (state.samples||[]).filter(s=> s.lot===lot.id).forEach(s=>{
+      let d = s.attachmentData || s.fileData;
+      let t = s.attachmentType || s.fileType;
+      let n = s.attachment || s.fileName;
+      if(d) pushPhoto(out, {key:'S:'+s.id, group:'Mostra', title:s.id, sub:(by('customers',s.customer).name||'') + ' · ' + s.status, data:d, type:t, name:n, date:s.date, open:()=>sampleCard(s.id)});
+    });
+    // purchase invoice
+    try{
+      purchaseInvoices().filter(f=> f.weighing===lot.weighing).forEach(f=>{
+        if(f.attachmentData) pushPhoto(out, {key:'FB:'+f.id, group:'Faturë blerje', title:f.id, sub:f.supplierInvoiceNo||'', data:f.attachmentData, type:f.attachmentType, name:f.attachment, date:f.invoiceDate||f.date, open:()=>purchaseCard(f.id)});
+      });
+    }catch(e){}
+    // find related orders via packs / processes / samples
+    const orderIds = new Set();
+    try{
+      packs().filter(pk=> (pk.sourceLots||[]).includes(lot.id)).forEach(pk=> orderIds.add(pk.order));
+      (state.processes||[]).filter(p=> (p.lots||[]).includes(lot.id)).forEach(p=> (p.orders||[]).forEach(o=>orderIds.add(o)));
+      (state.samples||[]).filter(s=> s.lot===lot.id).forEach(s=>{
+        const ord = (state.orders||[]).find(o=> o.sample===s.id);
+        if(ord) orderIds.add(ord.id);
+        // also orders that contain product of this lot? skip
+      });
+      // if lot is output of process, find its source lots' orders as well?
+      if(lot.sourceLots) lot.sourceLots.forEach(sl=>{ /* already */ });
+    }catch(e){}
+    orderIds.forEach(oid=>{
+      const o = by('orders', oid);
+      if(!o || !o.id) return;
+      let d = o.attachmentData || o.fileData;
+      let t = o.attachmentType || o.fileType;
+      let n = o.attachment || o.fileName;
+      if(d) pushPhoto(out, {key:'PO:'+o.id, group:'Porosi', title:o.id, sub:by('customers',o.customer).name||'', data:d, type:t, name:n, date:o.date, open:()=>orderCard(o.id)});
+      // shipments
+      const ships = (state.shipments||[]).filter(s=>{
+        const orders = typeof shipmentOrders==='function' ? shipmentOrders(s) : (s.orders||[s.order]);
+        return orders.includes(oid);
+      });
+      ships.forEach(sh=>{
+        if(sh.sealPhotoData) pushPhoto(out, {key:'SEAL:'+sh.id, group:'Plumbçe', title:sh.id+' — plumbçe', sub:sh.seal||'', data:sh.sealPhotoData, type:sh.sealPhotoType||'image/jpeg', name:sh.sealPhotoName||'plumbce.jpg', date:sh.date, open:()=>shipmentCard(sh.id)});
+        (state.documents||[]).filter(d=> d.shipment===sh.id && d.fileData).forEach(doc=>{
+          pushPhoto(out, {key:'DOC:'+doc.id, group:'Eksport: '+doc.type, title:doc.type, sub:doc.number||sh.id, data:doc.fileData, type:doc.fileType, name:doc.fileName, date:doc.date, open:()=>shipmentCard(sh.id)});
+        });
+      });
+    });
+    // If lot has no order but has shipment via other path? try direct lot -> shipment via? skip
+    // Also collect lot's own warehouse photo? not existing yet, but we can include lot label as placeholder? skip
+  }catch(e){ console.error('collectLotPhotos', e); }
+  // sort by date
+  out.sort((a,b)=> String(a.date||'').localeCompare(String(b.date||'')));
+  return out;
+};
+
+window.collectShipmentPhotos = function(sh){
+  if(!sh) return [];
+  let lotIds = new Set();
+  try{
+    const oids = typeof shipmentOrders==='function' ? shipmentOrders(sh) : (sh.orders||[sh.order]);
+    oids.forEach(oid=>{
+      packs().filter(pk=> pk.order===oid).forEach(pk=> (pk.sourceLots||[]).forEach(l=> lotIds.add(l)));
+      (state.orders||[]).find(o=>o.id===oid); // nothing
+    });
+    let out = [];
+    lotIds.forEach(lid=>{
+      const lot = by('lots', lid);
+      if(lot && lot.id) out.push(...collectLotPhotos(lot).filter(p=> p.key.startsWith('W:') || p.key.startsWith('SEAL:') || p.key.startsWith('DOC:')));
+    });
+    // also add shipment's own seal and docs
+    if(sh.sealPhotoData) out.unshift({key:'SEAL:'+sh.id, group:'Plumbçe', title:sh.id+' — plumbçe', sub:sh.seal||'', data:sh.sealPhotoData, type:sh.sealPhotoType, name:sh.sealPhotoName, date:sh.date, open:()=>shipmentCard(sh.id)});
+    (state.documents||[]).filter(d=> d.shipment===sh.id && d.fileData).forEach(doc=>{
+      out.push({key:'DOC:'+doc.id, group:'Eksport: '+doc.type, title:doc.type, sub:doc.number||sh.id, data:doc.fileData, type:doc.fileType, name:doc.fileName, date:doc.date, open:()=>shipmentCard(sh.id)});
+    });
+    // dedup
+    const seen=new Set(); return out.filter(p=>{ if(seen.has(p.key)) return false; seen.add(p.key); return true; });
+  }catch(e){ return []; }
+};
+
+window.collectOrderPhotos = function(order){
+  if(!order) return [];
+  let ships = (state.shipments||[]).filter(s=> {
+    const orders = typeof shipmentOrders==='function' ? shipmentOrders(s) : (s.orders||[s.order]);
+    return orders.includes(order.id);
+  });
+  let lots = [];
+  try{ lots = packs().filter(pk=> pk.order===order.id).flatMap(pk=> (pk.sourceLots||[]).map(id=>by('lots',id)).filter(Boolean)); }catch(e){}
+  let out=[];
+  if(order.attachmentData || order.fileData) out.push({key:'PO:'+order.id, group:'Porosi', title:order.id, sub:by('customers',order.customer).name||'', data:order.attachmentData||order.fileData, type:order.attachmentType||order.fileType, name:order.attachment||order.fileName, date:order.date, open:()=>orderCard(order.id)});
+  lots.forEach(lot=> out.push(...collectLotPhotos(lot)));
+  ships.forEach(sh=>{
+    if(sh.sealPhotoData) out.push({key:'SEAL:'+sh.id, group:'Plumbçe', title:sh.id, sub:sh.seal||'', data:sh.sealPhotoData, type:sh.sealPhotoType, name:sh.sealPhotoName, date:sh.date, open:()=>shipmentCard(sh.id)});
+    (state.documents||[]).filter(d=> d.shipment===sh.id && d.fileData).forEach(doc=>{
+      out.push({key:'DOC:'+doc.id, group:'Eksport: '+doc.type, title:doc.type, sub:doc.number||sh.id, data:doc.fileData, type:doc.fileType, name:doc.fileName, date:doc.date, open:()=>shipmentCard(sh.id)});
+    });
+  });
+  const seen=new Set(); return out.filter(p=>{ if(seen.has(p.key)) return false; seen.add(p.key); return true; });
+};
+
+window.collectAllPhotos = function(){
+  let out=[];
+  (state.weighings||[]).forEach(w=>{ if(w.attachmentData) out.push({key:'W:'+w.id, group:'Peshimi', title:w.id, sub:by('suppliers',w.supplier).name||'', data:w.attachmentData, type:w.attachmentType, name:w.attachment, date:w.date, open:()=>weightCard(w.id)}); });
+  (state.samples||[]).forEach(s=>{ let d=s.attachmentData||s.fileData; if(d) out.push({key:'S:'+s.id, group:'Mostra', title:s.id, sub:s.status, data:d, type:s.attachmentType||s.fileType, name:s.attachment||s.fileName, date:s.date, open:()=>sampleCard(s.id)}); });
+  (state.orders||[]).forEach(o=>{ let d=o.attachmentData||o.fileData; if(d) out.push({key:'PO:'+o.id, group:'Porosi', title:o.id, sub:by('customers',o.customer).name||'', data:d, type:o.attachmentType||o.fileType, name:o.attachment||o.fileName, date:o.date, open:()=>orderCard(o.id)}); });
+  (state.shipments||[]).forEach(sh=>{
+    if(sh.sealPhotoData) out.push({key:'SEAL:'+sh.id, group:'Plumbçe', title:sh.id, sub:sh.seal||'', data:sh.sealPhotoData, type:sh.sealPhotoType, name:sh.sealPhotoName, date:sh.date, open:()=>shipmentCard(sh.id)});
+    (state.documents||[]).filter(d=>d.shipment===sh.id && d.fileData).forEach(doc=> out.push({key:'DOC:'+doc.id, group:'Eksport: '+doc.type, title:doc.type, sub:doc.number||sh.id, data:doc.fileData, type:doc.fileType, name:doc.fileName, date:doc.date, open:()=>shipmentCard(sh.id)}));
+  });
+  try{ purchaseInvoices().forEach(f=>{ if(f.attachmentData) out.push({key:'FB:'+f.id, group:'Faturë blerje', title:f.id, sub:f.supplierInvoiceNo||'', data:f.attachmentData, type:f.attachmentType, name:f.attachment, date:f.invoiceDate||f.date, open:()=>purchaseCard(f.id)}); }); }catch(e){}
+  out.sort((a,b)=> String(b.date||'').localeCompare(String(a.date||'')));
+  return out;
+};
+
+/* ---------- Gallery HTML ---------- */
+window.photoCardHtml = function(p, idx){
+  const isImg = isImageType(p.type);
+  const isPdf = isPdfType(p.type);
+  const thumb = isImg
+    ? `<img src="${p.data}" alt="${esc(p.name||p.title)}" loading="lazy">`
+    : `<div class="pdf-icon">${isPdf ? '📄' : '🖼'}</div>`;
+  const badgeClass = isImg ? '' : (isPdf ? 'pdf' : '');
+  const safeData = p.data.replace(/"/g, '&quot;');
+  return `<div class="photo-card" onclick="openPhotoLightbox('${safeData}', '${esc(p.type||'')}', '${esc(p.name||p.title)}')" title="${esc(p.title)} — ${esc(p.sub||'')}">
+    <div class="photo-thumb">${thumb}<span class="photo-badge ${badgeClass}">${esc(p.group)}</span></div>
+    <div class="photo-info"><b>${esc(p.title)}</b><small>${esc(p.sub||p.name||'')}</small><small style="color:#176b49">${esc(p.date||'')}</small></div>
+  </div>`;
+};
+
+window.photoGalleryHtml = function(photos, opts){
+  opts = opts||{};
+  const title = opts.title || 'Fotot e rrjedhës';
+  const emptyText = opts.emptyText || 'Nuk ka foto të ngarkuara për këtë rrjedhë';
+  if(!photos || !photos.length){
+    return `<div class="card"><h3>${esc(title)}</h3><div class="photo-empty">${emptyText}<br><small class="hint">Fotot e peshimit, mostrës, porosisë, plumbçes dhe dokumenteve të eksportit shfaqen këtu automatikisht kur ngarkohen.</small></div></div>`;
+  }
+  // filter buttons
+  const groups = [...new Set(photos.map(p=>p.group))];
+  const filterHtml = groups.length>1 ? `<div class="photo-filter">${['Të gjitha', ...groups].map((g,i)=>`<button class="${i===0?'active':''}" onclick="filterPhotoGallery(this, '${esc(g)}')">${esc(g)}</button>`).join('')}<span class="photo-count">${photos.length} foto/dokumente</span></div>` : `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>${esc(title)}</b><span class="pill green">${photos.length} skedarë</span></div>`;
+  const grid = `<div class="photo-grid" data-photo-grid>${photos.map((p,i)=> photoCardHtml(p,i)).join('')}</div>`;
+  return `<div class="card" id="photoGalleryCard"><h3>${esc(title)}</h3>${filterHtml}${grid}</div>`;
+};
+
+window.filterPhotoGallery = function(btn, group){
+  const card = btn.closest('#photoGalleryCard') || btn.closest('.card');
+  if(!card) return;
+  card.querySelectorAll('.photo-filter button').forEach(b=> b.classList.remove('active'));
+  btn.classList.add('active');
+  const grid = card.querySelector('[data-photo-grid]');
+  if(!grid) return;
+  const photos = window._lastGalleryPhotos || [];
+  // we need to store photos per gallery; fallback: just filter DOM by badge text
+  const cards = grid.querySelectorAll('.photo-card');
+  cards.forEach(c=>{
+    const badge = c.querySelector('.photo-badge')?.textContent?.trim()||'';
+    c.style.display = (group==='Të gjitha' || badge===group) ? '' : 'none';
+  });
+};
+
+/* ---------- Enhance lotCard ---------- */
+const _origLotCardForPhotos = window.lotCard;
+window.lotCard = function(id){
+  _origLotCardForPhotos(id);
+  try{
+    const lot = by('lots', id);
+    if(!lot || !lot.id) return;
+    const photos = collectLotPhotos(lot);
+    window._lastGalleryPhotos = photos;
+    const gallery = photoGalleryHtml(photos, {title:'📸 Fotot e lotit — ndiq fotot', emptyText:'Ky lot nuk ka ende foto. Ngarkoni kuponin e peshimit ose dokumente të lidhura.'});
+    const body = document.getElementById('modalBody');
+    if(body){
+      // add gallery after the trace section
+      // find the last card and append
+      body.insertAdjacentHTML('beforeend', gallery + `<div class="actions" style="margin-top:6px"><button class="btn small" onclick="lotCard('${id}')">🔄 Rifresko galerinë</button> <button class="btn small" onclick="go('trace'); closeModal(); setTimeout(()=>{const q=document.getElementById('traceQ'); if(q){q.value='${esc(lot.code)}'; traceSearchV2();}},200)">⌘ Shko te Gjurmueshmëria</button></div>`);
+      // quick upload buttons for missing groups
+      if(!photos.some(p=>p.group==='Peshimi')){
+        const w = state.weighings.find(x=> x.id===lot.weighing);
+        if(w) body.insertAdjacentHTML('beforeend', `<div class="card" style="border:1px dashed #d28b13;background:#fff8e8"><b>⚠ Kuponi i peshimit mungon</b> <button class="btn small" style="margin-left:8px" onclick="weightCard('${w.id}')">Ngarko te peshimi ${w.id}</button></div>`);
+      }
+    }
+  }catch(e){ console.error('lotCard photos', e); }
+};
+
+/* ---------- Enhance shipmentCard ---------- */
+const _origShipmentCardForPhotos = window.shipmentCard;
+window.shipmentCard = function(id){
+  _origShipmentCardForPhotos(id);
+  try{
+    const sh = by('shipments', id);
+    if(!sh || !sh.id) return;
+    const photos = collectShipmentPhotos(sh).length ? collectShipmentPhotos(sh) : (()=>{
+      let out=[];
+      if(sh.sealPhotoData) out.push({key:'SEAL:'+sh.id, group:'Plumbçe', title:sh.id, sub:sh.seal||'', data:sh.sealPhotoData, type:sh.sealPhotoType, name:sh.sealPhotoName, date:sh.date});
+      (state.documents||[]).filter(d=>d.shipment===sh.id && d.fileData).forEach(doc=> out.push({key:'DOC:'+doc.id, group:doc.type, title:doc.type, sub:doc.number||'', data:doc.fileData, type:doc.fileType, name:doc.fileName, date:doc.date}));
+      return out;
+    })();
+    window._lastGalleryPhotos = photos;
+    const body = document.getElementById('modalBody');
+    if(body){
+      const g = photoGalleryHtml(photos, {title:'📸 Fotot e ngarkesës', emptyText:'Nuk ka foto plumbçe apo dokumente të ngarkuara'});
+      body.insertAdjacentHTML('beforeend', g);
+      if(!sh.sealPhotoData){
+        body.insertAdjacentHTML('beforeend', `<div class="card" style="border:1px dashed #d28b13;background:#fff8e8"><b>⚠ Foto e plumbçes mungon</b> — kërkohet për statusin "Vulosur". <button class="btn small" onclick="editShipmentSealPhoto('${sh.id}')">Ngarko foto</button></div>`);
+      }
+    }
+  }catch(e){ console.error('shipmentCard photos', e); }
+};
+
+window.editShipmentSealPhoto = function(id){
+  modal('Ngarko foto plumbçe — '+id, `<div class="field full"><label>Foto e plumbçes</label><input id="editSealPhoto" type="file" accept="image/*"></div>`, `<button class="btn" onclick="shipmentCard('${id}')">Anulo</button><button class="btn primary" onclick="saveShipmentSealPhoto('${id}')">Ruaj</button>`);
+};
+window.saveShipmentSealPhoto = function(id){
+  try{
+    const sh = by('shipments', id); if(!sh) return;
+    const f=$file('editSealPhoto'); if(!f) return toast('Zgjidhni foton');
+    readAsData(f, data=>{
+      Object.assign(sh, {sealPhotoData:data, sealPhotoType:f.type, sealPhotoName:f.name});
+      save(); closeModal(); shipmentCard(id); toast('Foto u ruajt');
+    });
+  }catch(e){ toast('Gabim: '+e.message); }
+};
+
+/* ---------- Enhance orderCard ---------- */
+const _origOrderCardForPhotos = window.orderCard;
+window.orderCard = function(id){
+  _origOrderCardForPhotos(id);
+  try{
+    const o = by('orders', id);
+    if(!o) return;
+    const photos = collectOrderPhotos(o);
+    window._lastGalleryPhotos = photos;
+    const body = document.getElementById('modalBody');
+    if(body && photos.length){
+      body.insertAdjacentHTML('beforeend', photoGalleryHtml(photos, {title:'📸 Fotot e porosisë', emptyText:'Pa foto'}));
+    } else if(body && (o.attachmentData || o.fileData)){
+      // fallback single
+      const d = o.attachmentData||o.fileData, t=o.attachmentType||o.fileType, n=o.attachment||o.fileName;
+      body.insertAdjacentHTML('beforeend', `<div class="card"><h3>📸 Foto e porosisë</h3><div class="photo-grid">${photoCardHtml({group:'Porosi', title:o.id, sub:by('customers',o.customer).name||'', data:d, type:t, name:n, date:o.date},0)}</div><button class="btn small" onclick="updateOrderPhoto('${o.id}')" style="margin-top:8px">Zëvendëso</button></div>`);
+    } else if(body){
+      body.insertAdjacentHTML('beforeend', `<div class="card"><h3>📸 Foto e porosisë</h3><div class="photo-empty">Nuk ka foto/dokument të porosisë<br><button class="btn small" style="margin-top:8px" onclick="updateOrderPhoto('${o.id}')">Ngarko foto</button></div></div>`);
+    }
+  }catch(e){ console.error('orderCard photos', e); }
+};
+
+/* ---------- Enhance trace ---------- */
+const _origTraceSearchV2 = window.traceSearchV2;
+window.traceSearchV2 = function(){
+  _origTraceSearchV2();
+  try{
+    const tr = document.getElementById('traceResult');
+    if(!tr) return;
+    const q = ($val('traceQ')||'').trim().toLowerCase();
+    let lot = state.lots.find(x=> ((x.code||'').toLowerCase()).includes(q) || x.id.toLowerCase()===q );
+    const w = state.weighings.find(x=> x.id.toLowerCase()===q);
+    if(w && !lot) lot = state.lots.find(x=> x.weighing===w.id);
+    if(!lot) return;
+    const photos = collectLotPhotos(lot);
+    window._lastGalleryPhotos = photos;
+    const gallery = photoGalleryHtml(photos, {title:'📸 Ndiq fotot — galeria e lotit '+esc(lot.code), emptyText:'Ky lot nuk ka foto. Fotot shfaqen këtu sapo ngarkohen në peshim, mostër, porosi, plumbçe ose dokumente eksporti.'});
+    tr.insertAdjacentHTML('beforeend', gallery);
+    // also add quick open buttons
+    if(photos.length){
+      const bar = document.createElement('div');
+      bar.className='actions';
+      bar.style.marginTop='10px';
+      bar.innerHTML = `<button class="btn small primary" onclick="openAllTracePhotos()">🖼 Shiko të gjitha (${photos.length})</button> <button class="btn small" onclick="downloadTracePhotos('${lot.id}')">⬇ Shkarko të gjitha</button>`;
+      tr.appendChild(bar);
+    }
+  }catch(e){ console.error('trace photos', e); }
+};
+
+window.openAllTracePhotos = function(){
+  const photos = window._lastGalleryPhotos||[];
+  if(!photos.length) return toast('Nuk ka foto');
+  // open first in lightbox, and add navigation arrows
+  let idx=0;
+  function show(i){
+    idx = (i+photos.length)%photos.length;
+    const p = photos[idx];
+    openPhotoLightbox(p.data, p.type, p.name||p.title);
+    // add nav
+    setTimeout(()=>{
+      const body = document.getElementById('lbBody');
+      if(!body) return;
+      let nav = document.getElementById('photoNav');
+      if(nav) nav.remove();
+      nav = document.createElement('div');
+      nav.id='photoNav';
+      nav.style.cssText='position:absolute;top:50%;left:0;right:0;display:flex;justify-content:space-between;padding:0 10px;pointer-events:none';
+      nav.innerHTML = `<button class="btn" style="pointer-events:auto" onclick="window._tracePhotoNav(-1)">‹</button><button class="btn" style="pointer-events:auto" onclick="window._tracePhotoNav(1)">›</button>`;
+      body.style.position='relative';
+      body.appendChild(nav);
+    }, 100);
+  }
+  window._tracePhotoNav = (d)=> show(idx+d);
+  show(0);
+};
+
+window.downloadTracePhotos = function(lotId){
+  const lot = by('lots', lotId);
+  const photos = collectLotPhotos(lot);
+  if(!photos.length) return toast('Nuk ka foto');
+  photos.forEach((p,i)=>{
+    setTimeout(()=>{
+      const a=document.createElement('a');
+      a.href=p.data; a.download=p.name|| (p.title + '-' + (i+1));
+      a.click();
+    }, i*300);
+  });
+  toast('Shkarkimi i '+photos.length+' fotove filloi');
+};
+
+/* ---------- Enhance trace view to show all photos gallery ---------- */
+const _origViewsTrace = views.trace;
+views.trace = function(){
+  const base = _origViewsTrace();
+  // add global gallery shortcut below
+  const all = collectAllPhotos();
+  const preview = all.slice(0,8);
+  const previewHtml = preview.length
+    ? `<div class="card"><h3>🖼 Fotot e fundit — ${all.length} skedarë në sistem</h3><div class="photo-grid">${preview.map((p,i)=> photoCardHtml(p,i)).join('')}</div><div class="actions" style="margin-top:10px"><button class="btn" onclick="go('photos')">Shiko të gjitha fotot →</button></div></div>`
+    : `<div class="card"><h3>🖼 Galeria e fotove</h3><div class="photo-empty">Nuk ka foto të ngarkuara ende.<br><small>Fotot e peshimit, mostrës, porosisë, plumbçes dhe dokumenteve shfaqen këtu.</small></div></div>`;
+  return base + previewHtml;
+};
+
+/* ---------- New module: Fotot ---------- */
+if(!modules.some(m=> m[0]==='photos')){
+  const idx = modules.findIndex(m=> m[0]==='trace');
+  const pos = idx>=0 ? idx+1 : modules.length-1;
+  modules.splice(pos, 0, ['photos','🖼','Fotot']);
+  try{ renderNav(); }catch(e){}
+}
+views.photos = function(){
+  const all = collectAllPhotos();
+  const groups = [...new Set(all.map(p=>p.group))];
+  const activeFilter = window._photosFilter || 'Të gjitha';
+  const filtered = activeFilter==='Të gjitha' ? all : all.filter(p=> p.group===activeFilter);
+  window._lastGalleryPhotos = filtered;
+  const filterBtns = ['Të gjitha', ...groups].map(g=> `<button class="${g===activeFilter?'active':''}" onclick="window._photosFilter='${g.replace(/'/g,"\\'")}'; render()">${esc(g)}</button>`).join('');
+  return head('Fotot','Galeria e plotë — ndiq fotot nga peshimi te eksporti', `<button class="btn" onclick="go('trace')">⌘ Gjurmueshmëria</button> <span class="pill green">${all.length} skedarë</span>`)
+    + `<div class="card"><div class="toolbar"><input placeholder="Kërko foto me titull, grup ose lot..." oninput="filterPhotosList(this.value)"><div class="photo-filter" id="photosFilterBar">${filterBtns}</div></div>`
+    + (filtered.length ? `<div class="photo-grid" id="allPhotosGrid">${filtered.map((p,i)=> photoCardHtml(p,i)).join('')}</div>` : `<div class="photo-empty">Nuk ka foto për filtrin "${esc(activeFilter)}"</div>`)
+    + `</div>`
+    + `<div class="card"><h3>Si funksionon "Ndiq fotot"</h3><p class="hint">Çdo foto e ngarkuar lidhet automatikisht me lotin dhe rrjedhën dokumentare:</p><ul style="line-height:1.7"><li><b>Peshimi:</b> kuponi elektronik i peshores — shfaqet te loti dhe te gjurmueshmëria</li><li><b>Mostra:</b> analiza / CoA — shihet te loti burimor</li><li><b>Porosia:</b> dokumenti i klientit (PO)</li><li><b>Plumbçe & Dokumente eksporti:</b> foto e plumbçes + Invoice, Packing List, CMR etj. — ndiqen deri te ngarkesa</li></ul><p><b>Këshillë:</b> kërkoni lotin te <a class="link" onclick="go('trace')">Gjurmueshmëria</a> dhe hapni <b>📸 Ndiq fotot</b> për të parë gjithë galerinë e lidhur.</p></div>`;
+};
+window.filterPhotosList = function(q){
+  q=(q||'').toLowerCase();
+  const grid=document.getElementById('allPhotosGrid');
+  if(!grid) return;
+  grid.querySelectorAll('.photo-card').forEach(card=>{
+    const txt = card.textContent.toLowerCase();
+    card.style.display = txt.includes(q) ? '' : 'none';
+  });
+};
+
+/* ---------- Normalize existing data on load ---------- */
+try{
+  ensureSampleOrderPhotoFields();
+  // Ensure weighings have attachmentType field if missing
+  (state.weighings||[]).forEach(w=>{ if(w.attachmentData && !w.attachmentType) w.attachmentType = w.attachmentType||'image/jpeg'; });
+}catch(e){}
+
+console.log('BioBes Photos Gallery v1 loaded — ndiq fotot aktiv');
+
+})();
+
+</script>
 </body></html>
