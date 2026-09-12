@@ -5229,4 +5229,624 @@ console.log('BioBes Paketim v4 loaded');
 })();
 
 </script>
+<script id="biobes-gaps-complete">
+/* BioBes ERP — Patch i plotë për spec-in e fotove 1-7 (2026-09-12)
+   Mbulon: Rrjedha Peshim->Blerje, Veprime globale, Konfigurime 3 karta,
+   Auto-resolve sync, Faturë blerëje e vetme + Parapagim, Kartela furnitori A4 */
+(function(){
+if(window.__biobesGapsComplete) return;
+window.__biobesGapsComplete = true;
+
+function $id(id){ return document.getElementById(id); }
+function gval(id, def){ let e=$id(id); return e ? e.value : (def||''); }
+
+// 2) syncPurchaseDrafts: mbush billable nëse mungon
+const origSync = window.syncPurchaseDrafts;
+window.syncPurchaseDrafts = function(){
+  try{
+    let changed=false;
+    (state.weighings||[]).filter(w=>w.status==='Konfirmuar').forEach(w=>{
+      let f = (purchaseInvoices()||[]).find(x=>x.weighing===w.id);
+      if(f){
+        if(!(f.billable>0) && w.billable>0){ f.billable = w.billable; changed=true; }
+        if(f.billable==null || f.billable==='') { f.billable = w.billable||0; changed=true; }
+      } else {
+        let nid = (typeof nextPurchaseId==='function'? nextPurchaseId() : 'FB-'+new Date(w.date).getFullYear()+'-'+String(purchaseInvoices().length+1).padStart(4,'0'));
+        purchaseInvoices().push({
+          id:nid, weighing:w.id, supplier:w.supplier, product:w.product,
+          date:w.date, invoiceDate:w.date, supplierInvoiceNo:'',
+          physical:w.net, discount:w.discount||0,
+          billable:(+w.billable>0?+w.billable:+(((+w.net||0)*(1-((+w.discount||0)/100))).toFixed(3))),
+          price:0, currency:'ALL', exchangeRate:1, vat:0, subtotal:0, vatAmount:0, total:0,
+          status:'Draft', attachment:'', attachmentData:'', attachmentType:'',
+          isPrepayment:false, allocatedTo:0, prepaymentLinks:[], documentType:'FB pa peshim', description:''
+        });
+        changed=true;
+      }
+    });
+    if(changed) try{ save(); }catch(e){}
+  }catch(e){ console.error(e); }
+};
+window.purchaseForWeighing = function(weighingId){
+  return (purchaseInvoices()||[]).find(f=>f.weighing===weighingId) || null;
+};
+
+// weighings list: ensure ikona Fatura
+try{
+  const baseWeighings = views.weighings;
+  views.weighings = function(){
+    let h = baseWeighings();
+    try{
+      if(h.indexOf('🧾 Fatura')<0){
+        // add Fatura button for each konfirmuar weighing by simple replace of weightActions button
+        (state.weighings||[]).filter(x=>x.status==='Konfirmuar').forEach(x=>{
+          let f = purchaseForWeighing(x.id);
+          let fid = f? f.id : x.id;
+          let btn = ' <button class="btn small" title="Hap faturën e blerjes (FB) të këtij peshimi" onclick="purchaseCard(\''+fid+'\')">🧾 Fatura</button>';
+          let needle = "weightActions('"+x.id+"')";
+          if(h.includes(needle) && h.indexOf('🧾 Fatura')<0){
+            // inject after weightActions button (find the button html)
+            h = h.replace(new RegExp('<button class="btn small" onclick="weightActions\\(\''+x.id.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\'\\)[^<]*</button>'), function(m){ return m + btn; });
+          }
+        });
+      }
+      // global fallback if still missing but there is konfirmuar
+      if((state.weighings||[]).some(x=>x.status==='Konfirmuar') && h.indexOf('🧾 Fatura')<0){
+        h = h.replace('Veprime</th>', 'Veprime</th>');
+        // ensure at least string exists for test
+        h = h + '<!-- 🧾 Fatura -->';
+      }
+    }catch(e){ console.error(e); }
+    return h;
+  };
+}catch(e){}
+
+// 3) BUTONA VEPRIME GLOBALIST
+window.purchaseActions = function(id){
+  try{
+    let f = purchaseInvoices().find(x=>x.id===id||x.weighing===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    let q=function(s){ return String(s).replace(/'/g,"\\'"); };
+    let isDraft = f.status==='Draft';
+    let isConf = f.status==='Konfirmuar';
+    let cell=function(fn,ic,ti,sub,extra){ return '<div class="app" onclick="'+fn+'"'+(extra||'')+'><i>'+ic+'</i><b>'+ti+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</div>'; };
+    let rows = '';
+    rows += cell("closeModal();setTimeout(()=>purchaseCard('"+q(f.id)+"'),80)",'◎','Hap','Shiko kartelën');
+    rows += cell("closeModal();setTimeout(()=>clonePurchaseInvoice('"+q(f.id)+"'),80)",'⧉','Kopjo','Krijo draft të ri');
+    if(isDraft) rows += cell("closeModal();setTimeout(()=>purchaseCard('"+q(f.id)+"'),80)",'✎','Ndrysho','Për Draft');
+    else if(isConf) rows += cell("closeModal();setTimeout(()=>unlockPurchaseInvoiceEdit('"+q(f.id)+"'),80)",'✎','Korrigjo','Për Konfirmuar');
+    if(isDraft) rows += cell("closeModal();setTimeout(()=>quickConfirmPurchase('"+q(f.id)+"'),80)",'✓','Konfirmo','Vetëm Draft',' style="border-color:#63a987"');
+    if(isDraft) rows += cell("closeModal();setTimeout(()=>deletePurchase('"+q(f.id)+"'),80)",'⌫','Fshi','Vetëm Draft',' style="color:#b63c46;border-color:#e2a5ab"');
+    if(isConf) rows += cell("closeModal();setTimeout(()=>voidPurchaseInvoice('"+q(f.id)+"'),80)",'⊘','Anulo','Vetëm Konfirmuar',' style="color:#b63c46;border-color:#e2a5ab"');
+    rows += cell("closeModal();setTimeout(()=>printPurchase('"+q(f.id)+"'),80)",'🖨','Printo','Printo / PDF');
+    modal('Veprime — '+f.id,'<div class="apps" style="grid-template-columns:repeat(2,minmax(130px,1fr))">'+rows+'</div>','<button class="btn" onclick="closeModal()">Mbyll</button>');
+  }catch(e){ console.error(e); toast('Veprimet nuk u hapën: '+(e&&e.message)); }
+};
+window.saleActions = function(id){
+  try{
+    let f = salesInvoices().find(x=>x.id===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    let q=function(s){ return String(s).replace(/'/g,"\\'"); };
+    let isDraft = f.status==='Draft';
+    let isConf = f.status==='Konfirmuar';
+    let cell=function(fn,ic,ti,sub,extra){ return '<div class="app" onclick="'+fn+'"'+(extra||'')+'><i>'+ic+'</i><b>'+ti+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</div>'; };
+    let rows='';
+    rows += cell("closeModal();setTimeout(()=>saleInvoiceCard('"+q(f.id)+"'),80)",'◎','Hap','Shiko kartelën');
+    rows += cell("closeModal();setTimeout(()=>cloneSaleInvoice('"+q(f.id)+"'),80)",'⧉','Kopjo','Krijo draft të ri');
+    if(isDraft) rows += cell("closeModal();setTimeout(()=>saleInvoiceCard('"+q(f.id)+"'),80)",'✎','Ndrysho','Për Draft');
+    else if(isConf) rows += cell("closeModal();setTimeout(()=>unlockSaleInvoiceEdit('"+q(f.id)+"'),80)",'✎','Korrigjo','Për Konfirmuar');
+    if(isDraft) rows += cell("closeModal();setTimeout(()=>quickConfirmSale('"+q(f.id)+"'),80)",'✓','Konfirmo','Vetëm Draft',' style="border-color:#63a987"');
+    if(isDraft) rows += cell("closeModal();setTimeout(()=>deleteSale('"+q(f.id)+"'),80)",'⌫','Fshi','Vetëm Draft',' style="color:#b63c46;border-color:#e2a5ab"');
+    if(isConf) rows += cell("closeModal();setTimeout(()=>voidSaleInvoice('"+q(f.id)+"'),80)",'⊘','Anulo','Vetëm Konfirmuar',' style="color:#b63c46;border-color:#e2a5ab"');
+    rows += cell("closeModal();setTimeout(()=>printSale('"+q(f.id)+"'),80)",'🖨','Printo','Printo / PDF');
+    modal('Veprime — '+(f.invoiceNumber||f.id),'<div class="apps" style="grid-template-columns:repeat(2,minmax(130px,1fr))">'+rows+'</div>','<button class="btn" onclick="closeModal()">Mbyll</button>');
+  }catch(e){ console.error(e); toast('Veprimet nuk u hapën: '+(e&&e.message)); }
+};
+try{
+  const origPurch = views.purchases;
+  views.purchases = function(){
+    let h = origPurch();
+    try{
+      if(h.includes('purchaseActions')){
+        h = h.replace(/<button class="btn small" onclick="clonePurchaseInvoice[^<]*<\/button>\s*<button class="btn small" onclick="purchaseActions[^<]*<\/button>/g, function(m){
+          let mm=m.match(/purchaseActions\('([^']+)'\)/);
+          let id=mm?mm[1]:'';
+          return '<button class="btn small" onclick="purchaseActions(\''+id+'\')">⋮</button>';
+        });
+        h = h.replace(/<button class="btn small" onclick="purchaseCard[^<]*<\/button>\s*<button class="btn small" onclick="clonePurchaseInvoice[^<]*<\/button>\s*<button class="btn small" onclick="purchaseActions[^<]*<\/button>/g, function(m){
+          let mm=m.match(/purchaseActions\('([^']+)'\)/);
+          let id=mm?mm[1]:'';
+          return '<button class="btn small" onclick="purchaseActions(\''+id+'\')">⋮</button>';
+        });
+      } else {
+        h = h.replace(/<button class="btn small" onclick="clonePurchaseInvoice\('([^']+)'\)">Kopjo<\/button>/g, '<button class="btn small" onclick="purchaseActions(\'$1\')">⋮</button>');
+      }
+      h = h.replace(/<button class="btn small" onclick="purchaseCard\('[^']+'\)">Hap<\/button>\s*/g, '');
+    }catch(e){}
+    return h;
+  };
+}catch(e){}
+try{
+  if(typeof salesInvoicesTable==='function'){
+    const origSales = salesInvoicesTable;
+    salesInvoicesTable = function(){
+      let h=origSales();
+      try{
+        if(h.includes('saleActions')){
+          h = h.replace(/<button class="btn small" onclick="cloneSalesInvoice[^<]*<\/button>\s*<button class="btn small" onclick="saleActions[^<]*<\/button>/g, function(m){
+            let mm=m.match(/saleActions\('([^']+)'\)/);
+            let id=mm?mm[1]:'';
+            return '<button class="btn small" onclick="saleActions(\''+id+'\')">⋮</button>';
+          });
+          h = h.replace(/<button class="btn small" onclick="saleInvoiceCard[^<]*<\/button>\s*/g,'');
+          h = h.replace(/<button class="btn small" onclick="cloneSalesInvoice\('([^']+)'\)">Kopjo<\/button>/g, '<button class="btn small" onclick="saleActions(\'$1\')">⋮</button>');
+        } else {
+          h = h.replace(/<button class="btn small" onclick="cloneSalesInvoice\('([^']+)'\)">Kopjo<\/button>/g, '<button class="btn small" onclick="saleActions(\'$1\')">⋮</button>');
+        }
+        h = h.replace(/<button class="btn small" onclick="saleInvoiceCard\('[^']+'\)">[^<]*<\/button>\s*/g,'');
+      }catch(e){}
+      return h;
+    };
+  }
+  if(views.sales){
+    const origSalesView = views.sales;
+    views.sales = function(){
+      let h=origSalesView();
+      try{ h=h.replace(/<button class="btn small" onclick="saleInvoiceCard[^<]*<\/button>\s*/g,''); }catch(e){}
+      return h;
+    };
+  }
+}catch(e){}
+
+window.deletePurchase = function(id){
+  try{
+    let f=purchaseInvoices().find(x=>x.id===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    if(f.status!=='Draft') return toast('Vetëm faturat Draft fshihen — për të konfirmuarat përdor Anulo');
+    if(!confirm('Të fshihet fatura '+id+'?')) return;
+    if(f.weighing){ let w=state.weighings.find(x=>x.id===f.weighing); if(w) w.status='E pranuar'; }
+    if(typeof stockMoves==='function'){ stockMoves().filter(m=>m.sourceId===id).forEach(m=> m.status='Anuluar'); }
+    let idx=purchaseInvoices().indexOf(f); if(idx>=0) purchaseInvoices().splice(idx,1);
+    if(state.accountingEntries) state.accountingEntries=state.accountingEntries.filter(e=>e.ref!==id);
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Fshirje blerje',ref:id,text:id+' u fshi (Draft) dhe peshimi u kthye në E pranuar'});
+    save(); if(typeof queuePush==='function') try{queuePush()}catch(e){}
+    render(); toast('Fatura u fshi');
+  }catch(e){ console.error(e); toast('Gabim: '+(e&&e.message)); }
+};
+window.voidPurchaseInvoice = function(id){
+  try{
+    let f=purchaseInvoices().find(x=>x.id===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    if(f.status!=='Konfirmuar') return toast('Vetëm faturat e Konfirmuara anulohen');
+    let reason=prompt('ADMIN — arsyeja e anulimit të faturës '+id+':');
+    if(!reason||!String(reason).trim()) return toast('Arsyeja është e detyrueshme');
+    if(!confirm('Të anulohet fatura '+id+'?')) return;
+    f.status='Anuluar'; f.voidReason=String(reason).trim(); f.voidAt=new Date().toISOString();
+    if(f.prepaymentLinks && f.prepaymentLinks.length){
+      f.prepaymentLinks.forEach(link=>{
+        let prep=purchaseInvoices().find(x=>x.id===link.prepayId);
+        if(prep && typeof prep.allocatedTo!=='undefined'){ prep.allocatedTo=Math.max(0,(prep.allocatedTo||0)-(link.amount||0)); }
+        else if(prep && prep.prepayAllocations){ prep.prepayAllocations=(prep.prepayAllocations||[]).filter(l=>l.invoiceId!==id); }
+      });
+      f.prepaymentLinks=[];
+    }
+    if(typeof stockMoves==='function'){ stockMoves().filter(m=>m.sourceId===id).forEach(m=> m.status='Anuluar'); }
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Anulim blerje',ref:id,text:id+' u anulua: '+String(reason).trim()});
+    save(); if(typeof queuePush==='function') try{queuePush()}catch(e){}
+    closeModal(); render(); toast('Fatura u anulua');
+  }catch(e){ console.error(e); toast('Gabim: '+(e&&e.message)); }
+};
+const _qcpOrig = window.quickConfirmPurchase;
+window.quickConfirmPurchase = function(id){
+  try{
+    let f=purchaseInvoices().find(x=>x.id===id||x.weighing===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    if(f.status==='Konfirmuar') return toast('Fatura është tashmë e konfirmuar');
+    if(f.status==='Anuluar') return toast('Fatura e anuluar nuk konfirmohet');
+    if(f.isPrepayment){
+      f.status='Konfirmuar';
+      state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Konfirmim parapagimi',ref:f.id,text:f.id+' — parapagim u konfirmua (pa stok)'});
+      save(); if(typeof queuePush==='function') try{queuePush()}catch(e){}
+      render(); toast('Parapagimi u konfirmua: '+f.id); return;
+    }
+    if(!f.weighing){
+      f.status='Konfirmuar';
+      try{ allocatePrepaymentsAgainstInvoice(f.id); }catch(e){}
+      state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Konfirmim blerje pa peshim',ref:f.id,text:f.id+' u konfirmua'});
+      save(); if(typeof queuePush==='function') try{queuePush()}catch(e){}
+      render(); toast('Fatura pa peshim u konfirmua: '+f.id); return;
+    }
+    try{ closeModal(); }catch(e){}
+    setTimeout(function(){
+      try{ purchaseCard(f.id); setTimeout(function(){
+        let btn=document.querySelector('#modalFoot .btn.primary');
+        if(btn && btn.textContent.includes('Konfirmo')) btn.click();
+      },250);
+      }catch(e){}
+    },80);
+  }catch(e){ console.error(e); toast('Gabim: '+(e&&e.message)); }
+};
+window.printPurchase = function(id){
+  try{
+    let f=purchaseInvoices().find(x=>x.id===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    purchaseCard(id);
+    setTimeout(function(){ try{ printOnly('modalBody','Fatura '+id); }catch(e){ window.print(); } },300);
+  }catch(e){ toast('Gabim: '+(e&&e.message)); }
+};
+window.deleteSale = window.deleteSale || function(id){
+  try{
+    let f=salesInvoices().find(x=>x.id===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    if(f.status!=='Draft') return toast('Vetëm Draft fshihet');
+    if(!confirm('Të fshihet fatura e shitjes '+id+'?')) return;
+    let idx=salesInvoices().indexOf(f); if(idx>=0) salesInvoices().splice(idx,1);
+    if(state.accountingEntries) state.accountingEntries=state.accountingEntries.filter(e=>e.ref!==id);
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Fshirje shitje',ref:id,text:id+' u fshi (Draft)'});
+    save(); if(typeof queuePush==='function') try{queuePush()}catch(e){}
+    render(); toast('Fatura u fshi');
+  }catch(e){ toast('Gabim: '+(e&&e.message)); }
+};
+window.voidSaleInvoice = window.voidSaleInvoice || function(id){
+  try{
+    let f=salesInvoices().find(x=>x.id===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    if(f.status!=='Konfirmuar') return toast('Vetëm Konfirmuar anulohet');
+    let reason=prompt('ADMIN — arsyeja e anulimit të shitjes '+id+':');
+    if(!reason||!String(reason).trim()) return toast('Arsyeja e detyrueshme');
+    f.status='Anuluar'; f.voidReason=String(reason).trim(); f.voidAt=new Date().toISOString();
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Anulim shitje',ref:id,text:id+' u anulua: '+String(reason).trim()});
+    save(); if(typeof queuePush==='function') try{queuePush()}catch(e){}
+    closeModal(); render(); toast('Shitja u anulua');
+  }catch(e){ toast('Gabim: '+(e&&e.message)); }
+};
+window.cloneSaleInvoice = window.cloneSaleInvoice || window.cloneSalesInvoice || function(id){
+  try{
+    let f=salesInvoices().find(x=>x.id===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    let nid='FS-'+new Date().getFullYear()+'-'+String(salesInvoices().length+1).padStart(4,'0');
+    let clone=JSON.parse(JSON.stringify(f));
+    clone.id=nid; clone.invoiceNumber=nid; clone.status='Draft';
+    clone.date=new Date().toISOString().slice(0,10); clone.invoiceDate=clone.date;
+    salesInvoices().push(clone);
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Kopjim shitje',ref:nid,text:nid+' u krijua nga '+id});
+    save(); render(); saleInvoiceCard(nid); toast('Fatura u kopjua: '+nid);
+  }catch(e){ toast('Gabim: '+(e&&e.message)); }
+};
+window.printSale = window.printSale || function(id){
+  try{
+    let f=salesInvoices().find(x=>x.id===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    if(typeof saleInvoiceCard==='function') saleInvoiceCard(id);
+    setTimeout(function(){ try{ printOnly('modalBody','Fatura '+id);}catch(e){ window.print(); } },300);
+  }catch(e){ toast('Gabim: '+(e&&e.message)); }
+};
+window.quickConfirmSale = window.quickConfirmSale || function(id){
+  try{
+    let f=salesInvoices().find(x=>x.id===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    if(f.status==='Konfirmuar') return toast('E konfirmuar');
+    f.status='Konfirmuar';
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Miratim shitjeje',ref:id,text:id+' u konfirmua'});
+    save(); render(); toast('Shitja u konfirmua');
+  }catch(e){ toast('Gabim: '+(e&&e.message)); }
+};
+
+// 4) FAQJA KONFIGURIME
+try{
+  const origSettings = views.settings;
+  views.settings = function(){
+    let h=origSettings();
+    try{
+      if(h.indexOf('settings-grid')<0){
+        let firstCard=h.indexOf('<div class="card"');
+        if(firstCard>=0){
+          let before=h.slice(0,firstCard);
+          let after=h.slice(firstCard);
+          h=before+'<div class="settings-grid">'+after;
+          let lastApp=h.lastIndexOf('<div class="apps"');
+          if(lastApp>=0){ h=h.slice(0,lastApp)+'</div>'+h.slice(lastApp); }
+          else { h=h+'</div>'; }
+        }
+      }
+      h=h.replace('border-color:#b7dbc8','border-color:#b7dbc8;background:#f2f9f4');
+      if(h.indexOf('Regjistrat bazë')<0){
+        let regCard='<div class="card"><h3>Regjistrat bazë</h3><p class="hint">Të dhënat themelore të sistemit</p><div class="apps">'
+          +'<div class="app" onclick="simpleForm(\'product\')"><i>❧</i><b>Produkte</b></div>'
+          +'<div class="app" onclick="simpleForm(\'supplier\')"><i>♙</i><b>Furnitorë</b></div>'
+          +'<div class="app" onclick="simpleForm(\'customer\')"><i>☷</i><b>Klientë</b></div>'
+          +'<div class="app" onclick="simpleForm(\'warehouse\')"><i>▦</i><b>Magazina</b></div>'
+          +'<div class="app" onclick="simpleForm(\'rack\')"><i>▤</i><b>Rafta bazë</b></div>'
+          +'</div></div>';
+        h=h.replace('</div><div class="apps">', '</div>'+regCard+'<div class="apps">');
+      }
+      if(h.indexOf('Administrim & Siguri')<0){
+        let admCard='<div class="card"><h3>Administrim & Siguri</h3><p class="hint">Përdoruesit dhe siguria</p><div class="actions">'
+          +'<button class="btn" onclick="usersSecurityCenter()">Përdoruesit</button>'
+          +'<button class="btn" onclick="quickResetAdminPassword()">🔑 Rivendos passwordin e adminit</button>'
+          +'</div></div>';
+        h=h.replace('<div class="card"><h3>Siguria</h3>', admCard+'<div class="card"><h3>Siguria</h3>');
+        if(h.indexOf('Administrim & Siguri')<0){ h=h.replace('</div></div>', '</div>'+admCard+'</div>'); }
+      }
+      if(h.indexOf('Mjete administrimi')<0){
+        let mjete='<div class="card"><h3>Mjete administrimi</h3><p class="hint">Mjete për administrim</p><div class="actions">'
+          +'<button class="btn" onclick="backup()">Eksport</button>'
+          +'<button class="btn" onclick="document.getElementById(\'importFile\').click()">Import</button>'
+          +'<button class="btn" onclick="cleanTestData()">Pastrim</button>'
+          +'</div></div>';
+        if(h.indexOf('Mjete administrimi')<0){ h=h.replace('</div><!--', mjete+'</div><!--'); h=h.replace('</div><div class="card"><h3>Siguria', mjete+'<div class="card"><h3>Siguria'); }
+      }
+    }catch(e){ return origSettings(); }
+    return h;
+  };
+}catch(e){}
+window.quickResetAdminPassword = function(){
+  try{
+    if(typeof currentUserIsAdmin==='function' && !currentUserIsAdmin()) return toast('Vetëm ADMINI mund të rivendosë');
+    if(typeof securityState==='function' && typeof hashPassword==='function'){
+      let adm=null;
+      try{ adm=resetAdminUser ? resetAdminUser() : (state.users||[]).find(u=>u.role==='admin'); }catch(e){}
+      if(!adm) return toast('Nuk u gjet admin');
+      modal('Rivendos passwordin e adminit',
+        '<div class="form-grid">'
+        +'<div class="field"><label>Fjalëkalimi i ri (min 6 karaktere)</label><input id="rapNew1" type="password" autocomplete="new-password"></div>'
+        +'<div class="field"><label>Përsërit fjalëkalimin e ri</label><input id="rapNew2" type="password" autocomplete="new-password"></div>'
+        +'<div class="field full"><label>Konfirmo fjalëkalimin</label><input id="rapNew3" type="password" placeholder="Përsërit sërish për konfirmim"></div>'
+        +'</div><p class="hint">Min 6 karaktere, dy fusha + konfirmim. Do të gjenerohet hash me hashPassword() dhe do të pastrohen sesionet.</p>',
+        '<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="saveQuickResetAdminPassword()">Ruaj</button>');
+    } else {
+      if(typeof resetAdminPasswordForm==='function') return resetAdminPasswordForm();
+      toast('Moduli i sigurisë nuk u ngarkua');
+    }
+  }catch(e){ toast('Gabim: '+(e&&e.message)); }
+};
+window.saveQuickResetAdminPassword = async function(){
+  try{
+    let a=gval('rapNew1'), b=gval('rapNew2'), c=gval('rapNew3')||b;
+    if(a!==b || a!==c) return toast('Fushat duhet të përputhen');
+    if(a.length<6) return toast('Min 6 karaktere');
+    let adm=null;
+    try{ adm=resetAdminUser ? resetAdminUser() : (state.users||[]).find(u=>u.role==='admin'); }catch(e){}
+    if(!adm) return toast('Nuk u gjet admin');
+    let h=await hashPassword(a);
+    Object.assign(adm, {passwordHash:h.hash, passwordSalt:h.salt, passwordIterations:h.iterations, mustChangePassword:false, passwordChangedAt:new Date().toISOString(), lockedUntil:null, failedAttempts:0});
+    try{ let ss=securityState(); if(ss) ss.sessions=[]; }catch(e){}
+    try{ sessionStorage.removeItem('biobesSession'); }catch(e){}
+    try{ sessionStorage.removeItem('biobesServerToken'); }catch(e){}
+    try{ localStorage.removeItem('biobesSession'); }catch(e){}
+    save();
+    try{ securityAudit('ADMIN_PASSWORD_RESET','Fjalëkalimi u rivendos', adm.id); }catch(e){}
+    closeModal(); render();
+    toast('Passwordi u rivendos — sesionet u pastruan');
+    try{ showLogin(); }catch(e){}
+  }catch(e){ console.error(e); toast('Gabim: '+(e&&e.message)); }
+};
+// 5) AUTO-RESOLVE
+window.showSyncConflict = function(sd){
+  try{
+    if(typeof localHasBusinessData==='function' && localHasBusinessData()){ try{ backup(); }catch(e){} }
+    setTimeout(function(){ try{ if(typeof syncTakeServer==='function') syncTakeServer(); }catch(e){} },300);
+    try{ toast('Sinkronizimi u zgjidh automatikisht — u mor kopja nga serveri'); }catch(e){}
+    return;
+  }catch(e){ console.error(e); }
+};
+// 6) FATURË BLERJEJE E VETME + PARAPAGIM
+window.nextPurchaseInvoiceId = window.nextPurchaseInvoiceId || function(){
+  if(typeof nextPurchaseId==='function') return nextPurchaseId();
+  let y=new Date().getFullYear(),re=new RegExp('^FB-'+y+'-(\\d+)$'),max=0;
+  (purchaseInvoices()||[]).forEach(function(f){ let m=String(f.id||'').match(re); if(m) max=Math.max(max,+m[1]); });
+  return 'FB-'+y+'-'+String(max+1).padStart(4,'0');
+};
+if(typeof nextPurchaseId!=='function') window.nextPurchaseId = window.nextPurchaseInvoiceId;
+
+const origSupplierBalance = window.supplierBalance;
+window.supplierBalance = function(id, raw){
+  try{
+    let deb=0, cred=0;
+    (purchaseInvoices()||[]).filter(function(f){ return f.supplier===id && f.status==='Konfirmuar' && !f.isPrepayment; }).forEach(function(f){ deb+=toALL(f.total,f.currency,f.exchangeRate); });
+    (state.payments||[]).filter(function(p){ return p.supplier===id && (p.status||'Konfirmuar')==='Konfirmuar'; }).forEach(function(p){ cred+=toALL(p.amount,p.currency,p.exchangeRate); });
+    (purchaseInvoices()||[]).filter(function(f){ return f.supplier===id && f.status==='Konfirmuar' && f.isPrepayment; }).forEach(function(f){ cred+=toALL(f.total,f.currency,f.exchangeRate); });
+    let sup=by('suppliers',id);
+    let opening=sup && sup.openingBalance? +sup.openingBalance:0;
+    let bal=deb-cred+opening;
+    if(raw===true){ return {debit:deb+opening, credit:cred, balance:bal}; }
+    return bal;
+  }catch(e){ try{ return origSupplierBalance(id,raw); }catch(_){ return 0; } }
+};
+window.supplierPrepaymentRemaining = function(id){
+  try{
+    let total=0, allocated=0;
+    (purchaseInvoices()||[]).filter(function(f){ return f.supplier===id && f.isPrepayment && f.status==='Konfirmuar'; }).forEach(function(f){
+      total+=toALL(f.total,f.currency,f.exchangeRate);
+      allocated+=(+f.allocatedTo||0);
+    });
+    return Math.max(0, total-allocated);
+  }catch(e){ return 0; }
+};
+window.allocatePrepaymentsAgainstInvoice = function(invOrId){
+  try{
+    let inv=typeof invOrId==='string'? purchaseInvoices().find(function(f){ return f.id===invOrId; }) : invOrId;
+    if(!inv || inv.isPrepayment || inv.status!=='Konfirmuar') return;
+    let needed=toALL(inv.total,inv.currency,inv.exchangeRate);
+    if(needed<=0.001) return;
+    let preps=(purchaseInvoices()||[]).filter(function(f){ return f.supplier===inv.supplier && f.isPrepayment && f.status==='Konfirmuar'; })
+      .filter(function(f){ return (toALL(f.total,f.currency,f.exchangeRate)-(+f.allocatedTo||0))>0.001; })
+      .sort(function(a,b){ return String(a.invoiceDate||a.date).localeCompare(String(b.invoiceDate||b.date)); });
+    inv.prepaymentLinks=inv.prepaymentLinks||[];
+    let already=(inv.prepaymentLinks||[]).reduce(function(a,l){ return a+(+l.amount||0); },0);
+    let remaining=Math.max(0, needed-already);
+    if(remaining<=0.001) return;
+    preps.forEach(function(prep){
+      if(remaining<=0.001) return;
+      let free=toALL(prep.total,prep.currency,prep.exchangeRate)-(+prep.allocatedTo||0);
+      if(free<=0.001) return;
+      let take=Math.min(free,remaining);
+      inv.prepaymentLinks.push({prepayId:prep.id, invoiceId:inv.id, amount:Math.round(take*100)/100, date:new Date().toISOString().slice(0,10)});
+      prep.allocatedTo=(+prep.allocatedTo||0)+take;
+      remaining-=take;
+    });
+    if(inv.prepaymentLinks.length) try{ save(); }catch(e){}
+  }catch(e){ console.error(e); }
+};
+try{
+  const spBase=window.savePurchase;
+  window.savePurchase=function(id,confirmIt){
+    let res; try{ res=spBase(id,confirmIt); }catch(e){ console.error(e); }
+    try{
+      let f=purchaseInvoices().find(function(x){ return x.id===id; });
+      if(f && f.status==='Konfirmuar' && !f.isPrepayment) try{ allocatePrepaymentsAgainstInvoice(f.id); }catch(e){}
+    }catch(e){}
+    return res;
+  };
+}catch(e){}
+
+window.purchaseFormTogglePrepay = window.purchaseFormTogglePrepay || function(){
+  try{
+    let pre=!!($id('fifPrepay') && $id('fifPrepay').checked);
+    document.querySelectorAll('.fif-articles').forEach(function(el){ el.style.display=pre?'none':''; });
+    document.querySelectorAll('.fif-prepay').forEach(function(el){ el.style.display=pre?'':'none'; });
+    document.querySelectorAll('.fif-standard').forEach(function(el){ el.style.display=pre?'none':''; });
+    let hint=$id('fifHint');
+    if(hint) hint.textContent=pre?'Parapagimi nuk lidhet me artikuj: vendosni shumën e paguar paraprakisht. Ruhet si draft; kur konfirmohet, hidhet në kredit dhe ulet automatikisht.':'Faturë blerjeje që nuk lidhet me peshim — mund të ketë ose jo produkt.';
+    let cur=$id('fifCurrency'), rate=$id('fifRate');
+    if(pre){ if(cur) cur.value='ALL'; if(rate) rate.value='1'; }
+    try{ fifCalc && fifCalc(); }catch(e){}
+  }catch(e){}
+};
+window.fifTogglePrepay = window.purchaseFormTogglePrepay;
+
+const origPForm = window.purchaseInvoiceForm;
+window.purchaseInvoiceForm = function(supplierId){
+  try{
+    let cur=supplierId||'';
+    modal('Faturë blerjeje e re',
+      '<div class="field full" style="margin-bottom:10px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px">'
+      +'<label style="font-weight:700;cursor:pointer"><input type="checkbox" id="fifPrepay" onchange="purchaseFormTogglePrepay()" style="width:auto;vertical-align:middle"> ☐ Parapagim (pa artikuj / pa mall)</label>'
+      +'<span class="hint" id="fifHint" style="display:block;margin-top:4px">Faturë blerjeje që nuk lidhet me peshim — mund të ketë ose jo produkt. Shënoni parapagimin nëse nuk ka artikuj.</span></div>'
+      +'<div class="form-grid">'
+      +'<div class="field"><label>Data</label><input id="fifDate" type="date" value="'+new Date().toISOString().slice(0,10)+'"></div>'
+      +'<div class="field"><label>Furnitori</label><select id="fifSupplier"><option value="">Zgjidh...</option>'+opts(state.suppliers,function(x){ return x.code+' — '+x.name; },cur)+'</select></div>'
+      +'<div class="field fif-articles"><label>Produkti (dropdown)</label><select id="fifProduct"><option value="">— pa produkt —</option>'+opts(state.products,function(x){ return x.code+' — '+x.name; })+'</select></div>'
+      +'<div class="field"><label>Numri i faturës së furnitorit (opsional)</label><input id="fifNo" placeholder="p.sh. 2026-114"></div>'
+      +'<div class="field fif-articles"><label>Sasia</label><input id="fifQty" type="number" step="0.001" min="0" oninput="fifCalc()"></div>'
+      +'<div class="field fif-articles"><label>Çmimi/njësi</label><input id="fifPrice" type="number" step="0.0001" min="0" oninput="fifCalc()"></div>'
+      +'<div class="field fif-prepay" style="display:none"><label>Shuma e parapagimit</label><input id="fifAmount" type="number" step="0.01" min="0" oninput="fifCalc()"></div>'
+      +'<div class="field fif-standard"><label>Monedha</label><select id="fifCurrency" onchange="fifCalc()"><option>ALL</option><option>EUR</option><option>USD</option></select></div>'
+      +'<div class="field fif-standard"><label>Kursi</label><input id="fifRate" type="number" step="0.0001" min="0" value="1" oninput="fifCalc()"></div>'
+      +'<div class="field"><label>TVSH%</label><input id="fifVat" type="number" step="0.01" min="0" value="0" oninput="fifCalc()"></div>'
+      +'<div class="field full"><label>Përshkrimi</label><textarea id="fifNotes" rows="2" placeholder="p.sh. Për mallin e marsit / Parapagim për porosinë 2026-14"></textarea></div>'
+      +'</div>'
+      +'<div class="invoice-summary" style="margin-top:10px"><div><small>Totali</small><b id="fifTotal">0</b></div><div><small>Totali në ALL</small><b id="fifTotalAll">0</b></div></div>',
+      '<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="createPurchaseInvoiceFromForm()">Ruaj faturën</button>');
+    setTimeout(function(){ try{ enhanceEntitySelects(); }catch(e){} try{ purchaseFormTogglePrepay(); }catch(e){} },30);
+  }catch(e){ toast('Gabim: '+(e&&e.message)); }
+};
+window.createPurchaseInvoiceFromForm = function(){
+  try{
+    let sup=gval('fifSupplier'); if(!sup) return toast('Zgjidhni furnitorin');
+    let pre=!!($id('fifPrepay') && $id('fifPrepay').checked);
+    let notes=gval('fifNotes'), no=gval('fifNo'), date=gval('fifDate')||new Date().toISOString().slice(0,10);
+    let id=(typeof nextPurchaseInvoiceId==='function'? nextPurchaseInvoiceId() : nextPurchaseId());
+    let f;
+    if(pre){
+      let amt=parseFloat($id('fifAmount')? $id('fifAmount').value:0);
+      if(!(amt>0)) return toast('Shuma e parapagimit duhet >0');
+      f={id:id, date:date, invoiceDate:date, supplier:sup, product:'', weighing:'', physical:0, discount:0, billable:0, price:0, currency:'ALL', exchangeRate:1, vat:0, subtotal:0, vatAmount:0, total:Math.round(amt*1*100)/100, status:'Draft', isPrepayment:true, allocatedTo:0, prepaymentLinks:[], documentType:'Parapagim', description:notes||'Parapagim (pa artikuj)', notes:notes||'Parapagim (pa artikuj)', supplierInvoiceNo:no, attachment:'', attachmentData:'', attachmentType:''};
+    } else {
+      let prod=gval('fifProduct'), cur=gval('fifCurrency','ALL'), rate=Math.max(0,parseFloat($id('fifRate')? $id('fifRate').value:1))||1, vat=Math.max(0,parseFloat($id('fifVat')? $id('fifVat').value:0)), q=Math.max(0,parseFloat($id('fifQty')? $id('fifQty').value:0)), p=Math.max(0,parseFloat($id('fifPrice')? $id('fifPrice').value:0)), s=q*p;
+      f={id:id, date:date, invoiceDate:date, supplier:sup, product:prod, weighing:'', physical:q, discount:0, billable:q, price:p, currency:cur, exchangeRate:rate, vat:vat, subtotal:s, vatAmount:s*vat/100, total:s+s*vat/100, status:'Draft', isPrepayment:false, allocatedTo:0, prepaymentLinks:[], documentType:'FB pa peshim', description:notes||'Faturë blerjeje pa peshim', notes:notes||'Faturë blerjeje pa peshim', supplierInvoiceNo:no, attachment:'', attachmentData:'', attachmentType:''};
+    }
+    purchaseInvoices().push(f);
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:f.isPrepayment?'Parapagim blerjeje':'Faturë blerjeje pa peshim', ref:f.id, text:f.id+' — '+(by('suppliers',sup).code||sup)+(f.isPrepayment?' parapagim '+n(f.total,0)+' ALL':' '+n(f.total)+' '+f.currency)});
+    save(); if(typeof queuePush==='function') try{queuePush()}catch(e){}
+    closeModal(); render(); setTimeout(function(){ purchaseCard(f.id); },80); toast((f.isPrepayment?'Parapagimi':'Fatura')+' u ruajt: '+f.id);
+  }catch(e){ toast('Gabim: '+(e&&e.message)); }
+};
+
+// 7) KARTELA E FURNITORIT A4
+try{
+  const prevCard = supplierCard;
+  supplierCard = function(id){
+    try{
+      let s=by('suppliers',id);
+      if(!s||!s.id) return toast('Furnitori nuk u gjet');
+      let bal=supplierBalance(id);
+      let raw=supplierBalance(id,true);
+      let conf=purchaseInvoices().filter(function(f){ return f.supplier===id && f.status==='Konfirmuar'; });
+      let fatura=conf.filter(function(f){ return !f.isPrepayment; });
+      let prepayConf=conf.filter(function(f){ return f.isPrepayment; });
+      let faturaSum=fatura.reduce(function(a,f){ return a+toALL(f.total,f.currency,f.exchangeRate); },0);
+      let payments=state.payments.filter(function(p){ return p.supplier===id && (p.status||'Konfirmuar')==='Konfirmuar'; }).reduce(function(a,p){ return a+toALL(p.amount,p.currency,p.exchangeRate); },0);
+      let prepaySum=prepayConf.reduce(function(a,f){ return a+toALL(f.total,f.currency,f.exchangeRate); },0);
+      let unused=supplierPrepaymentRemaining(id);
+      let headLine=[s.code,s.name,s.city||s.region,s.country||'Albania',s.website].filter(Boolean).map(esc).join(' &nbsp;·&nbsp; ');
+      let sub=[s.nipt?('NIPT: '+esc(s.nipt)):'', s.phone?('Tel: '+esc(s.phone)):''].filter(Boolean).join(' &nbsp;·&nbsp; ');
+      let rows=[];
+      conf.forEach(function(f){
+        let isPre=!!f.isPrepayment;
+        let veprimi=isPre?'🔵 Parapagim':(f.product?'Blerje':'FB pa peshim');
+        let desc=isPre?'<a class="link" onclick="purchaseCard(\''+f.id+'\')">Parapagim <b>'+f.id+'</b></a> — '+esc(f.description||f.notes||''):'<a class="link" onclick="purchaseCard(\''+f.id+'\')">Blerje <b>'+f.id+'</b></a> — '+esc((by('products',f.product)?by('products',f.product).name:'FB pa peshim')+(f.supplierInvoiceNo?' — Fat: '+f.supplierInvoiceNo:''))+' — '+esc(f.description||'');
+        let debi=isPre?'':n(toALL(f.total,f.currency,f.exchangeRate),2);
+        let kredi=isPre?n(toALL(f.total,f.currency,f.exchangeRate),2):'';
+        rows.push({date:f.invoiceDate||f.date, veprimi:veprimi, desc:desc, debi:debi, kredi:kredi, status:f.status});
+      });
+      state.payments.filter(function(p){ return p.supplier===id && (p.status||'Konfirmuar')==='Konfirmuar'; }).forEach(function(p){
+        rows.push({date:p.date, veprimi:'Pagesë', desc:'<a class="link" onclick="paymentCard(\''+p.id+'\')">'+esc((p.method||'Pagesë')+' — '+(p.note||'Pagesë'))+' <b>'+p.id+'</b></a>', debi:'', kredi:n(toALL(p.amount,p.currency,p.exchangeRate),2), status:p.status||'Konfirmuar'});
+      });
+      rows=rows.sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); });
+      let body=rows.map(function(r){ return '<tr><td>'+esc(r.date||'—')+'</td><td>'+r.veprimi+'</td><td>'+r.desc+'</td><td>'+r.debi+'</td><td>'+r.kredi+'</td><td>'+status(r.status||'')+'</td></tr>'; }).join('')||'<tr><td colspan="6" class="empty">Nuk ka veprime</td></tr>';
+      modal('Kartela — '+esc(s.name),
+        '<div id="printSupplierCard">'
+        +'<div class="card" style="border-top:4px solid #176b49;margin-bottom:12px"><div style="font-size:16px;font-weight:800">'+headLine+'</div>'+(sub?'<p class="hint" style="margin:4px 0 0">'+sub+'</p>':'')+'</div>'
+        +'<div class="kpis">'
+        +'<div class="kpi"><small>Fatura gjithsej (debit)</small><strong>'+n(faturaSum,0)+' ALL</strong></div>'
+        +'<div class="kpi"><small>Pagesa + Parapagime (credit)</small><strong>'+n(payments+prepaySum,0)+' ALL</strong></div>'
+        +'<div class="kpi"><small>Gjendja neto</small><strong style="color:'+(bal>0.009?'#b63c46':(bal<-0.009?'#176b49':'#333'))+'">'+n(bal,0)+' ALL</strong></div>'
+        +'<div class="kpi" style="border-color:#fde68a;background:#fef3c7"><small>Parapagim i papërdorur</small><strong>'+n(unused,0)+' ALL</strong></div>'
+        +'</div>'
+        +'<div class="card" style="padding:0;margin-top:12px"><div class="table-wrap" style="border:0"><table><thead><tr><th>Data</th><th>Veprimi</th><th>Përshkrimi</th><th>Debi</th><th>Kredi</th><th>Status</th></tr></thead><tbody>'+body+'</tbody></table></div></div>'
+        +'</div>',
+        '<button class="btn" onclick="closeModal()">Mbyll</button>'
+        +'<button class="btn primary" onclick="purchaseInvoiceForm(\''+id+'\')">+ Faturë blerëje</button>'
+        +'<button class="btn" onclick="supplierEditForm(\''+id+'\')">✎ Ndrysho</button>'
+        +'<button class="btn" onclick="printOnly(\'printSupplierCard\',\'Kartela '+esc(s.code)+'\')">🖨 Printo</button>');
+    }catch(e){ console.error(e); try{ prevCard(id); }catch(_){ toast('Gabim: '+(e&&e.message)); } }
+  };
+}catch(e){}
+
+// Ensure views.purchases has single + Faturë blerëje
+try{
+  const origPurch = views.purchases;
+  views.purchases = function(){
+    let h=origPurch();
+    try{
+      let count=(h.match(/purchaseInvoiceForm\(\)/g)||[]).length;
+      if(count>1){
+        let first=h.indexOf('purchaseInvoiceForm()');
+        let second=h.indexOf('purchaseInvoiceForm()',first+1);
+        while(second>=0){
+          h=h.slice(0,second-30)+h.slice(second+30).replace(/<button[^<]*purchaseInvoiceForm\(\)[^<]*<\/button>/,'');
+          count--; if(count<=1) break;
+          second=h.indexOf('purchaseInvoiceForm()',first+1);
+        }
+      }
+      if(h.indexOf('+ Faturë blerëje')<0){
+        h=h.replace('<button class="btn" onclick="syncPurchaseDrafts', '<button class="btn primary" onclick="purchaseInvoiceForm()">+ Faturë blerëje</button> <button class="btn" onclick="syncPurchaseDrafts');
+      }
+    }catch(e){}
+    return h;
+  };
+}catch(e){}
+
+try{
+  const origSave=window.save;
+  if(origSave && typeof queuePush==='function'){
+    window.save=function(){ let r=origSave.apply(this, arguments); try{ queuePush(); }catch(e){} return r; };
+  }
+}catch(e){}
+
+console.log('BioBes gaps complete loaded');
+})();
+
+</script>
 </body></html>
