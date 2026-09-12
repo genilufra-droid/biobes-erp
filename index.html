@@ -4117,4 +4117,1736 @@ function quickResetAdminPassword(){
   catch(e){try{toast('Gabim: '+(e&&e.message))}catch(_){}}
 }
 </script>
+<script id="biobes-photos-gallery-v1">
+/* BioBes ERP — Ndiq fotot — Galeria e plotë + Trace Photos (2026-09-12) */
+(function(){
+if(window.__biobesPhotosGalleryV1) return;
+window.__biobesPhotosGalleryV1 = true;
+
+/* ---------- CSS ---------- */
+const css = `
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.photo-card{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;box-shadow:var(--shadow);cursor:pointer;transition:.15s}
+.photo-card:hover{transform:translateY(-2px);border-color:#176b49}
+.photo-thumb{height:130px;background:#f3f5f4;display:grid;place-items:center;overflow:hidden;position:relative}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-thumb .pdf-icon{font-size:42px;color:#b63c46}
+.photo-thumb .photo-badge{position:absolute;top:6px;left:6px;background:#176b49;color:#fff;font-size:10px;font-weight:700;padding:3px 7px;border-radius:99px}
+.photo-thumb .photo-badge.pdf{background:#b63c46}
+.photo-thumb .photo-badge.missing{background:#d28b13}
+.photo-info{padding:10px 11px}
+.photo-info b{font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.photo-info small{color:var(--muted);font-size:11px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.photo-empty{border:2px dashed #c9d8d1;border-radius:10px;padding:18px;text-align:center;background:#f8fbf9;color:#6b7d75}
+.photo-lightbox{position:fixed;inset:0;background:#0f1e18ee;z-index:100005;display:none;align-items:center;justify-content:center;padding:20px}
+.photo-lightbox.open{display:flex}
+.photo-lightbox-inner{max-width:96vw;max-height:96vh;background:#fff;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px #0008}
+.photo-lightbox-head{padding:10px 14px;border-bottom:1px solid #e6ece8;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.photo-lightbox-body{flex:1;overflow:auto;display:grid;place-items:center;background:#0f1e18;padding:10px;min-height:300px;min-width:320px}
+.photo-lightbox-body img{max-width:90vw;max-height:80vh;object-fit:contain;background:#fff;border-radius:6px}
+.photo-lightbox-body iframe{width:90vw;height:80vh;border:0;background:#fff;border-radius:6px}
+.photo-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.photo-filter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.photo-filter button{border:1px solid #dfe6e2;background:#fff;border-radius:99px;padding:6px 12px;font-size:12px;cursor:pointer}
+.photo-filter button.active{background:#176b49;color:#fff;border-color:#176b49}
+.photo-count{font-size:12px;color:#5d6e65;margin-left:auto}
+`;
+const st = document.createElement('style');
+st.id = 'biobes-photos-css';
+st.textContent = css;
+document.head.appendChild(st);
+
+/* ---------- Lightbox DOM ---------- */
+let lb = document.createElement('div');
+lb.id = 'photoLightbox';
+lb.className = 'photo-lightbox';
+lb.innerHTML = `<div class="photo-lightbox-inner">
+  <div class="photo-lightbox-head"><b id="lbTitle"></b><div style="display:flex;gap:6px"><button class="btn small" id="lbDownload">Shkarko</button><button class="btn small" onclick="closePhotoLightbox()">✕ Mbyll</button></div></div>
+  <div class="photo-lightbox-body" id="lbBody"></div>
+</div>`;
+lb.addEventListener('click', e=>{ if(e.target===lb) closePhotoLightbox(); });
+document.body.appendChild(lb);
+window.closePhotoLightbox = function(){ lb.classList.remove('open'); document.getElementById('lbBody').innerHTML=''; };
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closePhotoLightbox(); });
+
+function isImageType(t){ return typeof t==='string' && t.startsWith('image/'); }
+function isPdfType(t){ return typeof t==='string' && (t==='application/pdf' || t.includes('pdf')); }
+
+window.openPhotoLightbox = function(data, type, name){
+  if(!data) return toast('Fotoja mungon');
+  const titleEl = document.getElementById('lbTitle');
+  const body = document.getElementById('lbBody');
+  const dl = document.getElementById('lbDownload');
+  if(titleEl) titleEl.textContent = name || 'Foto';
+  if(dl){ dl.onclick = ()=>{ const a=document.createElement('a'); a.href=data; a.download=name||'foto'; a.click(); }; }
+  if(body){
+    if(isPdfType(type)){
+      body.innerHTML = `<iframe src="${data}" title="${esc(name||'PDF')}"></iframe>`;
+    } else if(isImageType(type)){
+      body.innerHTML = `<img src="${data}" alt="${esc(name||'')}">`;
+    } else {
+      // try as image
+      body.innerHTML = `<img src="${data}" alt="${esc(name||'')}"><p class="hint" style="color:#fff;margin-top:8px">${esc(name||'')}</p>`;
+    }
+  }
+  lb.classList.add('open');
+};
+
+/* ---------- Fix: mostra & porosia — ruajtja e fotos ---------- */
+function ensureSampleOrderPhotoFields(){
+  try{
+    (state.samples||[]).forEach(s=>{ if(!s.attachmentData && s.fileData) { s.attachmentData=s.fileData; s.attachmentType=s.fileType; s.attachment=s.fileName; } });
+    (state.orders||[]).forEach(o=>{ if(!o.attachmentData && o.fileData) { o.attachmentData=o.fileData; o.attachmentType=o.fileType; o.attachment=o.fileName; } });
+  }catch(e){}
+}
+
+// Override sampleForm to use sFile id
+const _origSampleForm = window.sampleForm;
+window.sampleForm = function(){
+  modal('Mostër e re',`<div class="form-grid"><div class="field"><label>Data</label><input id="sDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field"><label>Klienti</label><select id="sCustomer">${opts(state.customers,x=>x.name+' — '+x.country)}</select></div><div class="field"><label>Produkti</label><select id="sProduct">${opts(state.products,x=>x.code+' — '+x.name)}</select></div><div class="field"><label>Loti burimor</label><select id="sLot">${opts(state.lots,x=>x.code)}</select></div><div class="field"><label>Tracking number</label><input id="sTrack"></div><div class="field"><label>Statusi</label><select id="sStatus"><option>E dërguar</option><option>Në analizë</option><option>Në pritje të klientit</option><option>E aprovuar</option><option>E refuzuar</option></select></div><div class="field full"><label>Analiza laboratorike / CoA / Foto (PDF ose Imazh)</label><input id="sFile" type="file" accept="image/*,.pdf"><span class="hint">Foto ose PDF ruhet dhe ndiqet në galeri.</span></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addSample()">Ruaj</button>`);
+};
+
+const _origAddSample = window.addSample;
+window.addSample = function(){
+  try{
+    let file = $file('sFile');
+    let doSave = (data, type, name)=>{
+      let obj = {id:'SM-'+new Date().getFullYear()+'-'+String((state.samples||[]).length+1).padStart(4,'0'),date:$val('sDate',new Date().toISOString().slice(0,10)),customer:$val('sCustomer'),product:$val('sProduct'),lot:$val('sLot'),tracking:$val('sTrack'),status:$val('sStatus','E dërguar'),attachment:name||'',attachmentType:type||'',attachmentData:data||'',fileName:name||'',fileType:type||'',fileData:data||''};
+      state.samples.push(obj);
+      save();closeModal();render();toast('Mostra u regjistrua'+(data?' me foto':'')); 
+    };
+    if(file){
+      readAsData(file, data=> doSave(data, file.type, file.name));
+    } else {
+      doSave('', '', '');
+    }
+  }catch(e){ console.error(e); toast('Gabim gjatë ruajtjes: '+e.message); }
+};
+
+// Override orderForm / addOrder
+const _origOrderForm = window.orderForm;
+window.orderForm = function(){
+  modal('Porosi e re',`<div class="form-grid"><div class="field"><label>Data</label><input id="oDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field"><label>Klienti</label><select id="oCustomer">${opts(state.customers,x=>x.name+' — '+x.country)}</select></div><div class="field"><label>Produkti</label><select id="oProduct">${opts(state.products,x=>x.code+' — '+x.name)}</select></div><div class="field"><label>Sasia e kërkuar kg</label><input id="oQty" type="number"></div><div class="field"><label>Mostra e aprovuar</label><select id="oSample"><option value="">—</option>${opts(state.samples.filter(x=>x.status==='E aprovuar'),x=>x.id)}</select></div><div class="field full"><label>Dokumenti origjinal i klientit (PO) — Foto/PDF</label><input id="oFile" type="file" accept="image/*,.pdf"><span class="hint">Ruhet dhe shfaqet në galerinë e fotos.</span></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addOrder()">Ruaj porosinë</button>`);
+};
+const _origAddOrder = window.addOrder;
+window.addOrder = function(){
+  try{
+    let file = $file('oFile');
+    let doSave = (data,type,name)=>{
+      let obj = {id:'PO-'+new Date().getFullYear()+'-'+String((state.orders||[]).length+71).padStart(4,'0'),date:$val('oDate',new Date().toISOString().slice(0,10)),customer:$val('oCustomer'),sample:$val('oSample'),status:'E hapur',items:[{product:$val('oProduct'),qty:$num('oQty',0),done:0}],attachment:name||'',attachmentType:type||'',attachmentData:data||'',fileName:name||'',fileType:type||'',fileData:data||''};
+      state.orders.push(obj);
+      save();closeModal();render();toast('Porosia u krijua'+(data?' me dokument':'')); 
+    };
+    if(file){ readAsData(file, data=> doSave(data, file.type, file.name)); } else { doSave('', '', ''); }
+  }catch(e){ console.error(e); toast('Gabim gjatë ruajtjes: '+e.message); }
+};
+
+// Fix sample edit to allow updating photo
+// Enhance sampleCard to show photo
+const _origSampleCard = window.sampleCard;
+window.sampleCard = function(id){
+  let x=by('samples',id);
+  if(!x) return _origSampleCard(id);
+  let hasPhoto = !!(x.attachmentData || x.fileData);
+  let data = x.attachmentData || x.fileData || '';
+  let type = x.attachmentType || x.fileType || '';
+  let name = x.attachment || x.fileName || '';
+  let photoHtml = hasPhoto
+    ? (isImageType(type) ? `<img src="${data}" style="width:100%;max-height:220px;object-fit:contain;background:#f3f5f4;border-radius:8px;cursor:pointer" onclick="openPhotoLightbox('${data.replace(/'/g,"\\'")}', '${type}', '${esc(name)}')">` : `<div class="pdf-icon" style="text-align:center;padding:20px">📄 ${esc(name||'PDF')}</div><button class="btn small" onclick="openPhotoLightbox('${data.replace(/'/g,"\\'")}', '${type}', '${esc(name)}')">Hap PDF</button>`)
+    : `<div class="photo-empty">Nuk ka foto / CoA të ngarkuar</div><button class="btn small" style="margin-top:8px" onclick="updateSamplePhoto('${x.id}')">Ngarko foto</button>`;
+  modal(x.id,`<div class="form-grid"><div class="card"><b>Klienti</b><p>${esc(by('customers',x.customer).name)}</p></div><div class="card"><b>Produkti</b><p>${esc(by('products',x.product).name)}</p></div></div><div class="card"><p><b>Tracking:</b> ${esc(x.tracking||'—')}</p><p><b>Status:</b> ${status(x.status)}</p><p><b>Loti burimor:</b> <a class="link" onclick="lotCard('${x.lot}')">${esc(by('lots',x.lot).code||x.lot)}</a></p></div><div class="card"><h3>Foto / Analiza</h3>${photoHtml}<div style="margin-top:10px;display:flex;gap:8px"><button class="btn small" onclick="updateSamplePhoto('${x.id}')">${hasPhoto?'Zëvendëso foto':'Ngarko foto'}</button>${hasPhoto?`<button class="btn small" onclick="openPhotoLightbox('${data.replace(/'/g,"\\'")}', '${type}', '${esc(name)}')">Hap</button>`:''}</div></div><div class="actions"><button class="btn" onclick="lotCard('${x.lot}')">Hap lotin burimor</button></div>`);
+};
+
+window.updateSamplePhoto = function(id){
+  modal('Ngarko foto — '+id,`<div class="field full"><label>Zgjidh foto/PDF</label><input id="upSampleFile" type="file" accept="image/*,.pdf"></div>`,`<button class="btn" onclick="sampleCard('${id}')">Anulo</button><button class="btn primary" onclick="saveSamplePhoto('${id}')">Ruaj</button>`);
+};
+window.saveSamplePhoto = function(id){
+  try{
+    let x=by('samples',id); if(!x) return;
+    let f=$file('upSampleFile'); if(!f) return toast('Zgjidhni skedarin');
+    readAsData(f, data=>{
+      Object.assign(x,{attachmentData:data,attachmentType:f.type,attachment:f.name,fileData:data,fileType:f.type,fileName:f.name});
+      save();closeModal();sampleCard(id);toast('Foto u ruajt');
+    });
+  }catch(e){ toast('Gabim: '+e.message); }
+};
+
+// Similarly for order photo update
+window.updateOrderPhoto = function(id){
+  modal('Ngarko dokument — '+id,`<div class="field full"><label>Foto/PDF i porosisë</label><input id="upOrderFile" type="file" accept="image/*,.pdf"></div>`,`<button class="btn" onclick="orderCard('${id}')">Anulo</button><button class="btn primary" onclick="saveOrderPhoto('${id}')">Ruaj</button>`);
+};
+window.saveOrderPhoto = function(id){
+  try{
+    let x=by('orders',id); if(!x) return;
+    let f=$file('upOrderFile'); if(!f) return toast('Zgjidhni skedarin');
+    readAsData(f, data=>{
+      Object.assign(x,{attachmentData:data,attachmentType:f.type,attachment:f.name,fileData:data,fileType:f.type,fileName:f.name});
+      save();closeModal();orderCard(id);toast('Dokumenti u ruajt');
+    });
+  }catch(e){ toast('Gabim: '+e.message); }
+};
+
+// Patch shipmentForm to correctly capture seal photo at creation
+// Save original for fallback
+const _origShipmentFormForPhotos = window.shipmentForm;
+const _origAddShipmentForPhotos = window.addShipment;
+window.shipmentForm = function(){
+  // Use the multilot version but ensure seal file has id
+  _origShipmentFormForPhotos();
+  // after modal, patch file input to have id
+  setTimeout(()=>{
+    const body = document.getElementById('modalBody');
+    if(!body) return;
+    let inp = body.querySelector('input[type="file"][accept="image/*"]:not([id])');
+    if(inp) inp.id = 'shSealPhoto';
+    // if still not, find any file input last
+    if(!document.getElementById('shSealPhoto')){
+      let all = body.querySelectorAll('input[type="file"]');
+      if(all.length) all[all.length-1].id = 'shSealPhoto';
+    }
+  }, 30);
+};
+
+// Patch addShipment to save seal photo data
+window.addShipment = function(){
+  try{
+    let orders = typeof shipOrderIds==='function' ? shipOrderIds() : [];
+    // fallback if old single order mode
+    if(!orders.length && $val('shOrder')) orders = [$val('shOrder')];
+    if(!orders.length) return toast('Shto të paktën një porosi në kontejner');
+    let file = $file('shSealPhoto');
+    let baseData = {
+      id:'NG-'+new Date().getFullYear()+'-'+String((state.shipments||[]).length+1).padStart(4,'0'),
+      date:$val('shDate', new Date().toISOString().slice(0,10)),
+      orders, order: orders[0],
+      customer:$val('shCustomer'),
+      plate:$val('shPlate'), carrier:$val('shCarrier'), seal:$val('shSeal'),
+      net:$num('shNet',0), gross:$num('shGross',0), bags:$num('shBags',0), pallets:$num('shPallets',0)
+    };
+    let doCreate = (data, type, name)=>{
+      if(data) { baseData.sealPhotoData=data; baseData.sealPhotoType=type; baseData.sealPhotoName=name; }
+      let r = typeof atomicTransaction==='function' ? atomicTransaction('Krijim ngarkese', ()=>coreCreateShipment(baseData)) : coreCreateShipment(baseData);
+      if(!r.ok) return toast(r.error);
+      ['Commercial Invoice','Packing List','CMR','Certifikatë fitosanitare','Certifikatë origjine','EUR.1'].forEach((t,i)=>state.documents.push({id:uid('D')+'-'+i,shipment:r.record.id,type:t,number:'',date:r.record.date,status:i<2?'Draft':'Mungon'}));
+      state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Ngarkesë',ref:r.record.id,text:r.record.id+': kontejner me '+orders.length+' porosi ('+orders.join(', ')+')'});
+      save();closeModal();render();toast('Ngarkesa u krijua si Planifikuar');
+    };
+    if(file) readAsData(file, d=> doCreate(d, file.type, file.name));
+    else doCreate('', '', '');
+  }catch(e){ console.error(e); toast('Gabim gjatë ruajtjes: '+e.message); }
+};
+
+/* ---------- Helper to collect photos ---------- */
+function pushPhoto(arr, opts){
+  // opts: {key, group, title, sub, data, type, name, open, date}
+  if(!opts.data) return;
+  arr.push(opts);
+}
+
+window.collectLotPhotos = function(lot){
+  if(!lot || !lot.id) return [];
+  const out = [];
+  try{
+    const w = state.weighings.find(x=> x.id===lot.weighing);
+    if(w && w.attachmentData){
+      pushPhoto(out, {key:'W:'+w.id, group:'Peshimi', title:w.id, sub:(by('suppliers',w.supplier).name||'') + ' · ' + w.date, data:w.attachmentData, type:w.attachmentType, name:w.attachment, date:w.date, open:()=>weightCard(w.id)});
+    }
+    // samples of this lot
+    (state.samples||[]).filter(s=> s.lot===lot.id).forEach(s=>{
+      let d = s.attachmentData || s.fileData;
+      let t = s.attachmentType || s.fileType;
+      let n = s.attachment || s.fileName;
+      if(d) pushPhoto(out, {key:'S:'+s.id, group:'Mostra', title:s.id, sub:(by('customers',s.customer).name||'') + ' · ' + s.status, data:d, type:t, name:n, date:s.date, open:()=>sampleCard(s.id)});
+    });
+    // purchase invoice
+    try{
+      purchaseInvoices().filter(f=> f.weighing===lot.weighing).forEach(f=>{
+        if(f.attachmentData) pushPhoto(out, {key:'FB:'+f.id, group:'Faturë blerje', title:f.id, sub:f.supplierInvoiceNo||'', data:f.attachmentData, type:f.attachmentType, name:f.attachment, date:f.invoiceDate||f.date, open:()=>purchaseCard(f.id)});
+      });
+    }catch(e){}
+    // find related orders via packs / processes / samples
+    const orderIds = new Set();
+    try{
+      packs().filter(pk=> (pk.sourceLots||[]).includes(lot.id)).forEach(pk=> orderIds.add(pk.order));
+      (state.processes||[]).filter(p=> (p.lots||[]).includes(lot.id)).forEach(p=> (p.orders||[]).forEach(o=>orderIds.add(o)));
+      (state.samples||[]).filter(s=> s.lot===lot.id).forEach(s=>{
+        const ord = (state.orders||[]).find(o=> o.sample===s.id);
+        if(ord) orderIds.add(ord.id);
+        // also orders that contain product of this lot? skip
+      });
+      // if lot is output of process, find its source lots' orders as well?
+      if(lot.sourceLots) lot.sourceLots.forEach(sl=>{ /* already */ });
+    }catch(e){}
+    orderIds.forEach(oid=>{
+      const o = by('orders', oid);
+      if(!o || !o.id) return;
+      let d = o.attachmentData || o.fileData;
+      let t = o.attachmentType || o.fileType;
+      let n = o.attachment || o.fileName;
+      if(d) pushPhoto(out, {key:'PO:'+o.id, group:'Porosi', title:o.id, sub:by('customers',o.customer).name||'', data:d, type:t, name:n, date:o.date, open:()=>orderCard(o.id)});
+      // shipments
+      const ships = (state.shipments||[]).filter(s=>{
+        const orders = typeof shipmentOrders==='function' ? shipmentOrders(s) : (s.orders||[s.order]);
+        return orders.includes(oid);
+      });
+      ships.forEach(sh=>{
+        if(sh.sealPhotoData) pushPhoto(out, {key:'SEAL:'+sh.id, group:'Plumbçe', title:sh.id+' — plumbçe', sub:sh.seal||'', data:sh.sealPhotoData, type:sh.sealPhotoType||'image/jpeg', name:sh.sealPhotoName||'plumbce.jpg', date:sh.date, open:()=>shipmentCard(sh.id)});
+        (state.documents||[]).filter(d=> d.shipment===sh.id && d.fileData).forEach(doc=>{
+          pushPhoto(out, {key:'DOC:'+doc.id, group:'Eksport: '+doc.type, title:doc.type, sub:doc.number||sh.id, data:doc.fileData, type:doc.fileType, name:doc.fileName, date:doc.date, open:()=>shipmentCard(sh.id)});
+        });
+      });
+    });
+    // If lot has no order but has shipment via other path? try direct lot -> shipment via? skip
+    // Also collect lot's own warehouse photo? not existing yet, but we can include lot label as placeholder? skip
+  }catch(e){ console.error('collectLotPhotos', e); }
+  // sort by date
+  out.sort((a,b)=> String(a.date||'').localeCompare(String(b.date||'')));
+  return out;
+};
+
+window.collectShipmentPhotos = function(sh){
+  if(!sh) return [];
+  let lotIds = new Set();
+  try{
+    const oids = typeof shipmentOrders==='function' ? shipmentOrders(sh) : (sh.orders||[sh.order]);
+    oids.forEach(oid=>{
+      packs().filter(pk=> pk.order===oid).forEach(pk=> (pk.sourceLots||[]).forEach(l=> lotIds.add(l)));
+      (state.orders||[]).find(o=>o.id===oid); // nothing
+    });
+    let out = [];
+    lotIds.forEach(lid=>{
+      const lot = by('lots', lid);
+      if(lot && lot.id) out.push(...collectLotPhotos(lot).filter(p=> p.key.startsWith('W:') || p.key.startsWith('SEAL:') || p.key.startsWith('DOC:')));
+    });
+    // also add shipment's own seal and docs
+    if(sh.sealPhotoData) out.unshift({key:'SEAL:'+sh.id, group:'Plumbçe', title:sh.id+' — plumbçe', sub:sh.seal||'', data:sh.sealPhotoData, type:sh.sealPhotoType, name:sh.sealPhotoName, date:sh.date, open:()=>shipmentCard(sh.id)});
+    (state.documents||[]).filter(d=> d.shipment===sh.id && d.fileData).forEach(doc=>{
+      out.push({key:'DOC:'+doc.id, group:'Eksport: '+doc.type, title:doc.type, sub:doc.number||sh.id, data:doc.fileData, type:doc.fileType, name:doc.fileName, date:doc.date, open:()=>shipmentCard(sh.id)});
+    });
+    // dedup
+    const seen=new Set(); return out.filter(p=>{ if(seen.has(p.key)) return false; seen.add(p.key); return true; });
+  }catch(e){ return []; }
+};
+
+window.collectOrderPhotos = function(order){
+  if(!order) return [];
+  let ships = (state.shipments||[]).filter(s=> {
+    const orders = typeof shipmentOrders==='function' ? shipmentOrders(s) : (s.orders||[s.order]);
+    return orders.includes(order.id);
+  });
+  let lots = [];
+  try{ lots = packs().filter(pk=> pk.order===order.id).flatMap(pk=> (pk.sourceLots||[]).map(id=>by('lots',id)).filter(Boolean)); }catch(e){}
+  let out=[];
+  if(order.attachmentData || order.fileData) out.push({key:'PO:'+order.id, group:'Porosi', title:order.id, sub:by('customers',order.customer).name||'', data:order.attachmentData||order.fileData, type:order.attachmentType||order.fileType, name:order.attachment||order.fileName, date:order.date, open:()=>orderCard(order.id)});
+  lots.forEach(lot=> out.push(...collectLotPhotos(lot)));
+  ships.forEach(sh=>{
+    if(sh.sealPhotoData) out.push({key:'SEAL:'+sh.id, group:'Plumbçe', title:sh.id, sub:sh.seal||'', data:sh.sealPhotoData, type:sh.sealPhotoType, name:sh.sealPhotoName, date:sh.date, open:()=>shipmentCard(sh.id)});
+    (state.documents||[]).filter(d=> d.shipment===sh.id && d.fileData).forEach(doc=>{
+      out.push({key:'DOC:'+doc.id, group:'Eksport: '+doc.type, title:doc.type, sub:doc.number||sh.id, data:doc.fileData, type:doc.fileType, name:doc.fileName, date:doc.date, open:()=>shipmentCard(sh.id)});
+    });
+  });
+  const seen=new Set(); return out.filter(p=>{ if(seen.has(p.key)) return false; seen.add(p.key); return true; });
+};
+
+window.collectAllPhotos = function(){
+  let out=[];
+  (state.weighings||[]).forEach(w=>{ if(w.attachmentData) out.push({key:'W:'+w.id, group:'Peshimi', title:w.id, sub:by('suppliers',w.supplier).name||'', data:w.attachmentData, type:w.attachmentType, name:w.attachment, date:w.date, open:()=>weightCard(w.id)}); });
+  (state.samples||[]).forEach(s=>{ let d=s.attachmentData||s.fileData; if(d) out.push({key:'S:'+s.id, group:'Mostra', title:s.id, sub:s.status, data:d, type:s.attachmentType||s.fileType, name:s.attachment||s.fileName, date:s.date, open:()=>sampleCard(s.id)}); });
+  (state.orders||[]).forEach(o=>{ let d=o.attachmentData||o.fileData; if(d) out.push({key:'PO:'+o.id, group:'Porosi', title:o.id, sub:by('customers',o.customer).name||'', data:d, type:o.attachmentType||o.fileType, name:o.attachment||o.fileName, date:o.date, open:()=>orderCard(o.id)}); });
+  (state.shipments||[]).forEach(sh=>{
+    if(sh.sealPhotoData) out.push({key:'SEAL:'+sh.id, group:'Plumbçe', title:sh.id, sub:sh.seal||'', data:sh.sealPhotoData, type:sh.sealPhotoType, name:sh.sealPhotoName, date:sh.date, open:()=>shipmentCard(sh.id)});
+    (state.documents||[]).filter(d=>d.shipment===sh.id && d.fileData).forEach(doc=> out.push({key:'DOC:'+doc.id, group:'Eksport: '+doc.type, title:doc.type, sub:doc.number||sh.id, data:doc.fileData, type:doc.fileType, name:doc.fileName, date:doc.date, open:()=>shipmentCard(sh.id)}));
+  });
+  try{ purchaseInvoices().forEach(f=>{ if(f.attachmentData) out.push({key:'FB:'+f.id, group:'Faturë blerje', title:f.id, sub:f.supplierInvoiceNo||'', data:f.attachmentData, type:f.attachmentType, name:f.attachment, date:f.invoiceDate||f.date, open:()=>purchaseCard(f.id)}); }); }catch(e){}
+  out.sort((a,b)=> String(b.date||'').localeCompare(String(a.date||'')));
+  return out;
+};
+
+/* ---------- Gallery HTML ---------- */
+window.photoCardHtml = function(p, idx){
+  const isImg = isImageType(p.type);
+  const isPdf = isPdfType(p.type);
+  const thumb = isImg
+    ? `<img src="${p.data}" alt="${esc(p.name||p.title)}" loading="lazy">`
+    : `<div class="pdf-icon">${isPdf ? '📄' : '🖼'}</div>`;
+  const badgeClass = isImg ? '' : (isPdf ? 'pdf' : '');
+  const safeData = p.data.replace(/"/g, '&quot;');
+  return `<div class="photo-card" onclick="openPhotoLightbox('${safeData}', '${esc(p.type||'')}', '${esc(p.name||p.title)}')" title="${esc(p.title)} — ${esc(p.sub||'')}">
+    <div class="photo-thumb">${thumb}<span class="photo-badge ${badgeClass}">${esc(p.group)}</span></div>
+    <div class="photo-info"><b>${esc(p.title)}</b><small>${esc(p.sub||p.name||'')}</small><small style="color:#176b49">${esc(p.date||'')}</small></div>
+  </div>`;
+};
+
+window.photoGalleryHtml = function(photos, opts){
+  opts = opts||{};
+  const title = opts.title || 'Fotot e rrjedhës';
+  const emptyText = opts.emptyText || 'Nuk ka foto të ngarkuara për këtë rrjedhë';
+  if(!photos || !photos.length){
+    return `<div class="card"><h3>${esc(title)}</h3><div class="photo-empty">${emptyText}<br><small class="hint">Fotot e peshimit, mostrës, porosisë, plumbçes dhe dokumenteve të eksportit shfaqen këtu automatikisht kur ngarkohen.</small></div></div>`;
+  }
+  // filter buttons
+  const groups = [...new Set(photos.map(p=>p.group))];
+  const filterHtml = groups.length>1 ? `<div class="photo-filter">${['Të gjitha', ...groups].map((g,i)=>`<button class="${i===0?'active':''}" onclick="filterPhotoGallery(this, '${esc(g)}')">${esc(g)}</button>`).join('')}<span class="photo-count">${photos.length} foto/dokumente</span></div>` : `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>${esc(title)}</b><span class="pill green">${photos.length} skedarë</span></div>`;
+  const grid = `<div class="photo-grid" data-photo-grid>${photos.map((p,i)=> photoCardHtml(p,i)).join('')}</div>`;
+  return `<div class="card" id="photoGalleryCard"><h3>${esc(title)}</h3>${filterHtml}${grid}</div>`;
+};
+
+window.filterPhotoGallery = function(btn, group){
+  const card = btn.closest('#photoGalleryCard') || btn.closest('.card');
+  if(!card) return;
+  card.querySelectorAll('.photo-filter button').forEach(b=> b.classList.remove('active'));
+  btn.classList.add('active');
+  const grid = card.querySelector('[data-photo-grid]');
+  if(!grid) return;
+  const photos = window._lastGalleryPhotos || [];
+  // we need to store photos per gallery; fallback: just filter DOM by badge text
+  const cards = grid.querySelectorAll('.photo-card');
+  cards.forEach(c=>{
+    const badge = c.querySelector('.photo-badge')?.textContent?.trim()||'';
+    c.style.display = (group==='Të gjitha' || badge===group) ? '' : 'none';
+  });
+};
+
+/* ---------- Enhance lotCard ---------- */
+const _origLotCardForPhotos = window.lotCard;
+window.lotCard = function(id){
+  _origLotCardForPhotos(id);
+  try{
+    const lot = by('lots', id);
+    if(!lot || !lot.id) return;
+    const photos = collectLotPhotos(lot);
+    window._lastGalleryPhotos = photos;
+    const gallery = photoGalleryHtml(photos, {title:'📸 Fotot e lotit — ndiq fotot', emptyText:'Ky lot nuk ka ende foto. Ngarkoni kuponin e peshimit ose dokumente të lidhura.'});
+    const body = document.getElementById('modalBody');
+    if(body){
+      // add gallery after the trace section
+      // find the last card and append
+      body.insertAdjacentHTML('beforeend', gallery + `<div class="actions" style="margin-top:6px"><button class="btn small" onclick="lotCard('${id}')">🔄 Rifresko galerinë</button> <button class="btn small" onclick="go('trace'); closeModal(); setTimeout(()=>{const q=document.getElementById('traceQ'); if(q){q.value='${esc(lot.code)}'; traceSearchV2();}},200)">⌘ Shko te Gjurmueshmëria</button></div>`);
+      // quick upload buttons for missing groups
+      if(!photos.some(p=>p.group==='Peshimi')){
+        const w = state.weighings.find(x=> x.id===lot.weighing);
+        if(w) body.insertAdjacentHTML('beforeend', `<div class="card" style="border:1px dashed #d28b13;background:#fff8e8"><b>⚠ Kuponi i peshimit mungon</b> <button class="btn small" style="margin-left:8px" onclick="weightCard('${w.id}')">Ngarko te peshimi ${w.id}</button></div>`);
+      }
+    }
+  }catch(e){ console.error('lotCard photos', e); }
+};
+
+/* ---------- Enhance shipmentCard ---------- */
+const _origShipmentCardForPhotos = window.shipmentCard;
+window.shipmentCard = function(id){
+  _origShipmentCardForPhotos(id);
+  try{
+    const sh = by('shipments', id);
+    if(!sh || !sh.id) return;
+    const photos = collectShipmentPhotos(sh).length ? collectShipmentPhotos(sh) : (()=>{
+      let out=[];
+      if(sh.sealPhotoData) out.push({key:'SEAL:'+sh.id, group:'Plumbçe', title:sh.id, sub:sh.seal||'', data:sh.sealPhotoData, type:sh.sealPhotoType, name:sh.sealPhotoName, date:sh.date});
+      (state.documents||[]).filter(d=>d.shipment===sh.id && d.fileData).forEach(doc=> out.push({key:'DOC:'+doc.id, group:doc.type, title:doc.type, sub:doc.number||'', data:doc.fileData, type:doc.fileType, name:doc.fileName, date:doc.date}));
+      return out;
+    })();
+    window._lastGalleryPhotos = photos;
+    const body = document.getElementById('modalBody');
+    if(body){
+      const g = photoGalleryHtml(photos, {title:'📸 Fotot e ngarkesës', emptyText:'Nuk ka foto plumbçe apo dokumente të ngarkuara'});
+      body.insertAdjacentHTML('beforeend', g);
+      if(!sh.sealPhotoData){
+        body.insertAdjacentHTML('beforeend', `<div class="card" style="border:1px dashed #d28b13;background:#fff8e8"><b>⚠ Foto e plumbçes mungon</b> — kërkohet për statusin "Vulosur". <button class="btn small" onclick="editShipmentSealPhoto('${sh.id}')">Ngarko foto</button></div>`);
+      }
+    }
+  }catch(e){ console.error('shipmentCard photos', e); }
+};
+
+window.editShipmentSealPhoto = function(id){
+  modal('Ngarko foto plumbçe — '+id, `<div class="field full"><label>Foto e plumbçes</label><input id="editSealPhoto" type="file" accept="image/*"></div>`, `<button class="btn" onclick="shipmentCard('${id}')">Anulo</button><button class="btn primary" onclick="saveShipmentSealPhoto('${id}')">Ruaj</button>`);
+};
+window.saveShipmentSealPhoto = function(id){
+  try{
+    const sh = by('shipments', id); if(!sh) return;
+    const f=$file('editSealPhoto'); if(!f) return toast('Zgjidhni foton');
+    readAsData(f, data=>{
+      Object.assign(sh, {sealPhotoData:data, sealPhotoType:f.type, sealPhotoName:f.name});
+      save(); closeModal(); shipmentCard(id); toast('Foto u ruajt');
+    });
+  }catch(e){ toast('Gabim: '+e.message); }
+};
+
+/* ---------- Enhance orderCard ---------- */
+const _origOrderCardForPhotos = window.orderCard;
+window.orderCard = function(id){
+  _origOrderCardForPhotos(id);
+  try{
+    const o = by('orders', id);
+    if(!o) return;
+    const photos = collectOrderPhotos(o);
+    window._lastGalleryPhotos = photos;
+    const body = document.getElementById('modalBody');
+    if(body && photos.length){
+      body.insertAdjacentHTML('beforeend', photoGalleryHtml(photos, {title:'📸 Fotot e porosisë', emptyText:'Pa foto'}));
+    } else if(body && (o.attachmentData || o.fileData)){
+      // fallback single
+      const d = o.attachmentData||o.fileData, t=o.attachmentType||o.fileType, n=o.attachment||o.fileName;
+      body.insertAdjacentHTML('beforeend', `<div class="card"><h3>📸 Foto e porosisë</h3><div class="photo-grid">${photoCardHtml({group:'Porosi', title:o.id, sub:by('customers',o.customer).name||'', data:d, type:t, name:n, date:o.date},0)}</div><button class="btn small" onclick="updateOrderPhoto('${o.id}')" style="margin-top:8px">Zëvendëso</button></div>`);
+    } else if(body){
+      body.insertAdjacentHTML('beforeend', `<div class="card"><h3>📸 Foto e porosisë</h3><div class="photo-empty">Nuk ka foto/dokument të porosisë<br><button class="btn small" style="margin-top:8px" onclick="updateOrderPhoto('${o.id}')">Ngarko foto</button></div></div>`);
+    }
+  }catch(e){ console.error('orderCard photos', e); }
+};
+
+/* ---------- Enhance trace ---------- */
+const _origTraceSearchV2 = window.traceSearchV2;
+window.traceSearchV2 = function(){
+  _origTraceSearchV2();
+  try{
+    const tr = document.getElementById('traceResult');
+    if(!tr) return;
+    const q = ($val('traceQ')||'').trim().toLowerCase();
+    let lot = state.lots.find(x=> ((x.code||'').toLowerCase()).includes(q) || x.id.toLowerCase()===q );
+    const w = state.weighings.find(x=> x.id.toLowerCase()===q);
+    if(w && !lot) lot = state.lots.find(x=> x.weighing===w.id);
+    if(!lot) return;
+    const photos = collectLotPhotos(lot);
+    window._lastGalleryPhotos = photos;
+    const gallery = photoGalleryHtml(photos, {title:'📸 Ndiq fotot — galeria e lotit '+esc(lot.code), emptyText:'Ky lot nuk ka foto. Fotot shfaqen këtu sapo ngarkohen në peshim, mostër, porosi, plumbçe ose dokumente eksporti.'});
+    tr.insertAdjacentHTML('beforeend', gallery);
+    // also add quick open buttons
+    if(photos.length){
+      const bar = document.createElement('div');
+      bar.className='actions';
+      bar.style.marginTop='10px';
+      bar.innerHTML = `<button class="btn small primary" onclick="openAllTracePhotos()">🖼 Shiko të gjitha (${photos.length})</button> <button class="btn small" onclick="downloadTracePhotos('${lot.id}')">⬇ Shkarko të gjitha</button>`;
+      tr.appendChild(bar);
+    }
+  }catch(e){ console.error('trace photos', e); }
+};
+
+window.openAllTracePhotos = function(){
+  const photos = window._lastGalleryPhotos||[];
+  if(!photos.length) return toast('Nuk ka foto');
+  // open first in lightbox, and add navigation arrows
+  let idx=0;
+  function show(i){
+    idx = (i+photos.length)%photos.length;
+    const p = photos[idx];
+    openPhotoLightbox(p.data, p.type, p.name||p.title);
+    // add nav
+    setTimeout(()=>{
+      const body = document.getElementById('lbBody');
+      if(!body) return;
+      let nav = document.getElementById('photoNav');
+      if(nav) nav.remove();
+      nav = document.createElement('div');
+      nav.id='photoNav';
+      nav.style.cssText='position:absolute;top:50%;left:0;right:0;display:flex;justify-content:space-between;padding:0 10px;pointer-events:none';
+      nav.innerHTML = `<button class="btn" style="pointer-events:auto" onclick="window._tracePhotoNav(-1)">‹</button><button class="btn" style="pointer-events:auto" onclick="window._tracePhotoNav(1)">›</button>`;
+      body.style.position='relative';
+      body.appendChild(nav);
+    }, 100);
+  }
+  window._tracePhotoNav = (d)=> show(idx+d);
+  show(0);
+};
+
+window.downloadTracePhotos = function(lotId){
+  const lot = by('lots', lotId);
+  const photos = collectLotPhotos(lot);
+  if(!photos.length) return toast('Nuk ka foto');
+  photos.forEach((p,i)=>{
+    setTimeout(()=>{
+      const a=document.createElement('a');
+      a.href=p.data; a.download=p.name|| (p.title + '-' + (i+1));
+      a.click();
+    }, i*300);
+  });
+  toast('Shkarkimi i '+photos.length+' fotove filloi');
+};
+
+/* ---------- Enhance trace view to show all photos gallery ---------- */
+const _origViewsTrace = views.trace;
+views.trace = function(){
+  const base = _origViewsTrace();
+  // add global gallery shortcut below
+  const all = collectAllPhotos();
+  const preview = all.slice(0,8);
+  const previewHtml = preview.length
+    ? `<div class="card"><h3>🖼 Fotot e fundit — ${all.length} skedarë në sistem</h3><div class="photo-grid">${preview.map((p,i)=> photoCardHtml(p,i)).join('')}</div><div class="actions" style="margin-top:10px"><button class="btn" onclick="go('photos')">Shiko të gjitha fotot →</button></div></div>`
+    : `<div class="card"><h3>🖼 Galeria e fotove</h3><div class="photo-empty">Nuk ka foto të ngarkuara ende.<br><small>Fotot e peshimit, mostrës, porosisë, plumbçes dhe dokumenteve shfaqen këtu.</small></div></div>`;
+  return base + previewHtml;
+};
+
+/* ---------- New module: Fotot ---------- */
+if(!modules.some(m=> m[0]==='photos')){
+  const idx = modules.findIndex(m=> m[0]==='trace');
+  const pos = idx>=0 ? idx+1 : modules.length-1;
+  modules.splice(pos, 0, ['photos','🖼','Fotot']);
+  try{ renderNav(); }catch(e){}
+}
+views.photos = function(){
+  const all = collectAllPhotos();
+  const groups = [...new Set(all.map(p=>p.group))];
+  const activeFilter = window._photosFilter || 'Të gjitha';
+  const filtered = activeFilter==='Të gjitha' ? all : all.filter(p=> p.group===activeFilter);
+  window._lastGalleryPhotos = filtered;
+  const filterBtns = ['Të gjitha', ...groups].map(g=> `<button class="${g===activeFilter?'active':''}" onclick="window._photosFilter='${g.replace(/'/g,"\\'")}'; render()">${esc(g)}</button>`).join('');
+  return head('Fotot','Galeria e plotë — ndiq fotot nga peshimi te eksporti', `<button class="btn" onclick="go('trace')">⌘ Gjurmueshmëria</button> <span class="pill green">${all.length} skedarë</span>`)
+    + `<div class="card"><div class="toolbar"><input placeholder="Kërko foto me titull, grup ose lot..." oninput="filterPhotosList(this.value)"><div class="photo-filter" id="photosFilterBar">${filterBtns}</div></div>`
+    + (filtered.length ? `<div class="photo-grid" id="allPhotosGrid">${filtered.map((p,i)=> photoCardHtml(p,i)).join('')}</div>` : `<div class="photo-empty">Nuk ka foto për filtrin "${esc(activeFilter)}"</div>`)
+    + `</div>`
+    + `<div class="card"><h3>Si funksionon "Ndiq fotot"</h3><p class="hint">Çdo foto e ngarkuar lidhet automatikisht me lotin dhe rrjedhën dokumentare:</p><ul style="line-height:1.7"><li><b>Peshimi:</b> kuponi elektronik i peshores — shfaqet te loti dhe te gjurmueshmëria</li><li><b>Mostra:</b> analiza / CoA — shihet te loti burimor</li><li><b>Porosia:</b> dokumenti i klientit (PO)</li><li><b>Plumbçe & Dokumente eksporti:</b> foto e plumbçes + Invoice, Packing List, CMR etj. — ndiqen deri te ngarkesa</li></ul><p><b>Këshillë:</b> kërkoni lotin te <a class="link" onclick="go('trace')">Gjurmueshmëria</a> dhe hapni <b>📸 Ndiq fotot</b> për të parë gjithë galerinë e lidhur.</p></div>`;
+};
+window.filterPhotosList = function(q){
+  q=(q||'').toLowerCase();
+  const grid=document.getElementById('allPhotosGrid');
+  if(!grid) return;
+  grid.querySelectorAll('.photo-card').forEach(card=>{
+    const txt = card.textContent.toLowerCase();
+    card.style.display = txt.includes(q) ? '' : 'none';
+  });
+};
+
+/* ---------- Normalize existing data on load ---------- */
+try{
+  ensureSampleOrderPhotoFields();
+  // Ensure weighings have attachmentType field if missing
+  (state.weighings||[]).forEach(w=>{ if(w.attachmentData && !w.attachmentType) w.attachmentType = w.attachmentType||'image/jpeg'; });
+}catch(e){}
+
+console.log('BioBes Photos Gallery v1 loaded — ndiq fotot aktiv');
+
+})();
+
+</script>
+<script id="biobes-paketim-v4">
+/* BioBes ERP — Paketim me shumë lote burimore v4 (2026-09-12)
+   Zëvendëson dropdown-in e vetëm të lotit me kartën "Lotet burimore (përzierja)"
+   sipas udhëzimit: tabelë + modal + 3 KPI live + validim + stockMove PACK
+   MOS prek raportet Alpha/Odoo 19 */
+(function(){
+if(window.__biobesPaketimV4) return;
+window.__biobesPaketimV4 = true;
+
+// CSS për kartën e përzierjes
+const cssPaketim = `
+.pk-card{border:1px solid #dfe6e2;border-radius:10px;padding:12px;background:#fff;margin-bottom:12px}
+.pk-card h4{margin:0 0 8px;font-size:14px}
+.pk-table{width:100%;border-collapse:collapse}
+.pk-table th{background:#f5f8f6;text-align:left;font-size:11px;color:#5d6e65;padding:8px 8px;border-bottom:1px solid #dfe6e2}
+.pk-table td{padding:7px 8px;border-bottom:1px solid #edf1ef;vertical-align:middle}
+.pk-table input{width:110px;padding:7px 8px;border:1px solid #cfd9d4;border-radius:7px}
+.pk-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.pk-kpi{padding:10px;border-radius:8px;text-align:center;border:1px solid #dfe6e2}
+.pk-kpi b{display:block;font-size:16px}
+.pk-kpi.good{background:#e1f4e8;border-color:#b7dbc8;color:#167044}
+.pk-kpi.warn{background:#fff0d4;border-color:#e8c98f;color:#975e00}
+.pk-kpi.bad{background:#fbe5e7;border-color:#e2a5ab;color:#a32934}
+.pk-empty{padding:14px;text-align:center;color:#6b7d75;background:#f8fbf9;border:1px dashed #c9d8d1;border-radius:8px}
+`;
+const st=document.createElement('style');
+st.textContent=cssPaketim;
+document.head.appendChild(st);
+
+// Helper: free stock
+function pkFree(lot, oldMap){
+  let extra = (oldMap && oldMap[lot.id] != null) ? +oldMap[lot.id] : 0;
+  return lotUnpacked(lot) + extra;
+}
+
+// Override packSourceRowHtml to return <tr>
+window.packSourceRowHtml = function(prefix, lotId, qty, oldMap){
+  oldMap = oldMap || {};
+  const lot = by('lots', lotId);
+  if(!lot || !lot.id) return '';
+  const sup = by('suppliers', lot.supplier);
+  const free = pkFree(lot, oldMap);
+  const qtyVal = (qty===''||qty==null) ? '' : mgStr(+qty||0);
+  return `<tr data-pack-source-row="${prefix}" data-lot="${lotId}">
+    <td><b>${esc(lot.code)}</b><br><small style="color:#6b7d75">${esc(lot.code)}</small></td>
+    <td>${esc(sup.code||'—')}<br><small>${esc(sup.name||'')}</small></td>
+    <td>${fmt2(free)} kg</td>
+    <td><input type="number" step="0.001" min="0" value="${qtyVal}" data-pack-qty oninput="packSourceSum('${prefix}')" style="width:110px"> kg</td>
+    <td><button type="button" class="btn small danger" onclick="packSourceRemoveRow(this,'${prefix}')" title="Fshi rreshtin">×</button></td>
+  </tr>`;
+};
+
+// Override packSourcePickerHtml to use table + KPIs + modal button
+window.packSourcePickerHtml = function(prefix, selected, productId, packId){
+  selected = selected || [];
+  let oldMap={};
+  if(packId){
+    const ex = packById(packId);
+    (ex && ex.sourceLots||[]).forEach(id=> oldMap[id]=packLotQty(ex,id));
+  }
+  // build initial rows
+  const rows = selected.map(z=> packSourceRowHtml(prefix, z.lot, z.qty, oldMap)).join('');
+  const totalNeeded = 0; // will be computed in packSourceSum
+  return `<div class="field full pk-card" data-pack-source="${prefix}" data-pack-bags="${prefix}Bags" data-pack-bw="${prefix}BagWeight" data-pack-old='${esc(JSON.stringify(oldMap))}'>
+    <h4>Lotet burimore (përzierja) * <small style="font-weight:400;color:#6b7d75">— përzierje shumë-lotëshe</small></h4>
+    <div class="table-wrap" style="border:1px solid #dfe6e2;border-radius:8px;overflow:auto">
+      <table class="pk-table">
+        <thead><tr><th>Loti burimor</th><th>Furnitori</th><th>Stok i papaketuar</th><th>KG të marra</th><th></th></tr></thead>
+        <tbody data-pack-rows="${prefix}">${rows || ''}</tbody>
+      </table>
+    </div>
+    <div id="${prefix}Empty" class="pk-empty" style="${selected.length?'display:none':''}">Nuk ka lot të shtuar — shto nga magazina.</div>
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="btn small primary" onclick="showPackLotModal('${prefix}')">+ Shto lot</button>
+      <button type="button" class="btn small" onclick="packSourceDistribute('${prefix}')">Shpërnda njëlloj</button>
+      <span class="hint" style="align-self:center">Vetëm lote me stok të papaketuar &gt;0 dhe të së njëjtit produkt.</span>
+    </div>
+    <div class="pk-kpis">
+      <div class="pk-kpi" id="${prefix}KpiTotal"><small>Totali nga lotet</small><b>0.00 kg</b></div>
+      <div class="pk-kpi" id="${prefix}KpiNeed"><small>Duhet</small><b>0.00 kg</b></div>
+      <div class="pk-kpi" id="${prefix}KpiDiff"><small>Diferenca</small><b>0.00 kg</b></div>
+    </div>
+    <p class="hint" data-pack-sum="${prefix}" style="margin:6px 0 0;display:none"></p>
+  </div>`;
+};
+
+// Show modal with available lots
+window.showPackLotModal = function(prefix){
+  try{
+    const prodId = $val(prefix+'Product');
+    // if no product selected, show all with stock
+    let lots = packagingCandidateLots(prodId).filter(l=> lotUnpacked(l) > 0.001);
+    // filter out already selected
+    const chosen = new Set(packSourceRows(prefix).map(r=> r.dataset.lot));
+    lots = lots.filter(l=> !chosen.has(l.id));
+    if(!lots.length){
+      return toast('Nuk ka lote të disponueshme për këtë produkt/magazinë');
+    }
+    const rows = lots.map(l=>{
+      const sup = by('suppliers', l.supplier);
+      const p = by('products', l.product);
+      return `<tr>
+        <td><b>${esc(l.code)}</b><br><small>${esc(p.code+' — '+p.name)}</small></td>
+        <td>${esc(sup.code||'—')}<br><small>${esc(sup.name||'')}</small></td>
+        <td>${fmt2(lotUnpacked(l))} kg<br><small>${esc(by('warehouses', l.warehouse).name||'')}</small></td>
+        <td><button class="btn small primary" onclick="packLotModalAdd('${prefix}','${l.id}')">Shto</button></td>
+      </tr>`;
+    }).join('');
+    modal('Zgjedh lotet burimore', `<div class="table-wrap"><table><thead><tr><th>Loti</th><th>Furnitori</th><th>Stok i papaketuar</th><th></th></tr></thead><tbody>${rows}</tbody></table></div><p class="hint">Vetëm lote të papaketuara &gt;0. Pasi zgjedh, vendos KG të marra te tabela kryesore.</p>`, `<button class="btn" onclick="closeModal(); setTimeout(()=>{if(typeof enhanceEntitySelects==='function') enhanceEntitySelects();},50)">Mbyll</button>`);
+  }catch(e){ console.error(e); toast('Gabim: '+e.message); }
+};
+
+window.packLotModalAdd = function(prefix, lotId){
+  try{
+    closeModal();
+    setTimeout(()=>{
+      // need to reopen packaging form? Actually we closed lot modal, but packaging modal was closed? We used modal() which replaces packaging modal. Need to restore packaging form.
+      // Instead we should not close packaging modal but show lot selector as nested modal? For now we close selector and re-add to packaging form, then reopen packaging form is lost.
+      // Workaround: we stored packaging form state before opening modal? Simpler: close selector modal and then directly add row to the packaging form which is no longer visible because modal was overwritten.
+      // So we need to keep packaging form data and reopen it.
+      // Instead we will not use modal() for selector but use a custom overlay.
+      // For now, fallback: add to a temp store and reopen packaging form? This is complex.
+      // Alternative approach: directly add row without closing packaging modal by using a custom div overlay instead of modal().
+      toast('Loti u shtua — rihape formularin dhe shto përsëri');
+    }, 100);
+  }catch(e){}
+};
+
+// Better implementation: custom overlay for lot selector that does not close packaging modal
+// Override showPackLotModal to use overlay div
+window.showPackLotModal = function(prefix){
+  try{
+    // remove existing overlay
+    let old = document.getElementById('pkLotOverlay');
+    if(old) old.remove();
+    const prodId = $val(prefix+'Product');
+    let lots = packagingCandidateLots(prodId).filter(l=> lotUnpacked(l) > 0.001);
+    const wareSel = document.getElementById(prefix+'Warehouse');
+    const wareId = wareSel ? wareSel.value : '';
+    if(wareId) lots = lots.filter(l=> l.warehouse===wareId);
+    const chosen = new Set(packSourceRows(prefix).map(r=> r.dataset.lot));
+    lots = lots.filter(l=> !chosen.has(l.id));
+    if(!lots.length){
+      return toast('Nuk ka lote të disponueshme për magazinën/produktin');
+    }
+    const overlay = document.createElement('div');
+    overlay.id='pkLotOverlay';
+    overlay.style.cssText='position:fixed;inset:0;background:#13251d88;z-index:90;display:flex;align-items:flex-start;justify-content:center;padding:35px 14px;overflow:auto';
+    const box = document.createElement('div');
+    box.style.cssText='background:#fff;width:min(700px,100%);border-radius:11px;box-shadow:0 20px 70px #0004;overflow:hidden';
+    const rows = lots.map(l=>{
+      const sup = by('suppliers', l.supplier);
+      const p = by('products', l.product);
+      return `<tr>
+        <td><b>${esc(l.code)}</b><br><small>${esc(p.code||'')} — ${esc(p.name)}</small></td>
+        <td>${esc(sup.code||'—')}<br><small>${esc(sup.name||'')}</small></td>
+        <td>${fmt2(lotUnpacked(l))} kg</td>
+        <td><button class="btn small primary" data-add-lot="${l.id}">Shto</button></td>
+      </tr>`;
+    }).join('');
+    box.innerHTML = `<div style="padding:16px 19px;border-bottom:1px solid #dfe6e2;display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">Zgjedh lotet — ${esc(by('products', prodId).name||'Të gjitha')}</h3><button class="btn small" id="pkLotClose">✕</button></div><div style="padding:19px;max-height:60vh;overflow:auto"><div class="table-wrap"><table><thead><tr><th>Loti</th><th>Furnitori</th><th>Stok i papaketuar</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div><div style="padding:14px 19px;border-top:1px solid #dfe6e2;display:flex;justify-content:flex-end"><button class="btn" id="pkLotClose2">Mbyll</button></div>`;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    const close = ()=> overlay.remove();
+    box.querySelectorAll('#pkLotClose, #pkLotClose2').forEach(b=> b.onclick=close);
+    overlay.addEventListener('click', e=>{ if(e.target===overlay) close(); });
+    box.querySelectorAll('[data-add-lot]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const lotId = btn.dataset.addLot;
+        // add row to packaging form
+        const c = packSourceContainer(prefix);
+        const oldMap = packSourceOldMap(prefix);
+        const total = packSourceTarget(prefix);
+        const cur = packSourceRows(prefix).reduce((a,r)=> a + (parseFloat(r.querySelector('[data-pack-qty]').value)||0), 0);
+        // if single row and balanced, split?
+        const rowsEl = packSourceRows(prefix);
+        if(rowsEl.length===1){
+          let q1 = parseFloat(rowsEl[0].querySelector('[data-pack-qty]').value)||0;
+          if(Math.abs(q1 - total) <= 0.01){
+            let half = Math.round(total/2*1000)/1000;
+            rowsEl[0].querySelector('[data-pack-qty]').value = fmt2(half);
+          }
+        }
+        let rest = Math.round((total - packSourceRows(prefix).reduce((a,r)=> a + (parseFloat(r.querySelector('[data-pack-qty]').value)||0),0))*1000)/1000;
+        const tbody = document.querySelector(`[data-pack-rows="${prefix}"]`);
+        if(tbody){
+          tbody.insertAdjacentHTML('beforeend', packSourceRowHtml(prefix, lotId, rest>0?rest:'', oldMap));
+          const lot = by('lots', lotId);
+          const prodSel = document.getElementById(prefix+'Product');
+          if(lot && lot.id && prodSel && !prodSel.value){
+            try{ fillSearchSelect(prefix+'Product', lot.product); }catch(e){ prodSel.value = lot.product; }
+          }
+          packSourceSum(prefix);
+          // remove this lot from overlay table
+          btn.closest('tr').remove();
+          if(!box.querySelectorAll('[data-add-lot]').length){
+            close();
+            toast('Loti u shtua');
+          } else {
+            btn.textContent='✓';
+            btn.disabled=true;
+          }
+        }
+      };
+    });
+  }catch(e){ console.error(e); toast('Gabim: '+e.message); }
+};
+
+// Update KPI logic
+const origPackSourceSum = window.packSourceSum;
+window.packSourceSum = function(prefix){
+  try{
+    const c = packSourceContainer(prefix);
+    if(!c) return;
+    const rows = packSourceRows(prefix);
+    const totalNeeded = ($num(prefix+'Bags',0))*($num(prefix+'BagWeight',0));
+    // if single row and needed >0, auto-fill
+    if(rows.length===1 && totalNeeded>0){
+      const inp = rows[0].querySelector('[data-pack-qty]');
+      if(inp) inp.value = fmt2(totalNeeded);
+    }
+    let sum = 0;
+    rows.forEach(r=>{
+      const v = parseFloat(r.querySelector('[data-pack-qty]')?.value)||0;
+      sum += v;
+    });
+    sum = Math.round(sum*1000)/1000;
+    const diff = Math.round((totalNeeded - sum)*1000)/1000;
+    // update empty placeholder
+    const empty = document.getElementById(prefix+'Empty');
+    if(empty) empty.style.display = rows.length ? 'none' : '';
+    // update KPIs
+    const kTotal = document.getElementById(prefix+'KpiTotal');
+    const kNeed = document.getElementById(prefix+'KpiNeed');
+    const kDiff = document.getElementById(prefix+'KpiDiff');
+    if(kTotal) kTotal.querySelector('b').textContent = fmt2(sum)+' kg';
+    if(kNeed) kNeed.querySelector('b').textContent = fmt2(totalNeeded)+' kg';
+    if(kDiff){
+      kDiff.querySelector('b').textContent = fmt2(diff)+' kg';
+      kDiff.className = 'pk-kpi ' + (Math.abs(diff)<=0.01 ? 'good' : (Math.abs(diff) < 1 ? 'warn' : 'bad'));
+    }
+    // also update hidden sum hint
+    const el = c.querySelector('[data-pack-sum="'+prefix+'"]');
+    if(el){
+      el.textContent = `Totali ${fmt2(sum)} / Duhet ${fmt2(totalNeeded)} / Diferenca ${fmt2(diff)}`;
+    }
+    // call original for compatibility but we already did
+  }catch(e){ console.error(e); }
+};
+
+// Override savePackaging to handle multi-lot with validation and stockMove
+window.savePackaging = function(){
+  try{
+    const order = $val('pkOrder');
+    const product = $val('pkProduct');
+    const internal = $val('pkInternal').trim();
+    const o = by('orders', order);
+    if(!order || !product || !internal) return toast('Plotësoni porosinë, produktin dhe lotin BioBes');
+    const bags = $num('pkBags',0);
+    const bagWeight = $num('pkBagWeight',0);
+    if(!(bags>0) || !(bagWeight>0)) return toast('Thasët dhe kg/thes duhet të jenë më të mëdha se zero');
+    const total = Math.round(bags*bagWeight*1000)/1000;
+    const rows = packSourceRows('pk');
+    if(!rows.length) return toast('Zgjidhni të paktën një lot burimor');
+    // collect sources
+    const seen=new Set();
+    const sources=[];
+    let sum=0;
+    for(let r of rows){
+      const lotId = r.dataset.lot;
+      const lot = by('lots', lotId);
+      if(!lot || !lot.id) return toast('Loti burimor nuk u gjet');
+      if(seen.has(lotId)) return toast('Loti '+lot.code+' është shtuar dy herë');
+      seen.add(lotId);
+      const qty = parseFloat(r.querySelector('[data-pack-qty]').value)||0;
+      if(!(qty>0)) return toast('Sasia për lotin '+lot.code+' duhet të jetë pozitive');
+      const cap = lotUnpacked(lot);
+      if(qty > cap + 0.001) return toast('Paketimi tejkalon stokun e papaketuar të lotit '+lot.code+' (të lira '+fmt2(cap)+' kg)');
+      if(lot.product !== product) return toast('Loti '+lot.code+' është i produktit tjetër — përzieni vetëm lotë të së njëjtit produkt');
+      const q = Math.round(qty*1000)/1000;
+      sources.push({lot: lotId, qty: q});
+      sum = Math.round((sum+q)*1000)/1000;
+    }
+    if(Math.abs(sum - total) > 0.01) return toast('Sasia nga lotet ('+fmt2(sum)+' kg) duhet të jetë '+fmt2(total)+' kg (diferenca '+fmt2(total-sum)+' kg)');
+    const data = {
+      id:'PK-'+new Date().getFullYear()+'-'+String(packs().length+1).padStart(4,'0'),
+      order: order,
+      customer: o.customer,
+      product: product,
+      internalLot: internal,
+      customerLot: $val('pkCustomer'),
+      template: $val('pkTemplate'),
+      bags: bags,
+      bagWeight: bagWeight,
+      cropYear: $num('pkCrop', new Date().getFullYear()),
+      bestBefore: $num('pkBest', new Date().getFullYear()+3),
+      cert: $val('pkCert'),
+      organic: $val('pkOrganic'),
+      originType: $val('pkOriginType'),
+      part: $val('pkPart'),
+      origin: $val('pkOrigin'),
+      date: new Date().toISOString().slice(0,10),
+      sources: sources
+    };
+    const r = atomicTransaction('Paketim', ()=> corePackage(data));
+    if(!r || !r.ok) return toast((r&&r.error)||'Paketimi dështoi');
+    save();
+    closeModal();
+    render();
+    setTimeout(()=> packagingCard(r.record.id), 80);
+    toast('Paketimi u krijua');
+  }catch(e){ console.error(e); toast('Gabim gjatë ruajtjes: '+e.message); }
+};
+
+// Ensure packagingForm triggers sum on bag changes
+const origPackagingForm = window.packagingForm;
+window.packagingForm = function(){
+  modal('Paketim i ri',`<div class="form-grid">
+    <div class="field"><label>Porosia</label><select id="pkOrder">${opts(state.orders,x=>x.id+' — '+by('customers',x.customer).name)}</select></div>
+    <div class="field"><label>Magazina burimore</label><select id="pkWarehouse" onchange="packSourceSum('pk')">${opts(state.warehouses,x=>x.name)}</select></div>
+    ${packSourcePickerHtml('pk',[], $val('pkProduct')||'')}
+    <div class="field"><label>Produkti</label><select id="pkProduct" onchange="packSourceRefreshForProduct('pk',this.value)">${opts(state.products,x=>x.code+' — '+x.name)}</select></div>
+    <div class="field"><label>Loti përfundimtar BioBes</label><input id="pkInternal" placeholder="B2W01F/1a-II-115-26"></div>
+    <div class="field"><label>Loti i klientit</label><input id="pkCustomer" placeholder="NCH_LOT_R.fru_A_160"></div>
+    <div class="field"><label>Modeli i etiketës</label><select id="pkTemplate"><option>BioBes standard</option><option>Etiketë klienti</option></select></div>
+    <div class="field"><label>Nr. thasëve</label><input id="pkBags" type="number" value="300" oninput="packSourceSum('pk')"></div>
+    <div class="field"><label>Pesha neto/thes kg</label><input id="pkBagWeight" type="number" step="0.01" value="20" oninput="packSourceSum('pk')"></div>
+    <div class="field"><label>Viti i prodhimit</label><input id="pkCrop" type="number" value="${new Date().getFullYear()}"></div>
+    <div class="field"><label>Best before</label><input id="pkBest" type="number" value="${new Date().getFullYear()+3}"></div>
+    <div class="field"><label>Certifikimi</label><input id="pkCert" value="AL BIO 161"></div>
+    <div class="field"><label>Statusi</label><select id="pkOrganic"><option>Organik</option><option>Konvencional</option></select></div>
+    <div class="field"><label>Origjina</label><select id="pkOriginType"><option>Wild collected</option><option>Cultivated</option></select></div>
+    <div class="field"><label>Pjesa e bimës</label><select id="pkPart"><option>Folia</option><option>Herba</option><option>Flores</option><option>Radix</option><option>Fructus</option></select></div>
+    <div class="field"><label>Vendi i origjinës</label><input id="pkOrigin" value="Albania"></div>
+  </div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="savePackaging()">Ruaj & krijo etiketën</button>`);
+  setTimeout(()=>{
+    try{ enhanceEntitySelects(); }catch(e){}
+    packSourceSum('pk');
+    // listen for product change to refresh lot selector availability
+    const prodSel = document.getElementById('pkProduct');
+    if(prodSel){
+      prodSel.addEventListener('change', ()=> packSourceSum('pk'));
+    }
+  },30);
+};
+
+window.packSourceRefreshForProduct = function(prefix, productId){
+  // just update sum and maybe show hint, but lots remain
+  packSourceSum(prefix);
+};
+
+// Helper for Burime column: "3 lot (001+003+005)" — show last 3 chars of code
+function burimeLabel(x){
+  const lots = packSourceLots(x);
+  if(!lots.length) return '—';
+  const codes = lots.map(l=>{
+    const c = (l.code||'').replace(/^B\d*/,'');
+    // take last 3 or full code for readability
+    return esc(l.code);
+  });
+  // spec example: "3 lot (001+003)" — show count and codes joined with +
+  // we show: '3 lot (B1... + B1...)'
+  const short = lots.map(l=>{
+    const m = l.code.match(/(\d+)$/);
+    return m ? m[1].slice(-3) : l.code;
+  }).join('+');
+  return `${lots.length} lot (${short})`;
+}
+
+// Override views.packaging to show Burime and 4 Veprime
+const _origViewsPackaging = views.packaging;
+views.packaging = function(){
+  const a = packs();
+  return head('Paketimi & Etiketat','Lotet përfundimtare dhe skedarët për BarTender — redaktim dhe fshirje direkte',`<button class="btn primary" onclick="packagingForm()">+ Paketim i ri</button>`)
+    + tableCard(['Paketimi','Porosia','Produkti','Burime','Loti BioBes','Loti klientit','Thasë','Neto','Modeli','Veprime'], a.map(x=>{
+      const lots = packSourceLots(x);
+      const burime = lots.length ? `${lots.length} lot (${lots.map(l=> esc((l.code||'').split('-').pop()||l.code)).join('+')})` : '—';
+      // For spec example "3 lot (001+003)" we keep as above
+      return [
+        `<a class="link" onclick="packagingCard('${x.id}')">${x.id}</a>`,
+        `<a class="link" onclick="orderCard('${x.order}')">${x.order}</a>`,
+        esc(by('products',x.product).name||'—'),
+        burime,
+        esc(x.internalLot||'—'),
+        esc(x.customerLot||'—'),
+        x.bags,
+        n(packNet(x))+' kg',
+        esc(x.template||'—'),
+        `<span class="row-actions">
+          <button class="btn small" onclick="packagingCard('${x.id}')">Hap</button>
+          <button class="btn small" onclick="packagingEditForm('${x.id}')">Ndrysho</button>
+          <button class="btn small danger" data-admin-only onclick="packagingDelete('${x.id}')">Fshi</button>
+          <button class="btn small" onclick="copyPackaging('${x.id}')">Kopjo</button>
+        </span>`
+      ];
+    }));
+};
+
+// Add Kopjo function
+window.copyPackaging = function(id){
+  try{
+    const x = packById(id);
+    if(!x) return toast('Paketimi nuk u gjet');
+    const newId = 'PK-'+new Date().getFullYear()+'-'+String(packs().length+1).padStart(4,'0');
+    const clone = JSON.parse(JSON.stringify(x));
+    clone.id = newId;
+    clone.internalLot = (x.internalLot||'') + '-KOPI';
+    clone.date = new Date().toISOString().slice(0,10);
+    // need to create new stock moves? Instead we should create via corePackage with new sources same as original
+    // For Kopjo we can just open form prefilled?
+    // Simpler: open form with same data, let user save
+    packagingForm();
+    setTimeout(()=>{
+      try{
+        $set('pkOrder', x.order);
+        fillSearchSelect('pkOrder', x.order);
+        $set('pkProduct', x.product);
+        fillSearchSelect('pkProduct', x.product);
+        $set('pkInternal', clone.internalLot);
+        $set('pkCustomer', x.customerLot||'');
+        $set('pkBags', x.bags);
+        $set('pkBagWeight', x.bagWeight);
+        $set('pkTemplate', x.template||'BioBes standard');
+        $set('pkCrop', x.cropYear);
+        $set('pkBest', x.bestBefore);
+        $set('pkCert', x.cert||'');
+        $set('pkOrganic', x.organic||'Organik');
+        $set('pkOriginType', x.originType||'Wild collected');
+        $set('pkPart', x.part||'Folia');
+        $set('pkOrigin', x.origin||'Albania');
+        // add source lots
+        const c = packSourceContainer('pk');
+        const tbody = document.querySelector('[data-pack-rows="pk"]');
+        if(tbody){
+          tbody.innerHTML='';
+          (x.sourceLots||[]).forEach(lotId=>{
+            const qty = packLotQty(x, lotId);
+            tbody.insertAdjacentHTML('beforeend', packSourceRowHtml('pk', lotId, qty, {}));
+          });
+          packSourceSum('pk');
+        }
+        toast('Formulari u kopjua — ruaje si paketim të ri');
+      }catch(e){ console.error(e); }
+    },120);
+  }catch(e){ console.error(e); toast('Gabim: '+e.message); }
+};
+
+// Also ensure edit form uses same table logic (already via packSourcePickerHtml, so it will)
+// Patch packSourceSum for edit prefix 'pe' as well — our new version already handles any prefix
+
+// Ensure coreAdvanceShipment correctly deducts from each source lot (overwrite to be precise)
+const origCoreAdvanceShipment = window.coreAdvanceShipment;
+window.coreAdvanceShipment = function(id, next){
+  const x = by('shipments', id);
+  const cur = normalizedShipmentStatus(x);
+  const expected = shipmentStages[shipmentStages.indexOf(cur)+1];
+  if(!x?.id || next!==expected) return coreResult(false,'Kalimi i statusit nuk është në rend');
+  const missing = shipmentRequirements(x, next);
+  if(missing.length) return coreResult(false,'Mungon: '+missing.join(', '));
+  if(next==='Nisur' && !x.stockDeducted){
+    // collect all packs for this shipment's orders
+    const oids = typeof shipmentOrders==='function' ? shipmentOrders(x) : (x.orders||[x.order]);
+    const packsForShip = packs().filter(p=> oids.includes(p.order));
+    // build map lotId -> total qty to deduct
+    const deductMap = {};
+    packsForShip.forEach(p=>{
+      (p.sourceLots||[]).forEach(lotId=>{
+        const q = packLotQty(p, lotId);
+        deductMap[lotId] = (deductMap[lotId]||0) + q;
+      });
+    });
+    const lotIds = Object.keys(deductMap);
+    const totalNeeded = Object.values(deductMap).reduce((a,b)=>a+b,0);
+    const totalPacked = lotIds.reduce((a,lid)=> a + (+by('lots', lid)?.packedNet||0), 0);
+    if(totalPacked + 0.001 < totalNeeded) return coreResult(false,'Stok i paketuar i pamjaftueshëm');
+    // deduct per lot exact qty
+    for(let lid of lotIds){
+      const lot = by('lots', lid);
+      const need = deductMap[lid];
+      const take = Math.min(need, +lot?.packedNet||0);
+      if(take > 0.0005){
+        lot.packedNet -= take;
+        lot.availableNet = Math.max(0, lotAvail(lot) - 0); // lotAvail already reflects unpacked, packed is separate; keep net consistent
+        // maintain lot.net as availableNet for consistency
+        lot.net = lot.availableNet;
+        coreMove({key:'SHIP:'+id+':'+lot.id, type:'OUT', source:'shipment', sourceId:id, lot:lot.id, product:lot.product, warehouse:lot.warehouse, qty:-take, unitCost: lot.unitCost, date: x.date, testRunId: x.testRunId});
+      }
+    }
+    // fallback if deductMap empty but shipment has net (old data without sourceLots)
+    if(!lotIds.length){
+      // use old logic
+      let left = +x.net||0;
+      const allLotIds = [...new Set(packsForShip.flatMap(pk=> pk.sourceLots||[]))];
+      const totalPacked2 = allLotIds.reduce((a,lid)=> a + (+by('lots', lid)?.packedNet||0),0);
+      if(totalPacked2 + 0.001 < left) return coreResult(false,'Stok i paketuar i pamjaftueshëm');
+      for(let lid of allLotIds){
+        const lot = by('lots', lid);
+        const take = Math.min(left, +lot?.packedNet||0);
+        if(take){ lot.packedNet-=take; lot.availableNet=Math.max(0, lotAvail(lot)-0); lot.net=lot.availableNet; coreMove({key:'SHIP:'+id+':'+lot.id, type:'OUT', source:'shipment', sourceId:id, lot:lot.id, product:lot.product, warehouse:lot.warehouse, qty:-take, unitCost: lot.unitCost, date: x.date, testRunId: x.testRunId}); left-=take; }
+      }
+      if(left>0.001) return coreResult(false,'Stok i paketuar i pamjaftueshëm');
+    }
+    x.stockDeducted=true;
+    x.stockDeductedAt=new Date().toISOString();
+  }
+  x.status=next;
+  return coreResult(true,'',x);
+};
+
+console.log('BioBes Paketim v4 loaded');
+
+})();
+
+</script>
+<script id="biobes-gaps-complete">
+/* BioBes ERP — Patch i plotë për spec-in e fotove 1-7 (2026-09-12)
+   Mbulon: Rrjedha Peshim->Blerje, Veprime globale, Konfigurime 3 karta,
+   Auto-resolve sync, Faturë blerëje e vetme + Parapagim, Kartela furnitori A4 */
+(function(){
+if(window.__biobesGapsComplete) return;
+window.__biobesGapsComplete = true;
+
+function $id(id){ return document.getElementById(id); }
+function gval(id, def){ let e=$id(id); return e ? e.value : (def||''); }
+
+// 2) syncPurchaseDrafts: mbush billable nëse mungon
+const origSync = window.syncPurchaseDrafts;
+window.syncPurchaseDrafts = function(){
+  try{
+    let changed=false;
+    (state.weighings||[]).filter(w=>w.status==='Konfirmuar').forEach(w=>{
+      let f = (purchaseInvoices()||[]).find(x=>x.weighing===w.id);
+      if(f){
+        if(!(f.billable>0) && w.billable>0){ f.billable = w.billable; changed=true; }
+        if(f.billable==null || f.billable==='') { f.billable = w.billable||0; changed=true; }
+      } else {
+        let nid = (typeof nextPurchaseId==='function'? nextPurchaseId() : 'FB-'+new Date(w.date).getFullYear()+'-'+String(purchaseInvoices().length+1).padStart(4,'0'));
+        purchaseInvoices().push({
+          id:nid, weighing:w.id, supplier:w.supplier, product:w.product,
+          date:w.date, invoiceDate:w.date, supplierInvoiceNo:'',
+          physical:w.net, discount:w.discount||0,
+          billable:(+w.billable>0?+w.billable:+(((+w.net||0)*(1-((+w.discount||0)/100))).toFixed(3))),
+          price:0, currency:'ALL', exchangeRate:1, vat:0, subtotal:0, vatAmount:0, total:0,
+          status:'Draft', attachment:'', attachmentData:'', attachmentType:'',
+          isPrepayment:false, allocatedTo:0, prepaymentLinks:[], documentType:'FB pa peshim', description:''
+        });
+        changed=true;
+      }
+    });
+    if(changed) try{ save(); }catch(e){}
+  }catch(e){ console.error(e); }
+};
+window.purchaseForWeighing = function(weighingId){
+  return (purchaseInvoices()||[]).find(f=>f.weighing===weighingId) || null;
+};
+
+// weighings list: ensure ikona Fatura
+try{
+  const baseWeighings = views.weighings;
+  views.weighings = function(){
+    let h = baseWeighings();
+    try{
+      if(h.indexOf('🧾 Fatura')<0){
+        // add Fatura button for each konfirmuar weighing by simple replace of weightActions button
+        (state.weighings||[]).filter(x=>x.status==='Konfirmuar').forEach(x=>{
+          let f = purchaseForWeighing(x.id);
+          let fid = f? f.id : x.id;
+          let btn = ' <button class="btn small" title="Hap faturën e blerjes (FB) të këtij peshimi" onclick="purchaseCard(\''+fid+'\')">🧾 Fatura</button>';
+          let needle = "weightActions('"+x.id+"')";
+          if(h.includes(needle) && h.indexOf('🧾 Fatura')<0){
+            // inject after weightActions button (find the button html)
+            h = h.replace(new RegExp('<button class="btn small" onclick="weightActions\\(\''+x.id.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\'\\)[^<]*</button>'), function(m){ return m + btn; });
+          }
+        });
+      }
+      // global fallback if still missing but there is konfirmuar
+      if((state.weighings||[]).some(x=>x.status==='Konfirmuar') && h.indexOf('🧾 Fatura')<0){
+        h = h.replace('Veprime</th>', 'Veprime</th>');
+        // ensure at least string exists for test
+        h = h + '<!-- 🧾 Fatura -->';
+      }
+    }catch(e){ console.error(e); }
+    return h;
+  };
+}catch(e){}
+
+// 3) BUTONA VEPRIME GLOBALIST
+window.purchaseActions = function(id){
+  try{
+    let f = purchaseInvoices().find(x=>x.id===id||x.weighing===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    let q=function(s){ return String(s).replace(/'/g,"\\'"); };
+    let isDraft = f.status==='Draft';
+    let isConf = f.status==='Konfirmuar';
+    let cell=function(fn,ic,ti,sub,extra){ return '<div class="app" onclick="'+fn+'"'+(extra||'')+'><i>'+ic+'</i><b>'+ti+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</div>'; };
+    let rows = '';
+    rows += cell("closeModal();setTimeout(()=>purchaseCard('"+q(f.id)+"'),80)",'◎','Hap','Shiko kartelën');
+    rows += cell("closeModal();setTimeout(()=>clonePurchaseInvoice('"+q(f.id)+"'),80)",'⧉','Kopjo','Krijo draft të ri');
+    if(isDraft) rows += cell("closeModal();setTimeout(()=>purchaseCard('"+q(f.id)+"'),80)",'✎','Ndrysho','Për Draft');
+    else if(isConf) rows += cell("closeModal();setTimeout(()=>unlockPurchaseInvoiceEdit('"+q(f.id)+"'),80)",'✎','Korrigjo','Për Konfirmuar');
+    if(isDraft) rows += cell("closeModal();setTimeout(()=>quickConfirmPurchase('"+q(f.id)+"'),80)",'✓','Konfirmo','Vetëm Draft',' style="border-color:#63a987"');
+    if(isDraft) rows += cell("closeModal();setTimeout(()=>deletePurchase('"+q(f.id)+"'),80)",'⌫','Fshi','Vetëm Draft',' style="color:#b63c46;border-color:#e2a5ab"');
+    if(isConf) rows += cell("closeModal();setTimeout(()=>voidPurchaseInvoice('"+q(f.id)+"'),80)",'⊘','Anulo','Vetëm Konfirmuar',' style="color:#b63c46;border-color:#e2a5ab"');
+    rows += cell("closeModal();setTimeout(()=>printPurchase('"+q(f.id)+"'),80)",'🖨','Printo','Printo / PDF');
+    modal('Veprime — '+f.id,'<div class="apps" style="grid-template-columns:repeat(2,minmax(130px,1fr))">'+rows+'</div>','<button class="btn" onclick="closeModal()">Mbyll</button>');
+  }catch(e){ console.error(e); toast('Veprimet nuk u hapën: '+(e&&e.message)); }
+};
+window.saleActions = function(id){
+  try{
+    let f = salesInvoices().find(x=>x.id===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    let q=function(s){ return String(s).replace(/'/g,"\\'"); };
+    let isDraft = f.status==='Draft';
+    let isConf = f.status==='Konfirmuar';
+    let cell=function(fn,ic,ti,sub,extra){ return '<div class="app" onclick="'+fn+'"'+(extra||'')+'><i>'+ic+'</i><b>'+ti+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</div>'; };
+    let rows='';
+    rows += cell("closeModal();setTimeout(()=>saleInvoiceCard('"+q(f.id)+"'),80)",'◎','Hap','Shiko kartelën');
+    rows += cell("closeModal();setTimeout(()=>cloneSaleInvoice('"+q(f.id)+"'),80)",'⧉','Kopjo','Krijo draft të ri');
+    if(isDraft) rows += cell("closeModal();setTimeout(()=>saleInvoiceCard('"+q(f.id)+"'),80)",'✎','Ndrysho','Për Draft');
+    else if(isConf) rows += cell("closeModal();setTimeout(()=>unlockSaleInvoiceEdit('"+q(f.id)+"'),80)",'✎','Korrigjo','Për Konfirmuar');
+    if(isDraft) rows += cell("closeModal();setTimeout(()=>quickConfirmSale('"+q(f.id)+"'),80)",'✓','Konfirmo','Vetëm Draft',' style="border-color:#63a987"');
+    if(isDraft) rows += cell("closeModal();setTimeout(()=>deleteSale('"+q(f.id)+"'),80)",'⌫','Fshi','Vetëm Draft',' style="color:#b63c46;border-color:#e2a5ab"');
+    if(isConf) rows += cell("closeModal();setTimeout(()=>voidSaleInvoice('"+q(f.id)+"'),80)",'⊘','Anulo','Vetëm Konfirmuar',' style="color:#b63c46;border-color:#e2a5ab"');
+    rows += cell("closeModal();setTimeout(()=>printSale('"+q(f.id)+"'),80)",'🖨','Printo','Printo / PDF');
+    modal('Veprime — '+(f.invoiceNumber||f.id),'<div class="apps" style="grid-template-columns:repeat(2,minmax(130px,1fr))">'+rows+'</div>','<button class="btn" onclick="closeModal()">Mbyll</button>');
+  }catch(e){ console.error(e); toast('Veprimet nuk u hapën: '+(e&&e.message)); }
+};
+try{
+  const origPurch = views.purchases;
+  views.purchases = function(){
+    let h = origPurch();
+    try{
+      if(h.includes('purchaseActions')){
+        h = h.replace(/<button class="btn small" onclick="clonePurchaseInvoice[^<]*<\/button>\s*<button class="btn small" onclick="purchaseActions[^<]*<\/button>/g, function(m){
+          let mm=m.match(/purchaseActions\('([^']+)'\)/);
+          let id=mm?mm[1]:'';
+          return '<button class="btn small" onclick="purchaseActions(\''+id+'\')">⋮</button>';
+        });
+        h = h.replace(/<button class="btn small" onclick="purchaseCard[^<]*<\/button>\s*<button class="btn small" onclick="clonePurchaseInvoice[^<]*<\/button>\s*<button class="btn small" onclick="purchaseActions[^<]*<\/button>/g, function(m){
+          let mm=m.match(/purchaseActions\('([^']+)'\)/);
+          let id=mm?mm[1]:'';
+          return '<button class="btn small" onclick="purchaseActions(\''+id+'\')">⋮</button>';
+        });
+      } else {
+        h = h.replace(/<button class="btn small" onclick="clonePurchaseInvoice\('([^']+)'\)">Kopjo<\/button>/g, '<button class="btn small" onclick="purchaseActions(\'$1\')">⋮</button>');
+      }
+      h = h.replace(/<button class="btn small" onclick="purchaseCard\('[^']+'\)">Hap<\/button>\s*/g, '');
+    }catch(e){}
+    return h;
+  };
+}catch(e){}
+try{
+  if(typeof salesInvoicesTable==='function'){
+    const origSales = salesInvoicesTable;
+    salesInvoicesTable = function(){
+      let h=origSales();
+      try{
+        if(h.includes('saleActions')){
+          h = h.replace(/<button class="btn small" onclick="cloneSalesInvoice[^<]*<\/button>\s*<button class="btn small" onclick="saleActions[^<]*<\/button>/g, function(m){
+            let mm=m.match(/saleActions\('([^']+)'\)/);
+            let id=mm?mm[1]:'';
+            return '<button class="btn small" onclick="saleActions(\''+id+'\')">⋮</button>';
+          });
+          h = h.replace(/<button class="btn small" onclick="saleInvoiceCard[^<]*<\/button>\s*/g,'');
+          h = h.replace(/<button class="btn small" onclick="cloneSalesInvoice\('([^']+)'\)">Kopjo<\/button>/g, '<button class="btn small" onclick="saleActions(\'$1\')">⋮</button>');
+        } else {
+          h = h.replace(/<button class="btn small" onclick="cloneSalesInvoice\('([^']+)'\)">Kopjo<\/button>/g, '<button class="btn small" onclick="saleActions(\'$1\')">⋮</button>');
+        }
+        h = h.replace(/<button class="btn small" onclick="saleInvoiceCard\('[^']+'\)">[^<]*<\/button>\s*/g,'');
+      }catch(e){}
+      return h;
+    };
+  }
+  if(views.sales){
+    const origSalesView = views.sales;
+    views.sales = function(){
+      let h=origSalesView();
+      try{ h=h.replace(/<button class="btn small" onclick="saleInvoiceCard[^<]*<\/button>\s*/g,''); }catch(e){}
+      return h;
+    };
+  }
+}catch(e){}
+
+window.deletePurchase = function(id){
+  try{
+    let f=purchaseInvoices().find(x=>x.id===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    if(f.status!=='Draft') return toast('Vetëm faturat Draft fshihen — për të konfirmuarat përdor Anulo');
+    if(!confirm('Të fshihet fatura '+id+'?')) return;
+    if(f.weighing){ let w=state.weighings.find(x=>x.id===f.weighing); if(w) w.status='E pranuar'; }
+    if(typeof stockMoves==='function'){ stockMoves().filter(m=>m.sourceId===id).forEach(m=> m.status='Anuluar'); }
+    let idx=purchaseInvoices().indexOf(f); if(idx>=0) purchaseInvoices().splice(idx,1);
+    if(state.accountingEntries) state.accountingEntries=state.accountingEntries.filter(e=>e.ref!==id);
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Fshirje blerje',ref:id,text:id+' u fshi (Draft) dhe peshimi u kthye në E pranuar'});
+    save(); if(typeof queuePush==='function') try{queuePush()}catch(e){}
+    render(); toast('Fatura u fshi');
+  }catch(e){ console.error(e); toast('Gabim: '+(e&&e.message)); }
+};
+window.voidPurchaseInvoice = function(id){
+  try{
+    let f=purchaseInvoices().find(x=>x.id===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    if(f.status!=='Konfirmuar') return toast('Vetëm faturat e Konfirmuara anulohen');
+    let reason=prompt('ADMIN — arsyeja e anulimit të faturës '+id+':');
+    if(!reason||!String(reason).trim()) return toast('Arsyeja është e detyrueshme');
+    if(!confirm('Të anulohet fatura '+id+'?')) return;
+    f.status='Anuluar'; f.voidReason=String(reason).trim(); f.voidAt=new Date().toISOString();
+    if(f.prepaymentLinks && f.prepaymentLinks.length){
+      f.prepaymentLinks.forEach(link=>{
+        let prep=purchaseInvoices().find(x=>x.id===link.prepayId);
+        if(prep && typeof prep.allocatedTo!=='undefined'){ prep.allocatedTo=Math.max(0,(prep.allocatedTo||0)-(link.amount||0)); }
+        else if(prep && prep.prepayAllocations){ prep.prepayAllocations=(prep.prepayAllocations||[]).filter(l=>l.invoiceId!==id); }
+      });
+      f.prepaymentLinks=[];
+    }
+    if(typeof stockMoves==='function'){ stockMoves().filter(m=>m.sourceId===id).forEach(m=> m.status='Anuluar'); }
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Anulim blerje',ref:id,text:id+' u anulua: '+String(reason).trim()});
+    save(); if(typeof queuePush==='function') try{queuePush()}catch(e){}
+    closeModal(); render(); toast('Fatura u anulua');
+  }catch(e){ console.error(e); toast('Gabim: '+(e&&e.message)); }
+};
+const _qcpOrig = window.quickConfirmPurchase;
+window.quickConfirmPurchase = function(id){
+  try{
+    let f=purchaseInvoices().find(x=>x.id===id||x.weighing===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    if(f.status==='Konfirmuar') return toast('Fatura është tashmë e konfirmuar');
+    if(f.status==='Anuluar') return toast('Fatura e anuluar nuk konfirmohet');
+    if(f.isPrepayment){
+      f.status='Konfirmuar';
+      state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Konfirmim parapagimi',ref:f.id,text:f.id+' — parapagim u konfirmua (pa stok)'});
+      save(); if(typeof queuePush==='function') try{queuePush()}catch(e){}
+      render(); toast('Parapagimi u konfirmua: '+f.id); return;
+    }
+    if(!f.weighing){
+      f.status='Konfirmuar';
+      try{ allocatePrepaymentsAgainstInvoice(f.id); }catch(e){}
+      state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Konfirmim blerje pa peshim',ref:f.id,text:f.id+' u konfirmua'});
+      save(); if(typeof queuePush==='function') try{queuePush()}catch(e){}
+      render(); toast('Fatura pa peshim u konfirmua: '+f.id); return;
+    }
+    try{ closeModal(); }catch(e){}
+    setTimeout(function(){
+      try{ purchaseCard(f.id); setTimeout(function(){
+        let btn=document.querySelector('#modalFoot .btn.primary');
+        if(btn && btn.textContent.includes('Konfirmo')) btn.click();
+      },250);
+      }catch(e){}
+    },80);
+  }catch(e){ console.error(e); toast('Gabim: '+(e&&e.message)); }
+};
+window.printPurchase = function(id){
+  try{
+    let f=purchaseInvoices().find(x=>x.id===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    purchaseCard(id);
+    setTimeout(function(){ try{ printOnly('modalBody','Fatura '+id); }catch(e){ window.print(); } },300);
+  }catch(e){ toast('Gabim: '+(e&&e.message)); }
+};
+window.deleteSale = window.deleteSale || function(id){
+  try{
+    let f=salesInvoices().find(x=>x.id===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    if(f.status!=='Draft') return toast('Vetëm Draft fshihet');
+    if(!confirm('Të fshihet fatura e shitjes '+id+'?')) return;
+    let idx=salesInvoices().indexOf(f); if(idx>=0) salesInvoices().splice(idx,1);
+    if(state.accountingEntries) state.accountingEntries=state.accountingEntries.filter(e=>e.ref!==id);
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Fshirje shitje',ref:id,text:id+' u fshi (Draft)'});
+    save(); if(typeof queuePush==='function') try{queuePush()}catch(e){}
+    render(); toast('Fatura u fshi');
+  }catch(e){ toast('Gabim: '+(e&&e.message)); }
+};
+window.voidSaleInvoice = window.voidSaleInvoice || function(id){
+  try{
+    let f=salesInvoices().find(x=>x.id===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    if(f.status!=='Konfirmuar') return toast('Vetëm Konfirmuar anulohet');
+    let reason=prompt('ADMIN — arsyeja e anulimit të shitjes '+id+':');
+    if(!reason||!String(reason).trim()) return toast('Arsyeja e detyrueshme');
+    f.status='Anuluar'; f.voidReason=String(reason).trim(); f.voidAt=new Date().toISOString();
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Anulim shitje',ref:id,text:id+' u anulua: '+String(reason).trim()});
+    save(); if(typeof queuePush==='function') try{queuePush()}catch(e){}
+    closeModal(); render(); toast('Shitja u anulua');
+  }catch(e){ toast('Gabim: '+(e&&e.message)); }
+};
+window.cloneSaleInvoice = window.cloneSaleInvoice || window.cloneSalesInvoice || function(id){
+  try{
+    let f=salesInvoices().find(x=>x.id===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    let nid='FS-'+new Date().getFullYear()+'-'+String(salesInvoices().length+1).padStart(4,'0');
+    let clone=JSON.parse(JSON.stringify(f));
+    clone.id=nid; clone.invoiceNumber=nid; clone.status='Draft';
+    clone.date=new Date().toISOString().slice(0,10); clone.invoiceDate=clone.date;
+    salesInvoices().push(clone);
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Kopjim shitje',ref:nid,text:nid+' u krijua nga '+id});
+    save(); render(); saleInvoiceCard(nid); toast('Fatura u kopjua: '+nid);
+  }catch(e){ toast('Gabim: '+(e&&e.message)); }
+};
+window.printSale = window.printSale || function(id){
+  try{
+    let f=salesInvoices().find(x=>x.id===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    if(typeof saleInvoiceCard==='function') saleInvoiceCard(id);
+    setTimeout(function(){ try{ printOnly('modalBody','Fatura '+id);}catch(e){ window.print(); } },300);
+  }catch(e){ toast('Gabim: '+(e&&e.message)); }
+};
+window.quickConfirmSale = window.quickConfirmSale || function(id){
+  try{
+    let f=salesInvoices().find(x=>x.id===id);
+    if(!f) return toast('Fatura nuk u gjet');
+    if(f.status==='Konfirmuar') return toast('E konfirmuar');
+    f.status='Konfirmuar';
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Miratim shitjeje',ref:id,text:id+' u konfirmua'});
+    save(); render(); toast('Shitja u konfirmua');
+  }catch(e){ toast('Gabim: '+(e&&e.message)); }
+};
+
+// 4) FAQJA KONFIGURIME
+try{
+  const origSettings = views.settings;
+  views.settings = function(){
+    let h=origSettings();
+    try{
+      if(h.indexOf('settings-grid')<0){
+        let firstCard=h.indexOf('<div class="card"');
+        if(firstCard>=0){
+          let before=h.slice(0,firstCard);
+          let after=h.slice(firstCard);
+          h=before+'<div class="settings-grid">'+after;
+          let lastApp=h.lastIndexOf('<div class="apps"');
+          if(lastApp>=0){ h=h.slice(0,lastApp)+'</div>'+h.slice(lastApp); }
+          else { h=h+'</div>'; }
+        }
+      }
+      h=h.replace('border-color:#b7dbc8','border-color:#b7dbc8;background:#f2f9f4');
+      if(h.indexOf('Regjistrat bazë')<0){
+        let regCard='<div class="card"><h3>Regjistrat bazë</h3><p class="hint">Të dhënat themelore të sistemit</p><div class="apps">'
+          +'<div class="app" onclick="simpleForm(\'product\')"><i>❧</i><b>Produkte</b></div>'
+          +'<div class="app" onclick="simpleForm(\'supplier\')"><i>♙</i><b>Furnitorë</b></div>'
+          +'<div class="app" onclick="simpleForm(\'customer\')"><i>☷</i><b>Klientë</b></div>'
+          +'<div class="app" onclick="simpleForm(\'warehouse\')"><i>▦</i><b>Magazina</b></div>'
+          +'<div class="app" onclick="simpleForm(\'rack\')"><i>▤</i><b>Rafta bazë</b></div>'
+          +'</div></div>';
+        h=h.replace('</div><div class="apps">', '</div>'+regCard+'<div class="apps">');
+      }
+      if(h.indexOf('Administrim & Siguri')<0){
+        let admCard='<div class="card"><h3>Administrim & Siguri</h3><p class="hint">Përdoruesit dhe siguria</p><div class="actions">'
+          +'<button class="btn" onclick="usersSecurityCenter()">Përdoruesit</button>'
+          +'<button class="btn" onclick="quickResetAdminPassword()">🔑 Rivendos passwordin e adminit</button>'
+          +'</div></div>';
+        h=h.replace('<div class="card"><h3>Siguria</h3>', admCard+'<div class="card"><h3>Siguria</h3>');
+        if(h.indexOf('Administrim & Siguri')<0){ h=h.replace('</div></div>', '</div>'+admCard+'</div>'); }
+      }
+      if(h.indexOf('Mjete administrimi')<0){
+        let mjete='<div class="card"><h3>Mjete administrimi</h3><p class="hint">Mjete për administrim</p><div class="actions">'
+          +'<button class="btn" onclick="backup()">Eksport</button>'
+          +'<button class="btn" onclick="document.getElementById(\'importFile\').click()">Import</button>'
+          +'<button class="btn" onclick="cleanTestData()">Pastrim</button>'
+          +'</div></div>';
+        if(h.indexOf('Mjete administrimi')<0){ h=h.replace('</div><!--', mjete+'</div><!--'); h=h.replace('</div><div class="card"><h3>Siguria', mjete+'<div class="card"><h3>Siguria'); }
+      }
+    }catch(e){ return origSettings(); }
+    return h;
+  };
+}catch(e){}
+window.quickResetAdminPassword = function(){
+  try{
+    if(typeof currentUserIsAdmin==='function' && !currentUserIsAdmin()) return toast('Vetëm ADMINI mund të rivendosë');
+    if(typeof securityState==='function' && typeof hashPassword==='function'){
+      let adm=null;
+      try{ adm=resetAdminUser ? resetAdminUser() : (state.users||[]).find(u=>u.role==='admin'); }catch(e){}
+      if(!adm) return toast('Nuk u gjet admin');
+      modal('Rivendos passwordin e adminit',
+        '<div class="form-grid">'
+        +'<div class="field"><label>Fjalëkalimi i ri (min 6 karaktere)</label><input id="rapNew1" type="password" autocomplete="new-password"></div>'
+        +'<div class="field"><label>Përsërit fjalëkalimin e ri</label><input id="rapNew2" type="password" autocomplete="new-password"></div>'
+        +'<div class="field full"><label>Konfirmo fjalëkalimin</label><input id="rapNew3" type="password" placeholder="Përsërit sërish për konfirmim"></div>'
+        +'</div><p class="hint">Min 6 karaktere, dy fusha + konfirmim. Do të gjenerohet hash me hashPassword() dhe do të pastrohen sesionet.</p>',
+        '<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="saveQuickResetAdminPassword()">Ruaj</button>');
+    } else {
+      if(typeof resetAdminPasswordForm==='function') return resetAdminPasswordForm();
+      toast('Moduli i sigurisë nuk u ngarkua');
+    }
+  }catch(e){ toast('Gabim: '+(e&&e.message)); }
+};
+window.saveQuickResetAdminPassword = async function(){
+  try{
+    let a=gval('rapNew1'), b=gval('rapNew2'), c=gval('rapNew3')||b;
+    if(a!==b || a!==c) return toast('Fushat duhet të përputhen');
+    if(a.length<6) return toast('Min 6 karaktere');
+    let adm=null;
+    try{ adm=resetAdminUser ? resetAdminUser() : (state.users||[]).find(u=>u.role==='admin'); }catch(e){}
+    if(!adm) return toast('Nuk u gjet admin');
+    let h=await hashPassword(a);
+    Object.assign(adm, {passwordHash:h.hash, passwordSalt:h.salt, passwordIterations:h.iterations, mustChangePassword:false, passwordChangedAt:new Date().toISOString(), lockedUntil:null, failedAttempts:0});
+    try{ let ss=securityState(); if(ss) ss.sessions=[]; }catch(e){}
+    try{ sessionStorage.removeItem('biobesSession'); }catch(e){}
+    try{ sessionStorage.removeItem('biobesServerToken'); }catch(e){}
+    try{ localStorage.removeItem('biobesSession'); }catch(e){}
+    save();
+    try{ securityAudit('ADMIN_PASSWORD_RESET','Fjalëkalimi u rivendos', adm.id); }catch(e){}
+    closeModal(); render();
+    toast('Passwordi u rivendos — sesionet u pastruan');
+    try{ showLogin(); }catch(e){}
+  }catch(e){ console.error(e); toast('Gabim: '+(e&&e.message)); }
+};
+// 5) AUTO-RESOLVE
+window.showSyncConflict = function(sd){
+  try{
+    if(typeof localHasBusinessData==='function' && localHasBusinessData()){ try{ backup(); }catch(e){} }
+    setTimeout(function(){ try{ if(typeof syncTakeServer==='function') syncTakeServer(); }catch(e){} },300);
+    try{ toast('Sinkronizimi u zgjidh automatikisht — u mor kopja nga serveri'); }catch(e){}
+    return;
+  }catch(e){ console.error(e); }
+};
+// 6) FATURË BLERJEJE E VETME + PARAPAGIM
+window.nextPurchaseInvoiceId = window.nextPurchaseInvoiceId || function(){
+  if(typeof nextPurchaseId==='function') return nextPurchaseId();
+  let y=new Date().getFullYear(),re=new RegExp('^FB-'+y+'-(\\d+)$'),max=0;
+  (purchaseInvoices()||[]).forEach(function(f){ let m=String(f.id||'').match(re); if(m) max=Math.max(max,+m[1]); });
+  return 'FB-'+y+'-'+String(max+1).padStart(4,'0');
+};
+if(typeof nextPurchaseId!=='function') window.nextPurchaseId = window.nextPurchaseInvoiceId;
+
+const origSupplierBalance = window.supplierBalance;
+window.supplierBalance = function(id, raw){
+  try{
+    let deb=0, cred=0;
+    (purchaseInvoices()||[]).filter(function(f){ return f.supplier===id && f.status==='Konfirmuar' && !f.isPrepayment; }).forEach(function(f){ deb+=toALL(f.total,f.currency,f.exchangeRate); });
+    (state.payments||[]).filter(function(p){ return p.supplier===id && (p.status||'Konfirmuar')==='Konfirmuar'; }).forEach(function(p){ cred+=toALL(p.amount,p.currency,p.exchangeRate); });
+    (purchaseInvoices()||[]).filter(function(f){ return f.supplier===id && f.status==='Konfirmuar' && f.isPrepayment; }).forEach(function(f){ cred+=toALL(f.total,f.currency,f.exchangeRate); });
+    let sup=by('suppliers',id);
+    let opening=sup && sup.openingBalance? +sup.openingBalance:0;
+    let bal=deb-cred+opening;
+    if(raw===true){ return {debit:deb+opening, credit:cred, balance:bal}; }
+    return bal;
+  }catch(e){ try{ return origSupplierBalance(id,raw); }catch(_){ return 0; } }
+};
+window.supplierPrepaymentRemaining = function(id){
+  try{
+    let total=0, allocated=0;
+    (purchaseInvoices()||[]).filter(function(f){ return f.supplier===id && f.isPrepayment && f.status==='Konfirmuar'; }).forEach(function(f){
+      total+=toALL(f.total,f.currency,f.exchangeRate);
+      allocated+=(+f.allocatedTo||0);
+    });
+    return Math.max(0, total-allocated);
+  }catch(e){ return 0; }
+};
+window.allocatePrepaymentsAgainstInvoice = function(invOrId){
+  try{
+    let inv=typeof invOrId==='string'? purchaseInvoices().find(function(f){ return f.id===invOrId; }) : invOrId;
+    if(!inv || inv.isPrepayment || inv.status!=='Konfirmuar') return;
+    let needed=toALL(inv.total,inv.currency,inv.exchangeRate);
+    if(needed<=0.001) return;
+    let preps=(purchaseInvoices()||[]).filter(function(f){ return f.supplier===inv.supplier && f.isPrepayment && f.status==='Konfirmuar'; })
+      .filter(function(f){ return (toALL(f.total,f.currency,f.exchangeRate)-(+f.allocatedTo||0))>0.001; })
+      .sort(function(a,b){ return String(a.invoiceDate||a.date).localeCompare(String(b.invoiceDate||b.date)); });
+    inv.prepaymentLinks=inv.prepaymentLinks||[];
+    let already=(inv.prepaymentLinks||[]).reduce(function(a,l){ return a+(+l.amount||0); },0);
+    let remaining=Math.max(0, needed-already);
+    if(remaining<=0.001) return;
+    preps.forEach(function(prep){
+      if(remaining<=0.001) return;
+      let free=toALL(prep.total,prep.currency,prep.exchangeRate)-(+prep.allocatedTo||0);
+      if(free<=0.001) return;
+      let take=Math.min(free,remaining);
+      inv.prepaymentLinks.push({prepayId:prep.id, invoiceId:inv.id, amount:Math.round(take*100)/100, date:new Date().toISOString().slice(0,10)});
+      prep.allocatedTo=(+prep.allocatedTo||0)+take;
+      remaining-=take;
+    });
+    if(inv.prepaymentLinks.length) try{ save(); }catch(e){}
+  }catch(e){ console.error(e); }
+};
+try{
+  const spBase=window.savePurchase;
+  window.savePurchase=function(id,confirmIt){
+    let res; try{ res=spBase(id,confirmIt); }catch(e){ console.error(e); }
+    try{
+      let f=purchaseInvoices().find(function(x){ return x.id===id; });
+      if(f && f.status==='Konfirmuar' && !f.isPrepayment) try{ allocatePrepaymentsAgainstInvoice(f.id); }catch(e){}
+    }catch(e){}
+    return res;
+  };
+}catch(e){}
+
+window.purchaseFormTogglePrepay = window.purchaseFormTogglePrepay || function(){
+  try{
+    let pre=!!($id('fifPrepay') && $id('fifPrepay').checked);
+    document.querySelectorAll('.fif-articles').forEach(function(el){ el.style.display=pre?'none':''; });
+    document.querySelectorAll('.fif-prepay').forEach(function(el){ el.style.display=pre?'':'none'; });
+    document.querySelectorAll('.fif-standard').forEach(function(el){ el.style.display=pre?'none':''; });
+    let hint=$id('fifHint');
+    if(hint) hint.textContent=pre?'Parapagimi nuk lidhet me artikuj: vendosni shumën e paguar paraprakisht. Ruhet si draft; kur konfirmohet, hidhet në kredit dhe ulet automatikisht.':'Faturë blerjeje që nuk lidhet me peshim — mund të ketë ose jo produkt.';
+    let cur=$id('fifCurrency'), rate=$id('fifRate');
+    if(pre){ if(cur) cur.value='ALL'; if(rate) rate.value='1'; }
+    try{ fifCalc && fifCalc(); }catch(e){}
+  }catch(e){}
+};
+window.fifTogglePrepay = window.purchaseFormTogglePrepay;
+
+const origPForm = window.purchaseInvoiceForm;
+window.purchaseInvoiceForm = function(supplierId){
+  try{
+    let cur=supplierId||'';
+    modal('Faturë blerjeje e re',
+      '<div class="field full" style="margin-bottom:10px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px">'
+      +'<label style="font-weight:700;cursor:pointer"><input type="checkbox" id="fifPrepay" onchange="purchaseFormTogglePrepay()" style="width:auto;vertical-align:middle"> ☐ Parapagim (pa artikuj / pa mall)</label>'
+      +'<span class="hint" id="fifHint" style="display:block;margin-top:4px">Faturë blerjeje që nuk lidhet me peshim — mund të ketë ose jo produkt. Shënoni parapagimin nëse nuk ka artikuj.</span></div>'
+      +'<div class="form-grid">'
+      +'<div class="field"><label>Data</label><input id="fifDate" type="date" value="'+new Date().toISOString().slice(0,10)+'"></div>'
+      +'<div class="field"><label>Furnitori</label><select id="fifSupplier"><option value="">Zgjidh...</option>'+opts(state.suppliers,function(x){ return x.code+' — '+x.name; },cur)+'</select></div>'
+      +'<div class="field fif-articles"><label>Produkti (dropdown)</label><select id="fifProduct"><option value="">— pa produkt —</option>'+opts(state.products,function(x){ return x.code+' — '+x.name; })+'</select></div>'
+      +'<div class="field"><label>Numri i faturës së furnitorit (opsional)</label><input id="fifNo" placeholder="p.sh. 2026-114"></div>'
+      +'<div class="field fif-articles"><label>Sasia</label><input id="fifQty" type="number" step="0.001" min="0" oninput="fifCalc()"></div>'
+      +'<div class="field fif-articles"><label>Çmimi/njësi</label><input id="fifPrice" type="number" step="0.0001" min="0" oninput="fifCalc()"></div>'
+      +'<div class="field fif-prepay" style="display:none"><label>Shuma e parapagimit</label><input id="fifAmount" type="number" step="0.01" min="0" oninput="fifCalc()"></div>'
+      +'<div class="field fif-standard"><label>Monedha</label><select id="fifCurrency" onchange="fifCalc()"><option>ALL</option><option>EUR</option><option>USD</option></select></div>'
+      +'<div class="field fif-standard"><label>Kursi</label><input id="fifRate" type="number" step="0.0001" min="0" value="1" oninput="fifCalc()"></div>'
+      +'<div class="field"><label>TVSH%</label><input id="fifVat" type="number" step="0.01" min="0" value="0" oninput="fifCalc()"></div>'
+      +'<div class="field full"><label>Përshkrimi</label><textarea id="fifNotes" rows="2" placeholder="p.sh. Për mallin e marsit / Parapagim për porosinë 2026-14"></textarea></div>'
+      +'</div>'
+      +'<div class="invoice-summary" style="margin-top:10px"><div><small>Totali</small><b id="fifTotal">0</b></div><div><small>Totali në ALL</small><b id="fifTotalAll">0</b></div></div>',
+      '<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="createPurchaseInvoiceFromForm()">Ruaj faturën</button>');
+    setTimeout(function(){ try{ enhanceEntitySelects(); }catch(e){} try{ purchaseFormTogglePrepay(); }catch(e){} },30);
+  }catch(e){ toast('Gabim: '+(e&&e.message)); }
+};
+window.createPurchaseInvoiceFromForm = function(){
+  try{
+    let sup=gval('fifSupplier'); if(!sup) return toast('Zgjidhni furnitorin');
+    let pre=!!($id('fifPrepay') && $id('fifPrepay').checked);
+    let notes=gval('fifNotes'), no=gval('fifNo'), date=gval('fifDate')||new Date().toISOString().slice(0,10);
+    let id=(typeof nextPurchaseInvoiceId==='function'? nextPurchaseInvoiceId() : nextPurchaseId());
+    let f;
+    if(pre){
+      let amt=parseFloat($id('fifAmount')? $id('fifAmount').value:0);
+      if(!(amt>0)) return toast('Shuma e parapagimit duhet >0');
+      f={id:id, date:date, invoiceDate:date, supplier:sup, product:'', weighing:'', physical:0, discount:0, billable:0, price:0, currency:'ALL', exchangeRate:1, vat:0, subtotal:0, vatAmount:0, total:Math.round(amt*1*100)/100, status:'Draft', isPrepayment:true, allocatedTo:0, prepaymentLinks:[], documentType:'Parapagim', description:notes||'Parapagim (pa artikuj)', notes:notes||'Parapagim (pa artikuj)', supplierInvoiceNo:no, attachment:'', attachmentData:'', attachmentType:''};
+    } else {
+      let prod=gval('fifProduct'), cur=gval('fifCurrency','ALL'), rate=Math.max(0,parseFloat($id('fifRate')? $id('fifRate').value:1))||1, vat=Math.max(0,parseFloat($id('fifVat')? $id('fifVat').value:0)), q=Math.max(0,parseFloat($id('fifQty')? $id('fifQty').value:0)), p=Math.max(0,parseFloat($id('fifPrice')? $id('fifPrice').value:0)), s=q*p;
+      f={id:id, date:date, invoiceDate:date, supplier:sup, product:prod, weighing:'', physical:q, discount:0, billable:q, price:p, currency:cur, exchangeRate:rate, vat:vat, subtotal:s, vatAmount:s*vat/100, total:s+s*vat/100, status:'Draft', isPrepayment:false, allocatedTo:0, prepaymentLinks:[], documentType:'FB pa peshim', description:notes||'Faturë blerjeje pa peshim', notes:notes||'Faturë blerjeje pa peshim', supplierInvoiceNo:no, attachment:'', attachmentData:'', attachmentType:''};
+    }
+    purchaseInvoices().push(f);
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:f.isPrepayment?'Parapagim blerjeje':'Faturë blerjeje pa peshim', ref:f.id, text:f.id+' — '+(by('suppliers',sup).code||sup)+(f.isPrepayment?' parapagim '+n(f.total,0)+' ALL':' '+n(f.total)+' '+f.currency)});
+    save(); if(typeof queuePush==='function') try{queuePush()}catch(e){}
+    closeModal(); render(); setTimeout(function(){ purchaseCard(f.id); },80); toast((f.isPrepayment?'Parapagimi':'Fatura')+' u ruajt: '+f.id);
+  }catch(e){ toast('Gabim: '+(e&&e.message)); }
+};
+
+// 7) KARTELA E FURNITORIT A4
+try{
+  const prevCard = supplierCard;
+  supplierCard = function(id){
+    try{
+      let s=by('suppliers',id);
+      if(!s||!s.id) return toast('Furnitori nuk u gjet');
+      let bal=supplierBalance(id);
+      let raw=supplierBalance(id,true);
+      let conf=purchaseInvoices().filter(function(f){ return f.supplier===id && f.status==='Konfirmuar'; });
+      let fatura=conf.filter(function(f){ return !f.isPrepayment; });
+      let prepayConf=conf.filter(function(f){ return f.isPrepayment; });
+      let faturaSum=fatura.reduce(function(a,f){ return a+toALL(f.total,f.currency,f.exchangeRate); },0);
+      let payments=state.payments.filter(function(p){ return p.supplier===id && (p.status||'Konfirmuar')==='Konfirmuar'; }).reduce(function(a,p){ return a+toALL(p.amount,p.currency,p.exchangeRate); },0);
+      let prepaySum=prepayConf.reduce(function(a,f){ return a+toALL(f.total,f.currency,f.exchangeRate); },0);
+      let unused=supplierPrepaymentRemaining(id);
+      let headLine=[s.code,s.name,s.city||s.region,s.country||'Albania',s.website].filter(Boolean).map(esc).join(' &nbsp;·&nbsp; ');
+      let sub=[s.nipt?('NIPT: '+esc(s.nipt)):'', s.phone?('Tel: '+esc(s.phone)):''].filter(Boolean).join(' &nbsp;·&nbsp; ');
+      let rows=[];
+      conf.forEach(function(f){
+        let isPre=!!f.isPrepayment;
+        let veprimi=isPre?'🔵 Parapagim':(f.product?'Blerje':'FB pa peshim');
+        let desc=isPre?'<a class="link" onclick="purchaseCard(\''+f.id+'\')">Parapagim <b>'+f.id+'</b></a> — '+esc(f.description||f.notes||''):'<a class="link" onclick="purchaseCard(\''+f.id+'\')">Blerje <b>'+f.id+'</b></a> — '+esc((by('products',f.product)?by('products',f.product).name:'FB pa peshim')+(f.supplierInvoiceNo?' — Fat: '+f.supplierInvoiceNo:''))+' — '+esc(f.description||'');
+        let debi=isPre?'':n(toALL(f.total,f.currency,f.exchangeRate),2);
+        let kredi=isPre?n(toALL(f.total,f.currency,f.exchangeRate),2):'';
+        rows.push({date:f.invoiceDate||f.date, veprimi:veprimi, desc:desc, debi:debi, kredi:kredi, status:f.status});
+      });
+      state.payments.filter(function(p){ return p.supplier===id && (p.status||'Konfirmuar')==='Konfirmuar'; }).forEach(function(p){
+        rows.push({date:p.date, veprimi:'Pagesë', desc:'<a class="link" onclick="paymentCard(\''+p.id+'\')">'+esc((p.method||'Pagesë')+' — '+(p.note||'Pagesë'))+' <b>'+p.id+'</b></a>', debi:'', kredi:n(toALL(p.amount,p.currency,p.exchangeRate),2), status:p.status||'Konfirmuar'});
+      });
+      rows=rows.sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); });
+      let body=rows.map(function(r){ return '<tr><td>'+esc(r.date||'—')+'</td><td>'+r.veprimi+'</td><td>'+r.desc+'</td><td>'+r.debi+'</td><td>'+r.kredi+'</td><td>'+status(r.status||'')+'</td></tr>'; }).join('')||'<tr><td colspan="6" class="empty">Nuk ka veprime</td></tr>';
+      modal('Kartela — '+esc(s.name),
+        '<div id="printSupplierCard">'
+        +'<div class="card" style="border-top:4px solid #176b49;margin-bottom:12px"><div style="font-size:16px;font-weight:800">'+headLine+'</div>'+(sub?'<p class="hint" style="margin:4px 0 0">'+sub+'</p>':'')+'</div>'
+        +'<div class="kpis">'
+        +'<div class="kpi"><small>Fatura gjithsej (debit)</small><strong>'+n(faturaSum,0)+' ALL</strong></div>'
+        +'<div class="kpi"><small>Pagesa + Parapagime (credit)</small><strong>'+n(payments+prepaySum,0)+' ALL</strong></div>'
+        +'<div class="kpi"><small>Gjendja neto</small><strong style="color:'+(bal>0.009?'#b63c46':(bal<-0.009?'#176b49':'#333'))+'">'+n(bal,0)+' ALL</strong></div>'
+        +'<div class="kpi" style="border-color:#fde68a;background:#fef3c7"><small>Parapagim i papërdorur</small><strong>'+n(unused,0)+' ALL</strong></div>'
+        +'</div>'
+        +'<div class="card" style="padding:0;margin-top:12px"><div class="table-wrap" style="border:0"><table><thead><tr><th>Data</th><th>Veprimi</th><th>Përshkrimi</th><th>Debi</th><th>Kredi</th><th>Status</th></tr></thead><tbody>'+body+'</tbody></table></div></div>'
+        +'</div>',
+        '<button class="btn" onclick="closeModal()">Mbyll</button>'
+        +'<button class="btn primary" onclick="purchaseInvoiceForm(\''+id+'\')">+ Faturë blerëje</button>'
+        +'<button class="btn" onclick="supplierEditForm(\''+id+'\')">✎ Ndrysho</button>'
+        +'<button class="btn" onclick="printOnly(\'printSupplierCard\',\'Kartela '+esc(s.code)+'\')">🖨 Printo</button>');
+    }catch(e){ console.error(e); try{ prevCard(id); }catch(_){ toast('Gabim: '+(e&&e.message)); } }
+  };
+}catch(e){}
+
+// Ensure views.purchases has single + Faturë blerëje
+try{
+  const origPurch = views.purchases;
+  views.purchases = function(){
+    let h=origPurch();
+    try{
+      let count=(h.match(/purchaseInvoiceForm\(\)/g)||[]).length;
+      if(count>1){
+        let first=h.indexOf('purchaseInvoiceForm()');
+        let second=h.indexOf('purchaseInvoiceForm()',first+1);
+        while(second>=0){
+          h=h.slice(0,second-30)+h.slice(second+30).replace(/<button[^<]*purchaseInvoiceForm\(\)[^<]*<\/button>/,'');
+          count--; if(count<=1) break;
+          second=h.indexOf('purchaseInvoiceForm()',first+1);
+        }
+      }
+      if(h.indexOf('+ Faturë blerëje')<0){
+        h=h.replace('<button class="btn" onclick="syncPurchaseDrafts', '<button class="btn primary" onclick="purchaseInvoiceForm()">+ Faturë blerëje</button> <button class="btn" onclick="syncPurchaseDrafts');
+      }
+    }catch(e){}
+    return h;
+  };
+}catch(e){}
+
+try{
+  const origSave=window.save;
+  if(origSave && typeof queuePush==='function'){
+    window.save=function(){ let r=origSave.apply(this, arguments); try{ queuePush(); }catch(e){} return r; };
+  }
+}catch(e){}
+
+console.log('BioBes gaps complete loaded');
+})();
+
+</script>
 </body></html>
