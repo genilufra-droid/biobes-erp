@@ -15,7 +15,7 @@
 <!-- BioBes ERP — online build 2026-09-11 rev5 | fix ruajtja: addSample + të gjitha format me $id/$val/$num/$file, try/catch + toast | redaktim direkt në Paketim (packaging edit v1) | backend: biobes-api v1 | coldstart v3 inline | Render static — redeploy trigger 2026-09-11 rev5 (PR #14 e bashkuar) -->
 <html lang="sq">
 <head>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src 'self' https: wss: data: blob:; img-src 'self' data: blob: https:; media-src 'self' data: blob:; font-src 'self' data:; form-action 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self' https:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src 'self' https: https://biobes-api.onrender.com wss: data: blob:; img-src 'self' data: blob: https:; media-src 'self' data: blob:; font-src 'self' data:; form-action 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self' https:">
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BioBes ERP</title>
 <style>
@@ -45,14 +45,15 @@ async function load(){await openDB();return new Promise(res=>{let r=db.transacti
 function save(){if(state&&state.events&&state.events.length>500)state.events=state.events.slice(-500);if(!db)return;try{let sq=db.transaction('app','readwrite').objectStore('app').put(state,'state');let done=false;function finish(){if(done)return;done=true;try{queuePush()}catch(_q){}}if(sq&&typeof sq==='object'){sq.onsuccess=()=>finish();sq.onerror=()=>{toast('Ruajtja lokale dështoi — kontrollo hapësirën dhe provo përsëri');finish()}}else{finish()}}catch(e){console.error('save error',e);toast('Ruajtja lokale dështoi — kontrollo hapësirën dhe provo përsëri');try{queuePush()}catch(_q){}}}
 // Safe DOM accessor — replaces implicit global (window["id"]) references
 // that become unreliable after globalizeAllSelects()/dedupeLiveSearches()/Live Search.
-function $id(id){let el=document.getElementById(id);if(!el){console.warn('$id: element not found',id);return null}return el}
+let __domWarnSeen=null,__domWarnN=0;function __domWarn(tag,id){try{if(!__domWarnSeen)__domWarnSeen=new Set();let k=tag+':'+id;if(__domWarnN<40&&!__domWarnSeen.has(k)){__domWarnSeen.add(k);__domWarnN++;console.warn(tag+': element not found',id)}else if(__domWarnN===40){__domWarnN++;console.warn(tag+': element not found — mesazhet e mëtejshme u frenuan (cap 40)')}}catch(e){}}
+function $id(id){let el=document.getElementById(id);if(!el){__domWarn('$id',id);return null}return el}
 function $val(id,def=''){let el=document.getElementById(id);if(!el)return def;if(el.type==='checkbox')return el.checked;return el.value??def}
 function $num(id,def=0){let v=parseFloat(document.getElementById(id)?.value||'');return isFinite(v)?v:def}
 function $file(id){return document.getElementById(id)?.files?.[0]||null}
-function $set(id,v){let el=document.getElementById(id);if(!el){console.warn('$set: element not found',id);return false}if(el.type==='checkbox'){el.checked=!!v;return true}el.value=v==null?'':v;return true}
-function $html(id,v){let el=document.getElementById(id);if(!el){console.warn('$html: element not found',id);return false}el.innerHTML=v==null?'':v;return true}
-function $text(id,v){let el=document.getElementById(id);if(!el){console.warn('$text: element not found',id);return false}el.textContent=v==null?'':v;return true}
-function $css(id,prop,v){let el=document.getElementById(id);if(!el){console.warn('$css: element not found',id);return false}el.style[prop]=v;return true}
+function $set(id,v){let el=document.getElementById(id);if(!el){__domWarn('$set',id);return false}if(el.type==='checkbox'){el.checked=!!v;return true}el.value=v==null?'':v;return true}
+function $html(id,v){let el=document.getElementById(id);if(!el){__domWarn('$html',id);return false}el.innerHTML=v==null?'':v;return true}
+function $text(id,v){let el=document.getElementById(id);if(!el){__domWarn('$text',id);return false}el.textContent=v==null?'':v;return true}
+function $css(id,prop,v){let el=document.getElementById(id);if(!el){__domWarn('$css',id);return false}el.style[prop]=v;return true}
 
 let __uidc=0;function uid(p){return p+'-'+Date.now().toString(36).toUpperCase()+'-'+(++__uidc).toString(36).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase()}
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
