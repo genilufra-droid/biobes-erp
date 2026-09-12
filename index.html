@@ -72,9 +72,9 @@ function liveFilter(el){let q=el.value.toLowerCase();document.querySelectorAll('
 function modal(title,body,foot){modalTitle.textContent=title;modalBody.innerHTML=body;modalFoot.innerHTML=foot||`<button class="btn" onclick="closeModal()">Mbyll</button>`;document.getElementById('modal').classList.add('open')}
 function closeModal(){document.getElementById('modal').classList.remove('open');try{document.getElementById('modal').classList.remove('above-lock')}catch(e){}}
 function opts(arr,label,sel=''){return arr.map(x=>`<option value="${x.id}" ${x.id===sel?'selected':''}>${esc(label(x))}</option>`).join('')}
-function entityForm(type){if(type==='product')modal('Produkt i ri',`<div class="form-grid"><div class="field"><label>Kodi</label><input id="fCode"></div><div class="field"><label>Kategoria</label><select id="fCat"><option>Gjethe</option><option>Herbat</option><option>Lulet</option><option>Rrënjët</option><option>Frutat</option><option>Farat</option><option>Lëvoret</option><option>Vajrat</option></select></div><div class="field"><label>Emri shqip</label><input id="fName"></div><div class="field"><label>Emri botanik</label><input id="fBot"></div><div class="field full"><label>Emri anglisht</label><input id="fEng"></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addProduct()">Ruaj</button>`);else modal('Furnitor i ri',`<div class="form-grid"><div class="field"><label>Kodi</label><input id="fCode"></div><div class="field"><label>Emri</label><input id="fName"></div><div class="field"><label>Qarku / Zona</label><input id="fRegion"></div><div class="field"><label>Telefon</label><input id="fPhone"></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addSupplier()">Ruaj</button>`)}
+function entityForm(type){if(type==='product')modal('Produkt i ri',`<div class="form-grid"><div class="field"><label>Kodi</label><input id="fCode"></div><div class="field"><label>Kategoria</label><select id="fCat"><option>Gjethe</option><option>Herbat</option><option>Lulet</option><option>Rrënjët</option><option>Frutat</option><option>Farat</option><option>Lëvoret</option><option>Vajrat</option></select></div><div class="field"><label>Emri shqip</label><input id="fName"></div><div class="field"><label>Emri botanik</label><input id="fBot"></div><div class="field full"><label>Emri anglisht</label><input id="fEng"></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addProduct()">Ruaj</button>`);else modal('Furnitor i ri',`<div class="form-grid"><div class="field"><label>Kodi</label><input id="fCode"></div><div class="field"><label>Emri</label><input id="fName"></div><div class="field"><label>Qarku / Zona</label><input id="fRegion"></div><div class="field"><label>Telefon</label><input id="fPhone"></div><div class="field"><label>Qyteti</label><input id="fCity"></div><div class="field"><label>Shteti</label><input id="fCountry" value="Albania"></div><div class="field"><label>Website</label><input id="fWebsite" placeholder="https://..."></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addSupplier()">Ruaj</button>`)}
 function addProduct(){try{state.products.push({id:'P'+($id('fCode')?.value||''),code:$val('fCode'),name:$val('fName'),botanical:$val('fBot'),english:$val('fEng'),category:$val('fCat'),active:true});save();closeModal();render();toast('Produkti u shtua')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
-function addSupplier(){try{state.suppliers.push({id:uid('S'),code:$val('fCode'),name:$val('fName'),region:$val('fRegion'),phone:$val('fPhone'),balance:0});save();closeModal();render();toast('Furnitori u shtua')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
+function addSupplier(){try{state.suppliers.push({id:uid('S'),code:$val('fCode'),name:$val('fName'),region:$val('fRegion'),phone:$val('fPhone'),city:$val('fCity'),country:$val('fCountry','Albania'),website:$val('fWebsite'),balance:0});save();closeModal();render();toast('Furnitori u shtua')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
 function weighForm(){modal('Peshim i ri',`<div class="stepbar"><span class="step on">Të dhënat</span><span class="step">Peshimet</span><span class="step">Konfirmimi</span></div><div class="form-grid"><div class="field"><label>Data</label><input id="wDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field"><label>Kush e priti mallin?</label><input id="wReceiver" value="Admin"></div><div class="field"><label>Furnitori</label><select id="wSupplier"><option value="">Zgjidh...</option>${opts(state.suppliers,x=>x.code+' — '+x.name)}</select><span class="hint">Nuk gjendet? Shtohet te moduli Furnitorë.</span></div><div class="field"><label>Produkti</label><select id="wProduct"><option value="">Zgjidh...</option>${opts(state.products,x=>x.code+' — '+x.name)}</select></div><div class="field"><label>Nr. thasëve (opsional)</label><input id="wBags" type="number"></div><div class="field"><label>Zbritja për faturim %</label><input id="wDiscount" type="number" value="3" oninput="calcW()"></div><div class="field full"><label>Peshimet bruto — një peshë për rresht (kg)</label><textarea id="wGross" placeholder="p.sh. 187\n168.2\n281.8" oninput="calcW()"></textarea></div><div class="field full"><label>Peshat e ambalazhit — një peshë për rresht (kg)</label><textarea id="wTare" placeholder="p.sh. 50\n40\n50" oninput="calcW()"></textarea></div><div class="field full"><label>Foto/PDF e printerit elektronik</label><input id="wFile" type="file" accept="image/*,.pdf"><span class="hint">Ruhet emri i dokumentit.</span></div></div><div class="totals"><div class="total"><small>Peshime</small><b id="tCount">0</b></div><div class="total"><small>Bruto Z</small><b id="tGross">0 kg</b></div><div class="total"><small>Ambalazh Y</small><b id="tTare">0 kg</b></div><div class="total"><small>Mall fizik X</small><b id="tNet">0 kg</b></div><div class="total"><small>Peshë faturueshme</small><b id="tBill">0 kg</b></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn" onclick="saveWeigh(false)">Ruaj draft</button><button class="btn primary" onclick="saveWeigh(true)">Konfirmo & krijo lot</button>`);calcW()}
 function nums(id){return document.getElementById(id).value.split(/[\n,;]+/).map(Number).filter(x=>!isNaN(x)&&x)}
 function calcW(){try{let g=nums('wGross'),t=nums('wTare'),G=g.reduce((a,x)=>a+x,0),T=t.reduce((a,x)=>a+x,0),N=G-T,d=$num('wDiscount',0);let tc=$id('tCount'),tg=$id('tGross'),tt=$id('tTare'),tn=$id('tNet'),tb=$id('tBill');if(tc)tc.textContent=g.length;if(tg)tg.textContent=n(G)+' kg';if(tt)tt.textContent=n(T)+' kg';if(tn)tn.textContent=n(N)+' kg';if(tb)tb.textContent=n(N*(1-d/100))+' kg'}catch(e){console.error(e)}}
@@ -308,7 +308,7 @@ weightSheet=function(x){let s=by('suppliers',x.supplier),p=by('products',x.produ
 // Purchase invoices: physical stock and financial purchase are separate, linked records.
 if(!modules.some(x=>x[0]==='purchases')){let i=modules.findIndex(x=>x[0]==='suppliers');modules.splice(i,0,['purchases','▥','Faturat e Blerjes']);renderNav()}
 function purchaseInvoices(){return state.purchaseInvoices||(state.purchaseInvoices=[])}
-function syncPurchaseDrafts(){let changed=false;state.weighings.filter(w=>w.status==='Konfirmuar').forEach(w=>{if(!purchaseInvoices().some(f=>f.weighing===w.id)){purchaseInvoices().push({id:'FB-'+new Date(w.date).getFullYear()+'-'+String(purchaseInvoices().length+1).padStart(4,'0'),weighing:w.id,supplier:w.supplier,product:w.product,date:w.date,invoiceDate:w.date,supplierInvoiceNo:'',physical:w.net,discount:w.discount||0,billable:w.billable,price:0,currency:'ALL',exchangeRate:1,vat:0,subtotal:0,vatAmount:0,total:0,status:'Draft',attachment:'',attachmentData:'',attachmentType:''});changed=true}});if(changed)save()}
+function syncPurchaseDrafts(){let changed=false;state.weighings.filter(w=>w.status==='Konfirmuar').forEach(w=>{if(!purchaseInvoices().some(f=>f.weighing===w.id)){purchaseInvoices().push({id:(typeof nextPurchaseId==='function'?nextPurchaseId():'FB-'+new Date(w.date).getFullYear()+'-'+String(purchaseInvoices().length+1).padStart(4,'0')),weighing:w.id,supplier:w.supplier,product:w.product,date:w.date,invoiceDate:w.date,supplierInvoiceNo:'',physical:w.net,discount:w.discount||0,billable:(+w.billable>0?+w.billable:+(((+w.net||0)*(1-((+w.discount||0)/100))).toFixed(3))),price:0,currency:'ALL',exchangeRate:1,vat:0,subtotal:0,vatAmount:0,total:0,status:'Draft',attachment:'',attachmentData:'',attachmentType:''});changed=true}});if(changed)save()}
 const renderPrePurchases=render;render=function(){syncPurchaseDrafts();renderPrePurchases()}
 views.purchases=function(){syncPurchaseDrafts();return head('Faturat e Blerjes','Pesha e faturueshme, çmimi dhe detyrimi ndaj furnitorit',`<button class="btn" onclick="syncPurchaseDrafts();render()">↻ Merr peshimet e konfirmuara</button>`)+`<div class="stepbar"><span class="step on">Peshim i konfirmuar</span><span class="step">Draft blerjeje</span><span class="step">Çmim & TVSH</span><span class="step">Konfirmuar</span></div>`+tableCard(['Fatura','Data','Furnitori','Produkti','Fizike','Zbritja','Faturueshme','Vlera','Status','Veprime'],purchaseInvoices().map(f=>[`<a class="link" onclick="purchaseCard('${f.id}')">${f.id}</a>`,f.invoiceDate,`<a class="link" onclick="supplierCard('${f.supplier}')">${esc(by('suppliers',f.supplier).name)}</a>`,by('products',f.product).name,n(f.physical)+' kg',f.discount+'%',n(f.billable)+' kg',n(f.total)+' '+f.currency,status(f.status),`<button class="btn small" onclick="purchaseCard('${f.id}')">Hap</button> <button class="btn small" onclick="clonePurchaseInvoice('${f.id}')">Kopjo</button>`]))}
 function calcPurchaseFields(){let qty=+document.getElementById('fiQty')?.value||0,price=+document.getElementById('fiPrice')?.value||0,vat=+document.getElementById('fiVat')?.value||0,sub=qty*price,v=sub*vat/100,total=sub+v;fiSub.textContent=n(sub);fiVatAmount.textContent=n(v);fiTotal.textContent=n(total);let qd=document.getElementById('fiQtyDiff');if(qd){let phys=+document.getElementById('fiPhysical')?.value||0,wb=+document.getElementById('fiWeighBillable')?.value||0,diff=qty-wb;if(phys>0&&qty>phys+0.0005){qd.textContent='⚠ '+n(qty-phys,3)+' kg mbi peshën fizike';qd.style.color='#b63c46'}else if(Math.abs(diff)<0.0005){qd.textContent='= vlera automatike nga peshimi';qd.style.color='#176b49'}else{qd.textContent=(diff>0?'+':'−')+n(Math.abs(diff),3)+' kg nga peshimi (korrigjim manual)';qd.style.color='#d28b13'}}}
@@ -335,7 +335,8 @@ function exportPurchaseDocumentXlsx(id){let f=purchaseInvoices().find(x=>x.id===
 </script>
 <script>
 // One financial truth: supplier balance is always calculated from confirmed invoices and payments.
-function supplierBalance(id){let sb=by('suppliers',id),opening=+((sb&&sb.id?sb.openingBalance:0)||0),invoices=purchaseInvoices().filter(f=>f.supplier===id&&f.status==='Konfirmuar').reduce((a,f)=>a+toALL(f.total,f.currency,f.exchangeRate),0),payments=state.payments.filter(p=>p.supplier===id&&(p.status||'Konfirmuar')==='Konfirmuar').reduce((a,p)=>a+toALL(p.amount,p.currency,p.exchangeRate),0),returns=supplierReturns().filter(x=>x.supplier===id&&x.status==='Konfirmuar').reduce((a,x)=>a+toALL(x.total,x.currency,x.exchangeRate),0);return opening+invoices-payments-returns}
+// debit = FB të konfirmuar jo-parapagime; credit = pagesat + parapagimet (parapagimet e konfirmuara).
+function supplierBalance(id,raw){let sb=(raw&&Array.isArray(raw.suppliers))?raw.suppliers.find(x=>x.id===id)||{}:by('suppliers',id),opening=+((sb&&sb.id?sb.openingBalance:0)||0),conf=purchaseInvoices().filter(f=>f.supplier===id&&f.status==='Konfirmuar'),debit=conf.filter(f=>!f.isPrepayment).reduce((a,f)=>a+toALL(f.total,f.currency,f.exchangeRate),0),prepay=conf.filter(f=>f.isPrepayment).reduce((a,f)=>a+toALL(f.total,f.currency,f.exchangeRate),0),payments=state.payments.filter(p=>p.supplier===id&&(p.status||'Konfirmuar')==='Konfirmuar').reduce((a,p)=>a+toALL(p.amount,p.currency,p.exchangeRate),0),returns=supplierReturns().filter(x=>x.supplier===id&&x.status==='Konfirmuar').reduce((a,x)=>a+toALL(x.total,x.currency,x.exchangeRate),0);return opening+debit-(payments+prepay)-returns}
 views.suppliers=function(){return head('Furnitorët','Kartela, blerjet, pagesat dhe gjendja',`<button class="btn" onclick="exportSuppliersXls()">Eksporto Excel</button><button class="btn primary" onclick="entityForm('supplier')">+ Shto furnitor</button>`)+`<div class="toolbar"><input placeholder="Kërko live..." oninput="liveFilter(this)"></div><div id="liveTable">${tableCard(['Kodi','Emri','Qarku/Zona','Telefon','Gjendja','Veprime'],state.suppliers.map(x=>{let bal=supplierBalance(x.id);return [x.code,`<a class="link" onclick="supplierCard('${x.id}')">${esc(x.name)}</a>`,x.region,x.phone,`<b style="color:${bal>0?'#9a4e00':bal<0?'#176b49':'inherit'}">${n(bal,2)} ALL</b>`,actionBtns('supplier',x.id)]}))}</div>`}
 exportSuppliersXls=function(){makeXlsx('BioBes-furnitore.xlsx',['Kodi','Emri','Zona','Telefon','Gjendja'],state.suppliers.map(x=>[x.code,x.name,x.region,x.phone,supplierBalance(x.id)]))}
 </script>
@@ -431,7 +432,7 @@ weightCard=function(id){let x=state.weighings.find(y=>y.id===id);if(!x)return;mo
 exportWeightDocumentXlsx=function(id){let x=state.weighings.find(y=>y.id===id),sup=by('suppliers',x.supplier),p=by('products',x.product),wid=x.weighingWarehouse||state.lots.find(l=>l.weighing===x.id)?.warehouse||'W1',wh=by('warehouses',wid),data=x.bagRows||x.weights.map((g,i)=>({bags:i===0?x.bags:0,gross:g,tare:x.tares?.[i]||0})),rows=[];rows.push(xr(1,xc('A1','BioBes',4)+xc('B1','FLETË-PESHIMI',3)+xc('D1','Dokumenti: '+x.id,2),30));rows.push(xr(2,xc('A2','Bimë medicinale dhe aromatike\nNIPT: L43904401I · Fier, Shqipëri',1)+xc('B2',(wh.name||'MAGAZINA').toUpperCase(),4)+xc('D2','Data: '+x.date+'\nStatusi: '+x.status,1),30));rows.push(xr(3,xc('A3','PIKA E PESHIMIT: '+(wh.name||'Magazina').toUpperCase(),2),24));rows.push(xr(4,xc('A4','Furnitori: '+sup.name,2)+xc('C4','Kodi FR: '+sup.code,2),21));rows.push(xr(5,xc('A5','Produkti: '+p.code+' — '+p.name,2)+xc('C5','Adresa/Zona: '+(sup.address||sup.region||''),2),21));rows.push(xr(6,xc('A6','Personi përgjegjës: '+(x.receiver||''),2)+xc('C6','Zbritja faturuese: '+(x.discount||0)+'%',2),21));rows.push(xr(7,xc('A7','NR. THASËVE',2)+xc('B7','PESHA BRUTO KG',2)+xc('C7','AMBALAZHI KG',2)+xc('D7','PESHA NETO KG',2),30));let r=8;data.forEach(d=>{rows.push(xr(r,xc('A'+r,d.bags||'',1)+xc('B'+r,d.gross,7,'n')+xc('C'+r,d.tare,7,'n')+xc('D'+r,d.gross-d.tare,7,'n'),20));r++});rows.push(xr(r,xc('A'+r,x.bags,6,'n')+xc('B'+r,x.gross,8,'n')+xc('C'+r,x.tare,8,'n')+xc('D'+r,x.net,8,'n'),24));let totalRow=r;r+=2;rows.push(xr(r,xc('A'+r,'Personi përgjegjës\nEmër / Firmë\n__________________',9)+xc('C'+r,'Furnitori / Dorëzuesi\nEmër / Firmë\n__________________',9),55));r++;rows.push(xr(r,xc('A'+r,'Dokument i gjeneruar nga BioBes ERP',0)+xc('D'+r,x.id+' · '+x.date,0),16));let merges=[`A1:A2`,`B1:C1`,`B2:C2`,`A3:D3`,`A4:B4`,`C4:D4`,`A5:B5`,`C5:D5`,`A6:B6`,`C6:D6`,`A${r-1}:B${r-1}`,`C${r-1}:D${r-1}`];let sheet=`<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews><cols><col min="1" max="1" width="20" customWidth="1"/><col min="2" max="4" width="22" customWidth="1"/></cols><sheetData>${rows.join('')}</sheetData><mergeCells count="${merges.length}">${merges.map(m=>`<mergeCell ref="${m}"/>`).join('')}</mergeCells><printOptions horizontalCentered="1"/><pageMargins left="0.3" right="0.3" top="0.35" bottom="0.35" header="0" footer="0"/><pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0"/></worksheet>`;advancedXlsx(x.id+'-FLETE-PESHIMI-'+(wh.code||'MAG')+'.xlsx',sheet,'D'+r,false,7)}
 </script>
 <script>
-function confirmExistingWeight(id){let x=state.weighings.find(y=>y.id===id);if(!x)return;if(x.status==='Konfirmuar')return toast('Peshimi është konfirmuar më parë');if(x.status==='Anuluar')return toast('Peshimi i anuluar nuk mund të konfirmohet');if(!x.supplier||!x.product||!x.weighingWarehouse||!x.bagRows?.length)return toast('Dokumenti nuk është i plotë');if(!(x.gross>0)||!((+x.net||0)>0))return toast('Peshimi ka peshë të pavlefshme (bruto/tara) dhe nuk konfirmohet');if(!confirm('Të konfirmohet peshimi? Do të krijohet loti dhe draft-fatura e blerjes.'))return;let lot=state.lots.find(l=>l.weighing===id);if(!lot){let p=by('products',x.product),sup=by('suppliers',x.supplier),wid=x.weighingWarehouse||'W1',rack=state.racks.find(r=>r.warehouse===wid),r=coreConfirmWeighing(id,{id:uid('L'),code:`B1${sup.code}-${p.code}-${String(new Date(x.date).getFullYear()).slice(-2)}`,supplier:x.supplier,product:x.product,warehouse:wid,rack:rack?.id||'R1',unitCost:0});if(!r.ok)return toast(r.error);lot=r.record;}state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Konfirmim peshimi',ref:id,text:`${id} u konfirmua; u krijua loti ${lot.code}`});syncPurchaseDrafts();save();closeModal();render();toast('U konfirmua. Draft-fatura u krijua te Faturat e Blerjes')}
+function confirmExistingWeight(id){let x=state.weighings.find(y=>y.id===id);if(!x)return;if(x.status==='Konfirmuar')return toast('Peshimi është konfirmuar më parë');if(x.status==='Anuluar')return toast('Peshimi i anuluar nuk mund të konfirmohet');if(!x.supplier||!x.product||!x.weighingWarehouse||!x.bagRows?.length)return toast('Dokumenti nuk është i plotë');if(!(x.gross>0)||!((+x.net||0)>0))return toast('Peshimi ka peshë të pavlefshme (bruto/tara) dhe nuk konfirmohet');if(!confirm('Të konfirmohet peshimi? Do të krijohet loti dhe draft-fatura e blerjes.'))return;let lot=state.lots.find(l=>l.weighing===id);if(!lot){let p=by('products',x.product),sup=by('suppliers',x.supplier),wid=x.weighingWarehouse||'W1',rack=state.racks.find(r=>r.warehouse===wid),r=coreConfirmWeighing(id,{id:uid('L'),code:`B1${sup.code||sup.id}-${p.code}-${String(new Date(x.date).getFullYear()).slice(-2)}`,supplier:x.supplier,product:x.product,warehouse:wid,rack:rack?.id||'',unitCost:0});if(!r.ok)return toast(r.error);lot=r.record;}state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Konfirmim peshimi',ref:id,text:`${id} u konfirmua; u krijua loti ${lot.code}`});syncPurchaseDrafts();save();closeModal();render();toast('U konfirmua. Draft-fatura u krijua te Faturat e Blerjes')}
 weightActions=function(id){let x=state.weighings.find(y=>y.id===id),confirmCard=x.status==='Draft'?`<div class="app" onclick="confirmExistingWeight('${id}')" style="border-color:#63a987"><i>✓</i><b>Konfirmo</b><small>Krijo lot dhe draft-faturë</small></div>`:'';modal('Veprime — '+id,`<div class="apps" style="grid-template-columns:repeat(2,minmax(120px,1fr))">${confirmCard}<div class="app" onclick="closeModal();setTimeout(()=>weightCard('${id}'),80)"><i>◉</i><b>Hap</b></div><div class="app" onclick="closeModal();setTimeout(()=>printWeight('${id}'),80)"><i>▤</i><b>Printo</b></div><div class="app" onclick="closeModal();setTimeout(()=>editWeight('${id}'),80)"><i>✎</i><b>Modifiko</b></div><div class="app" onclick="closeModal();setTimeout(()=>duplicateWeight('${id}'),80)"><i>⧉</i><b>Dubliko</b></div><div class="app" onclick="closeModal();setTimeout(()=>cancelWeight('${id}'),80)"><i>⊘</i><b>Anulo</b></div><div class="app" onclick="closeModal();setTimeout(()=>deleteWeight('${id}'),80)" style="color:#b63c46"><i>⌫</i><b>Fshi</b></div></div>`,`<button class="btn" onclick="closeModal()">Mbyll</button>`)}
 const weightCardBeforeConfirm=weightCard;weightCard=function(id){weightCardBeforeConfirm(id);let x=state.weighings.find(y=>y.id===id);if(x?.status==='Draft')modalFoot.insertAdjacentHTML('afterbegin',`<button class="btn primary" onclick="confirmExistingWeight('${id}')">✓ Konfirmo & krijo lotin</button>`)}
 </script>
@@ -3133,12 +3134,13 @@ views.packaging=function(){
   let a=packs();
   return head('Paketimi & Etiketat','Lotet përfundimtare dhe skedarët për BarTender — redaktim dhe fshirje direkte',
     `<button class="btn primary" onclick="packagingForm()">+ Paketim i ri</button>`)
-    +tableCard(['Paketimi','Porosia','Produkti','Loti BioBes','Loti klientit','Thasë','Neto','Modeli','Veprime'],
+    +tableCard(['Paketimi','Porosia','Produkti','Burime','Loti BioBes','Loti klientit','Thasë','Neto','Modeli','Veprime'],
       a.map(x=>{
         let block=packBlockingReasons(x);
         return [`<a class="link" onclick="packagingCard('${x.id}')">${x.id}</a>`,
           `<a class="link" onclick="orderCard('${x.order}')">${x.order}</a>`,
           esc(by('products',x.product).name||'—'),
+          (()=>{let ls=packSourceLots(x);return ls.length?ls.length+' lot ('+ls.map(l=>l.code).join('+')+')':'—'})(),
           esc(x.internalLot||'—'),
           esc(x.customerLot||'—'),
           x.bags,
@@ -3176,9 +3178,9 @@ function packagingEditForm(id){
   let x=packById(id);
   if(!x)return toast('Paketimi nuk u gjet');
   let block=packBlockingReasons(x);
-  if(block.length)return toast('Paketimi nuk ndryshohet: '+block.join('; '));
+  let labelOnly=block.length>0;
   let lot=packSourceLot(x),pick=(vals,cur)=>vals.map(v=>`<option ${String(cur)===String(v)?'selected':''}>${esc(v)}</option>`).join('');
-  modal('Ndrysho paketimin — '+x.id,`<div class="form-grid">
+  modal('Ndrysho paketimin — '+x.id,`<div class="form-grid">${labelOnly?`<div class="field full" style="background:#fdf7ec;border:1px solid #e8c98f;border-radius:8px;padding:10px"><b>⚠ E lidhur me dokumente të konfirmuara:</b> ${esc(block.join('; '))}<br><small>Sasia dhe lotet nuk ndryshohen — lejohet vetëm ndryshimi i fushave të etiketës.</small></div>`:''}
     <div class="field"><label>Porosia</label><select id="peOrder">${opts(state.orders,o=>o.id+' — '+by('customers',o.customer).name,x.order)}</select></div>
     ${packSourcePickerHtml('pe',x.sourceLots.map(id=>({lot:id,qty:packLotQty(x,id)})),x.product,id)}
     <div class="field"><label>Produkti</label><select id="peProduct">${opts(state.products,p=>p.code+' — '+p.name,x.product)}</select></div>
@@ -3202,6 +3204,11 @@ function packagingEditForm(id){
       let prod=document.getElementById('peProduct');
       prod?.addEventListener('change',()=>packSourceRefreshAdd('pe',prod.value));
       ['peBags','peBagWeight'].forEach(z=>document.getElementById(z)?.addEventListener('input',()=>packSourceSum('pe')));
+      if(labelOnly){
+        let c=packSourceContainer('pe');
+        if(c){c.querySelectorAll('input[data-pack-qty]').forEach(i=>i.disabled=true);c.querySelectorAll('select,button').forEach(b=>b.style.display='none')}
+        ['peBags','peBagWeight'].forEach(z=>{let el=document.getElementById(z);if(el)el.disabled=true});
+      }
       packSourceSum('pe');
     }catch(e){console.error(e)}
   },30);
@@ -3213,7 +3220,15 @@ function savePackagingEdit(id){
     let x=packById(id);
     if(!x)return toast('Paketimi nuk u gjet');
     let block=packBlockingReasons(x);
-    if(block.length)return toast('Paketimi nuk ndryshohet: '+block.join('; '));
+    if(block.length){
+      let internalLo=$val('peInternal').trim();
+      if(!internalLo)return toast('Plotësoni lotin BioBes');
+      Object.assign(x,{internalLot:internalLo,customerLot:$val('peCustomer').trim(),template:$val('peTemplate','BioBes standard'),cropYear:$num('peCrop',new Date().getFullYear()),bestBefore:$num('peBest',new Date().getFullYear()+3),cert:$val('peCert'),organic:$val('peOrganic'),originType:$val('peOriginType'),part:$val('pePart'),origin:$val('peOrigin','Albania'),updatedAt:new Date().toISOString()});
+      state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Ndryshim etikete',ref:id,text:id+': u përditësuan vetëm fushat e etiketës (paketim i lidhur me dokumente të konfirmuara)'});
+      save();closeModal();render();setTimeout(()=>packagingCard(id),80);
+      toast('Fushat e etiketës u ruajtën — sasia/loti u mban siç është');
+      return;
+    }
     let order=$val('peOrder'),product=$val('peProduct'),internal=$val('peInternal').trim(),o=by('orders',order);
     if(!o.id||!product||!internal)return toast('Plotësoni porosinë, produktin dhe lotin BioBes');
     let bags=$num('peBags',0),bagWeight=$num('peBagWeight',0),newNet=bags*bagWeight;
@@ -3317,7 +3332,7 @@ function packSourceRowHtml(prefix,lotId,qty,oldMap){
   oldMap=oldMap||{};let lot=by('lots',lotId);if(!lot||!lot.id)return'';
   let p=by('products',lot.product)||{},free=lotUnpacked(lot)+(((+oldMap[lotId])||0));
   return '<div data-pack-source-row="'+prefix+'" data-lot="'+lotId+'" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:6px 8px;border:1px solid #d4dcd6;border-radius:8px;background:#f7faf8">'
-    +'<div style="flex:1;min-width:150px"><b>'+esc(lot.code)+'</b><br><small>'+esc((p.code||'')+' — '+(p.name||''))+' · të lira '+fmt2(free)+' kg</small></div>'
+    +'<div style="flex:1;min-width:150px"><b>'+esc(lot.code)+'</b> <small>FR '+esc(((by('suppliers',lot.supplier)||{}).code)||'—')+'</small><br><small>'+esc((p.code||'')+' — '+(p.name||''))+' · Stok i papaketuar: '+fmt2(free)+' kg</small></div>'
     +'<div style="flex:0 0 210px;display:flex;align-items:center;gap:6px"><input type="number" step="0.000001" min="0" inputmode="decimal" placeholder="0.00" title="KG nga ky lot" '+(qty===''||qty==null?'':('value="'+mgStr(+qty||0)+'"'))+' data-pack-qty oninput="packSourceSum(\''+prefix+'\')" style="width:150px;font-size:15px;padding:9px 10px"> <span>kg</span></div>'
     +'<div style="flex:0 0 42px;text-align:right"><button type="button" class="btn small danger" title="Hiq lotin" onclick="packSourceRemoveRow(this,\''+prefix+'\')">✕</button></div></div>';
 }
@@ -3326,7 +3341,7 @@ function packSourceSum(prefix){
   let total=packSourceTarget(prefix);
   let sum=mgRound(rows.reduce((a,r)=>a+(parseFloat(r.querySelector('[data-pack-qty]').value)||0),0)),diff=mgRound(total-sum);
   let el=c.querySelector('[data-pack-sum="'+prefix+'"]');
-  if(el)el.innerHTML='Nga lotet: <b>'+fmt2(sum)+' kg</b> / duhet '+fmt2(total)+' kg · '+(Math.abs(diff)<=.001?'<b style="color:#1e7e34">✓ balancuar</b>':'<b style="color:#b63c46">diferencë '+fmt2(diff)+' kg</b>')+(rows.length>1?' · <span class="pill orange">përzierje '+rows.length+' lotësh</span>':'');
+  if(el)el.innerHTML='Nga lotet: <b>'+fmt2(sum)+' kg</b> / duhet '+fmt2(total)+' kg · '+(Math.abs(diff)<=.001?'<b style="color:#1e7e34">✓ balancuar</b>':(Math.abs(diff)<=1?'<b style="color:#d28b13">diferencë '+fmt2(diff)+' kg (afershmë)</b>':'<b style="color:#b63c46">diferencë '+fmt2(diff)+' kg</b>'))+(rows.length>1?' · <span class="pill orange">përzierje '+rows.length+' lotësh</span>':'');
 }
 function packSourceDistribute(prefix){
   let rows=packSourceRows(prefix),total=packSourceTarget(prefix);if(!rows.length||!(total>0))return;
@@ -3588,19 +3603,28 @@ async function saveAdminPasswordReset(){
     if(a.length<min)return toast('Fjalëkalimi duhet të ketë të paktën '+min+' karaktere');
     let h=await hashPassword(a);
     Object.assign(adm,{passwordHash:h.hash,passwordSalt:h.salt,passwordIterations:h.iterations,mustChangePassword:false,passwordChangedAt:new Date().toISOString(),lockedUntil:null,failedAttempts:0});
-    try{securityState().sessions.forEach(s=>{if(s.user===adm.id&&s.token!==sessionStorage.getItem('biobesSession'))s.active=false})}catch(_){}
+    try{securityState().sessions.forEach(s=>{if(s.user===adm.id)s.active=false})}catch(_){}
     try{securityAudit('ADMIN_PASSWORD_RESET','Fjalëkalimi i adminit u rivendos',adm.id)}catch(_){}
-    save();closeModal();render();toast('Fjalëkalimi i adminit u rivendos');
+    save();closeModal();
+    try{sessionStorage.removeItem('biobesSession')}catch(_){}
+    render();toast('Fjalëkalimi i adminit u rivendos — të gjitha sesionet mbyllen');
+    try{showLogin()}catch(_){}
   }catch(e){console.error(e);try{toast('Gabim: '+(e&&e.message||e))}catch(_){}}
 }
 const settingsGridBase=views.settings;
 views.settings=function(){
   let h=settingsGridBase();
   try{
-    if(h.indexOf('resetAdminPasswordForm')<0){
+    let btn='<button class="btn" data-admin-only onclick="quickResetAdminPassword()">🔑 Rivendos passwordin e adminit</button>';
+    let iSig=h.indexOf('<div class="card"><h3>Siguria</h3>');
+    if(iSig>=0){
+      let anchor='Rolet, të drejtat dhe backup-i i sigurt — vetëm për ADMIN.</p>';
+      if(h.indexOf(anchor)>=0)h=h.replace(anchor,anchor+'<div class="actions" style="margin-top:8px">'+btn+'</div>');
+      else{let jSig=h.indexOf('</h3>',iSig);if(jSig>=0)h=h.slice(0,jSig+5)+'<div class="actions" style="margin-top:8px">'+btn+'</div>'+h.slice(jSig+5)}
+    }else if(h.indexOf('quickResetAdminPassword')<0){
       h+='<div class="card" data-admin-only><h3>🔑 Fjalëkalimi i adminit</h3>'
-        +'<p class="hint">Përdoret kur administratori nuk e mban mend fjalëkalimin. Kërkon sesion ADMIN aktiv dhe fjalëkalimin e tanishëm; seancat e tjera mbyllen.</p>'
-        +'<div class="actions"><button class="btn" onclick="resetAdminPasswordForm()">Rivendos passwordin e adminit</button></div></div>';
+        +'<p class="hint">Përdoret kur administratori nuk e mban mend fjalëkalimin. Kërkon sesion ADMIN aktiv dhe fjalëkalimin e tanishëm; të gjitha sesionet mbyllen dhe ktheheni te login.</p>'
+        +'<div class="actions">'+btn+'</div></div>';
     }
     let i=h.indexOf('<div class="card"');
     if(i>0&&h.indexOf('class="settings-grid"')<0)h=h.slice(0,i)+'<div class="settings-grid">'+h.slice(i)+'</div>';
@@ -3730,5 +3754,367 @@ views.settings=function(){
     if(canWake()&&!wakeBusy&&Date.now()>=wakeCooldownUntil)wakeServerAndSync();
   },30000);
 })();
+</script>
+<script id="biobes-prepay-v1">
+/* ============================================================================
+   RREGULLIME URGJENTE + PARAPAGIME (2026-09-12)
+   ----------------------------------------------------------------------------
+   1) Faturë blerjeje PA PESHIM + PARAPAGIME (FB):
+      • butoni i vetëm "+ Faturë blerjeje" në Blerje dhe në kartelën e furnitorit
+      • purchaseInvoiceForm(): Data, Furnitori, (Produkt), Numër faturë,
+        (Sasi, Çmim/njësi) ose Shuma e parapagimit, Monedha, Kurs, TVSH, Përshkrim
+      • checkbox "Parapagim (pa artikuj)" — fshin Produkti/Sasia/Çmimi
+      • createPurchaseInvoiceFromForm(): prepay → isPrepayment:true, sasi=0,
+        çmim=0, total=amt, status:Draft; jo prepay → faturë pa peshim
+      • supplierBalance: debit = FB të konfirmuar jo-parapagime;
+        credit = pagesat + parapagimet
+      • allocatePrepaymentsAgainstInvoice(): kur konfirmohet FB e rregullt,
+        ulet automatikisht nga parapagimet e konfirmuara (FIFO)
+      • nextPurchaseId(): maksimumi ekzistues FB-YYYY-NNNN për vitin aktual
+   2) Kartela e furnitorit e ridizajnuar: kreu kod-emer-qytet-shtet-website,
+      4 KPI, histori Data/Veprimi/Përshkrimi/Debi/Kredi/Status, Printo A4
+   3) Veprime globale: saleActions / quickConfirmPurchase / quickConfirmSale
+      / editWeightById / kolona Veprime në Blerje dhe Shitje
+   4) quickResetAdminPassword (alias → resetAdminPasswordForm)
+   ========================================================================== */
+
+/* ---------------- 1a) ID e rradhës FB (maksimumi ekzistues për vitin) ------------ */
+function nextPurchaseId(){
+  try{
+    let y=new Date().getFullYear(),re=new RegExp('^FB-'+y+'-(\\d+)$'),max=0;
+    (purchaseInvoices()||[]).forEach(f=>{let m=String(f.id||'').match(re);if(m)max=Math.max(max,+m[1])});
+    return 'FB-'+y+'-'+String(max+1).padStart(4,'0');
+  }catch(e){return 'FB-'+Date.now()}
+}
+
+/* ---------------- 1b) Parapagimet: alokimet dhe mbetja e përdorur --------------- */
+function prepayAllocations(prepayId){
+  try{let p=purchaseInvoices().find(f=>f.id===prepayId);return (p&&p.prepayAllocations)||[]}catch(e){return[]}
+}
+function prepayUnused(id){
+  try{
+    let p=purchaseInvoices().find(f=>f.id===id);
+    if(!p||!p.isPrepayment)return 0;
+    let total=toALL(p.total,p.currency,p.exchangeRate),used=prepayAllocations(id).reduce((a,l)=>a+(+l.amount||0),0);
+    return Math.max(0,total-used);
+  }catch(e){return 0}
+}
+function allocatePrepaymentsAgainstInvoice(invoiceId){
+  try{
+    let inv=purchaseInvoices().find(f=>f.id===invoiceId);
+    if(!inv||inv.isPrepayment||inv.status!=='Konfirmuar')return;
+    let remaining=toALL(inv.total,inv.currency,inv.exchangeRate);
+    if(remaining<=.001)return;
+    let preps=purchaseInvoices().filter(f=>f.supplier===inv.supplier&&f.isPrepayment&&f.status==='Konfirmuar')
+      .sort((a,b)=>String(a.invoiceDate||a.date).localeCompare(String(b.invoiceDate||b.date)));
+    let applied=0;
+    preps.forEach(p=>{
+      if(remaining<=.001)return;
+      let free=prepayUnused(p.id);
+      if(free<=.001)return;
+      let take=Math.min(free,remaining);
+      p.prepayAllocations=(p.prepayAllocations||[]).concat([{prepayId:p.id,invoiceId:inv.id,amount:Math.round(take*100)/100,date:new Date().toISOString().slice(0,10)}]);
+      remaining-=take;applied+=take;
+    });
+    if(applied>.001){
+      state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Alokim parapagimi',ref:inv.id,text:inv.id+': u ul automatikisht '+fmt2(applied)+' ALL nga parapagimet e konfirmuara (FIFO)'});
+      save();
+    }
+  }catch(e){console.error('allocatePrepaymentsAgainstInvoice',e)}
+}
+
+/* Ruajtja e faturës: pas konfirmimit të një FB të rregullt, ulet nga parapagimet */
+const savePurchasePrepayBase=savePurchase;
+savePurchase=function(id,confirmIt){
+  try{
+    savePurchasePrepayBase(id,confirmIt);
+    try{
+      let f=purchaseInvoices().find(x=>x.id===id);
+      if(f&&f.status==='Konfirmuar'&&!f.isPrepayment)allocatePrepaymentsAgainstInvoice(f.id);
+    }catch(e){}
+  }catch(e){console.error(e);try{toast('Gabim gjatë ruajtjes: '+(e&&e.message))}catch(_){}}
+};
+
+/* ---------------- 1c) Formulari i faturës së blerjes pa peshim ------------------ */
+function purchaseInvoiceForm(supplierId){
+  try{
+    let cur=supplierId||'';
+    modal('Faturë blerjeje e re (pa peshim)',
+      '<div class="field full" style="margin-bottom:10px;background:#f2f9f4;border:1px solid #b7dbc8;border-radius:8px;padding:10px">'
+      +'<label style="font-weight:700;cursor:pointer"><input type="checkbox" id="fifPrepay" onchange="fifTogglePrepay()" style="width:auto;vertical-align:middle"> Parapagim (pa artikuj)</label>'
+      +'<span class="hint" id="fifHint" style="display:block;margin-top:4px">Faturë blerjeje që nuk lidhet me peshim — mund të ketë ose jo produkt.</span></div>'
+      +'<div class="form-grid">'
+      +'<div class="field"><label>Data</label><input id="fifDate" type="date" value="'+new Date().toISOString().slice(0,10)+'"></div>'
+      +'<div class="field"><label>Furnitori</label><select id="fifSupplier"><option value="">Zgjidh...</option>'+opts(state.suppliers,x=>x.code+' — '+x.name,cur)+'</select></div>'
+      +'<div class="field fif-articles"><label>Produkti (opsional)</label><select id="fifProduct"><option value="">— pa produkt —</option>'+opts(state.products,x=>x.code+' — '+x.name)+'</select></div>'
+      +'<div class="field"><label>Numri i faturës së furnitorit</label><input id="fifNo" placeholder="p.sh. 2026-114"></div>'
+      +'<div class="field fif-articles"><label>Sasia (kg)</label><input id="fifQty" type="number" step="0.001" min="0" oninput="fifCalc()"></div>'
+      +'<div class="field fif-articles"><label>Çmimi / njësi</label><input id="fifPrice" type="number" step="0.0001" min="0" oninput="fifCalc()"></div>'
+      +'<div class="field fif-prepay" style="display:none"><label>Shuma e parapagimit (ALL)</label><input id="fifAmount" type="number" step="0.01" min="0" oninput="fifCalc()"></div>'
+      +'<div class="field fif-standard"><label>Monedha</label><select id="fifCurrency" onchange="fifCalc()"><option>ALL</option><option>EUR</option><option>USD</option></select></div>'
+      +'<div class="field fif-standard"><label>Kursi në ALL</label><input id="fifRate" type="number" step="0.0001" min="0" value="1" oninput="fifCalc()"></div>'
+      +'<div class="field"><label>TVSH %</label><input id="fifVat" type="number" step="0.01" min="0" value="0" oninput="fifCalc()"></div>'
+      +'<div class="field full"><label>Përshkrim</label><textarea id="fifNotes" rows="2" placeholder="p.sh. Për mallin e marsit / Parapagim për porosinë 2026-14"></textarea></div>'
+      +'</div>'
+      +'<div class="invoice-summary" style="margin-top:10px"><div><small>Totali</small><b id="fifTotal">0</b></div><div><small>Totali në ALL</small><b id="fifTotalAll">0</b></div></div>',
+      '<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="createPurchaseInvoiceFromForm()">Ruaj faturën</button>');
+    setTimeout(()=>{try{enhanceEntitySelects()}catch(e){}fifTogglePrepay()},30);
+  }catch(e){console.error(e);try{toast('Gabimi: '+(e&&e.message))}catch(_){}}
+}
+function fifTogglePrepay(){
+  try{
+    let pre=$val('fifPrepay');
+    document.querySelectorAll('.fif-articles,.fif-standard').forEach(el=>el.style.display=pre?'none':'');
+    document.querySelectorAll('.fif-prepay').forEach(el=>el.style.display=pre?'':'none');
+    let hint=document.getElementById('fifHint');
+    if(hint)hint.textContent=pre?'Parapagimi nuk lidhet me artikuj: vendosni shumenë e paguar paraprakisht nga furnitori. Ruhet si draft; kur të konfirmohet, hidhet në kreditin e furnitorit dhe ulet automatikisht nga faturat e mëvonshme.':'Faturë blerjeje që nuk lidhet me peshim — mund të ketë ose jo produkt.';
+    let cur=document.getElementById('fifCurrency'),rate=document.getElementById('fifRate');
+    if(pre){if(cur)cur.value='ALL';if(rate)rate.value=1}
+    fifCalc();
+  }catch(e){}
+}
+function fifCalc(){
+  try{
+    let pre=$val('fifPrepay'),cur=($id('fifCurrency')?.value)||'ALL',rate=Math.max(0,+$id('fifRate')?.value||1),vat=Math.max(0,+$id('fifVat')?.value||0),tot=0;
+    if(pre){tot=Math.max(0,+$id('fifAmount')?.value||0)}
+    else{let q=Math.max(0,+$id('fifQty')?.value||0),p=Math.max(0,+$id('fifPrice')?.value||0),s=q*p;tot=s+s*vat/100}
+    let t=document.getElementById('fifTotal');if(t)t.textContent=n(tot)+(pre?' ALL':' '+cur);
+    let ta=document.getElementById('fifTotalAll');if(ta)ta.textContent=n(tot*rate)+(cur==='ALL'?'':' ALL');
+  }catch(e){}
+}
+function createPurchaseInvoiceFromForm(){
+  try{
+    let sup=$val('fifSupplier');if(!sup)return toast('Zgjidhni furnitorin');
+    let pre=$val('fifPrepay'),notes=$val('fifNotes'),no=$val('fifNo'),date=$val('fifDate')||new Date().toISOString().slice(0,10);
+    let id=nextPurchaseId(),f;
+    if(pre){
+      let amt=+$id('fifAmount')?.value||0;
+      if(!(amt>0))return toast('Shuma e parapagimit duhet të jetë pozitive');
+      f={id:id,date:date,invoiceDate:date,supplier:sup,product:'',weighing:'',physical:0,discount:0,billable:0,price:0,currency:'ALL',exchangeRate:1,vat:0,subtotal:0,vatAmount:0,total:Math.round(amt*100)/100,status:'Draft',isPrepayment:true,prepayAllocations:[],supplierInvoiceNo:no,attachment:'',attachmentData:'',attachmentType:'',notes:notes||'Parapagim (pa artikuj)'};
+    }else{
+      let prod=$val('fifProduct'),cur=$val('fifCurrency','ALL'),rate=Math.max(0,+$id('fifRate')?.value||1)||1,vat=Math.max(0,+$id('fifVat')?.value||0),
+          q=Math.max(0,+$id('fifQty')?.value||0),p=Math.max(0,+$id('fifPrice')?.value||0),s=q*p;
+      if(!(q>0&&p>0))return toast('Vendosni sasinë dhe çmimin (ose shënoni "Parapagim (pa artikuj)")');
+      f={id:id,date:date,invoiceDate:date,supplier:sup,product:prod,weighing:'',physical:q,discount:0,billable:q,price:p,currency:cur,exchangeRate:rate,vat:vat,subtotal:s,vatAmount:s*vat/100,total:s+s*vat/100,status:'Draft',isPrepayment:false,prepayAllocations:[],supplierInvoiceNo:no,attachment:'',attachmentData:'',attachmentType:'',notes:notes||'Faturë blerjeje pa peshim'};
+    }
+    purchaseInvoices().push(f);
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:pre?'Parapagim blerjeje':'Faturë blerjeje pa peshim',ref:id,text:id+' — '+(by('suppliers',sup).code||sup)+(pre?' parapagim '+n(f.total,0)+' ALL':' '+n(f.total)+' '+f.currency)});
+    save();closeModal();render();
+    toast((pre?'Parapagimi u ruajt si draft':'Fatura u ruajt si draft')+' — '+id);
+    setTimeout(()=>purchaseCard(id),80);
+  }catch(e){console.error(e);try{toast('Gabim: '+(e&&e.message))}catch(_){}}
+}
+
+/* ---------------- 1d) Konfirmim/anulim i shpejtë nga lista e Blerjes ----------- */
+function quickConfirmPurchase(id){
+  try{
+    let f=purchaseInvoices().find(x=>x.id===id||x.weighing===id);
+    if(!f)return toast('Fatura nuk u gjet');
+    if(f.status==='Konfirmuar')return toast('Fatura është tashmë e konfirmuar');
+    if(f.status==='Anuluar')return toast('Fatura e anuluar nuk konfirmohet');
+    if(f.isPrepayment){
+      f.status='Konfirmuar';
+      state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Konfirmim parapagimi',ref:f.id,text:f.id+' — parapagim '+n(f.total,0)+' ALL u konfirmua'});
+      save();closeModal();render();toast('Parapagimi u konfirmua: '+f.id);
+      return;
+    }
+    if(!(f.billable>0)&&f.weighing){let w=state.weighings.find(y=>y.id===f.weighing);if(w)f.billable=+w.billable||0}
+    let sub=(+f.billable||0)*(+f.price||0),vat=+f.vat||0;
+    f.subtotal=Math.round(sub*1000)/1000;f.vatAmount=Math.round(sub*vat/100*1000)/1000;f.total=Math.round((sub+f.vatAmount)*1000)/1000;
+    f.status='Konfirmuar';
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Konfirmim fature blerjeje',ref:f.id,text:f.id+' — '+n(f.total)+' '+f.currency+' (konfirmim i shpejtë)'});
+    save();closeModal();render();
+    allocatePrepaymentsAgainstInvoice(f.id);
+    toast('Fatura u konfirmua: '+f.id);
+  }catch(e){console.error(e);try{toast('Gabim: '+(e&&e.message))}catch(_){}}
+}
+function cancelPurchaseInvoice(id){
+  try{
+    let f=purchaseInvoices().find(x=>x.id===id);
+    if(!f)return toast('Fatura nuk u gjet');
+    if(f.status==='Konfirmuar')return toast('Fatura e konfirmuar nuk anulohet nga lista — hapni kartelën dhe përdorni "Korrigjo"');
+    if(f.status==='Anuluar')return toast('Fatura është tashmë e anuluar');
+    if(!confirm('Të anulohet fatura '+id+'?'))return;
+    f.status='Anuluar';
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Anulim fature blerjeje',ref:id,text:id+' u anulua (draft)'});
+    save();closeModal();render();toast('Fatura u anulua: '+id);
+  }catch(e){console.error(e);try{toast('Gabim: '+(e&&e.message))}catch(_){}}
+}
+
+/* ---------------- 2) Blerje: butoni i vetëm + kolona Veprime e plotë ----------- */
+const purchasesPrepayBase=views.purchases;
+views.purchases=function(){
+  let h=purchasesPrepayBase();
+  try{
+    h=h.replace('<button class="btn" onclick="syncPurchaseDrafts();render()">↻ Merr peshimet e konfirmuara</button>',
+      '<button class="btn primary" onclick="purchaseInvoiceForm()">+ Faturë blerjeje</button> <button class="btn" onclick="syncPurchaseDrafts();render()">↻ Merr peshimet e konfirmuara</button>');
+    purchaseInvoices().forEach(f=>{
+      let anchor='<button class="btn small" onclick="purchaseCard(\''+f.id+'\')">Hap</button> <button class="btn small" onclick="clonePurchaseInvoice(\''+f.id+'\')">Kopjo</button>';
+      if(!h.includes(anchor))return;
+      let extra=' <button class="btn small" onclick="quickConfirmPurchase(\''+f.id+'\')">Konfirmo</button> <button class="btn small danger" onclick="cancelPurchaseInvoice(\''+f.id+'\')">Anulo</button>';
+      h=h.replace(anchor,'<button class="btn small" onclick="purchaseCard(\''+f.id+'\')">Ndrysho</button> <button class="btn small" onclick="clonePurchaseInvoice(\''+f.id+'\')">Kopjo</button>'+extra);
+      if(f.isPrepayment){
+        let cell='<a class="link" onclick="purchaseCard(\''+f.id+'\')">'+f.id+'</a>';
+        if(h.includes(cell))h=h.replace(cell,cell+' <span class="pill blue" style="font-size:10px">Parapagim</span>');
+      }
+    });
+  }catch(e){}
+  return h;
+};
+
+/* ---------------- 2b) Peshime: ikona "Fatura" te të konfirmuarat ---------------- */
+const weighingsFaturaBase=views.weighings;
+views.weighings=function(){
+  let h=weighingsFaturaBase();
+  try{
+    state.weighings.forEach(x=>{
+      let anchor='<button class="btn small" onclick="weightActions(\''+x.id+'\')" title="Veprime të tjera">⋮</button>';
+      if(x.status==='Konfirmuar'&&h.includes(anchor))
+        h=h.replace(anchor,anchor+' <button class="btn small" title="Hap faturën e blerjes (FB) të këtij peshimi" onclick="purchaseCard(\''+x.id+'\')">🧾 Fatura</button>');
+    });
+  }catch(e){}
+  return h;
+};
+
+/* ---------------- 3) Veprime globale: shitjet ----------------------------------- */
+function saleActions(id){
+  try{
+    let f=salesInvoices().find(x=>x.id===id);if(!f)return toast('Fatura nuk u gjet');
+    let cell=(fn,ic,ti,sub,extra)=>'<div class="app" onclick="'+fn+'"'+(extra||'')+'><i>'+ic+'</i><b>'+ti+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</div>';
+    let q=(s)=>String(s).replace(/'/g,"\\'");
+    modal('Veprime — '+(f.invoiceNumber||f.id),
+      '<div class="apps" style="grid-template-columns:repeat(2,minmax(130px,1fr))">'
+      +cell("saleInvoiceCard('"+q(f.id)+"')",'▤','Hap kartelën','Detajet e faturës')
+      +(f.order?cell("orderCard('"+q(f.order)+"')",'☷','Porosia '+esc(f.order),'Klienti dhe artikujt'):'')
+      +(f.shipment?cell("shipmentCard('"+q(f.shipment)+"')",'🚚','Ngarkesa '+esc(f.shipment),'Dokumente dhe vulosja'):'')
+      +(f.customer?cell("customerCard('"+q(f.customer)+"')",'♙','Klienti',esc((by('customers',f.customer)||{}).name||f.customer)):'')
+      +cell("cloneSalesInvoice('"+q(f.id)+"')",'⧉','Kopjo faturën','Krijon draft të ri')
+      +(f.status==='Draft'?cell("quickConfirmSale('"+q(f.id)+"')",'✓','Konfirmo','Miraton shitjen',' style="border-color:#b7dbc8"'):'')
+      +'</div>',
+      '<button class="btn" onclick="closeModal()">Mbyll</button>');
+  }catch(e){console.error(e);try{toast('Veprimet nuk u hapën: '+(e&&e.message))}catch(_){}}
+}
+function quickConfirmSale(id){
+  try{
+    let f=salesInvoices().find(x=>x.id===id);if(!f)return toast('Fatura nuk u gjet');
+    if(f.status==='Konfirmuar')return toast('Shitja është tashmë e konfirmuar');
+    try{closeModal()}catch(_){}
+    if(typeof confirmSalesGridRow==='function')return confirmSalesGridRow(id);
+    f.status='Konfirmuar';try{recalcSalesInvoice(f)}catch(_){}
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Miratim shitjeje',ref:id,text:id+' u konfirmua (veprim i shpejtë)'});
+    save();render();toast('Shitja u konfirmua: '+id);
+  }catch(e){console.error(e);try{toast('Gabim: '+(e&&e.message))}catch(_){}}
+}
+const salesInvoicesTableVeprimeBase=salesInvoicesTable;
+salesInvoicesTable=function(){
+  let h=salesInvoicesTableVeprimeBase();
+  try{
+    if(h.indexOf('saleActions(')<0){
+      h=h.replace(/<button class="btn small" onclick="cloneSalesInvoice\('([^']+)'\)">Kopjo<\/button>/g,
+        '<button class="btn small" onclick="cloneSalesInvoice(\'$1\')">Kopjo</button> <button class="btn small" onclick="saleActions(\'$1\')">⋯ Veprime</button>');
+    }
+  }catch(e){}
+  return h;
+};
+
+/* ---------------- 3b) editWeightById — helper për ndryshimin e peshimit --------- */
+function editWeightById(id){
+  try{
+    if(typeof editWeight==='function')return editWeight(id);
+    let x=state.weighings.find(y=>y.id===id);
+    if(!x)return toast('Peshimi nuk u gjet');
+    return weightCard(id);
+  }catch(e){console.error(e);try{toast('Gabim: '+(e&&e.message))}catch(_){}}
+}
+
+/* ---------------- 4) Kartela e furnitorit e ridizajnuar -------------------------- */
+function supplierCardHistory(id){
+  let rows=[];
+  try{
+    purchaseInvoices().filter(f=>f.supplier===id&&f.status==='Konfirmuar').forEach(f=>{
+      let p=by('products',f.product);
+      let desc=f.isPrepayment
+        ?'<a class="link" onclick="purchaseCard(\''+f.id+'\')">Parapagim — shuma e parapagimit <b>'+f.id+'</b></a>'
+        :'<a class="link" onclick="purchaseCard(\''+f.id+'\')">'+esc((p?.code?p.code+' — ':'')+(p?.name||'Blerje'))+(f.supplierInvoiceNo?' — Fat: '+esc(f.supplierInvoiceNo):'')+' <b>'+f.id+'</b></a>';
+      rows.push({date:f.invoiceDate||f.date,veprimi:f.isPrepayment?'Parapagim':'Faturë blerjeje',desc:desc,debit:toALL(f.total,f.currency,f.exchangeRate),credit:0,status:f.status});
+    });
+    state.payments.filter(x=>x.supplier===id&&(x.status||'Konfirmuar')==='Konfirmuar').forEach(x=>{
+      rows.push({date:x.date,veprimi:'Pagesë',desc:'<a class="link" onclick="paymentCard(\''+x.id+'\')">'+esc((x.method||'Pagesë')+' — '+(x.note||'Pagesë'))+' <b>'+x.id+'</b></a>',debit:0,credit:toALL(x.amount,x.currency,x.exchangeRate),status:x.status||'Konfirmuar'});
+    });
+    if(typeof supplierReturns==='function'){
+      supplierReturns().filter(x=>x.supplier===id&&x.status==='Konfirmuar').forEach(x=>{
+        rows.push({date:x.date,veprimi:'Kthim',desc:esc('Kthim te furnitori — '+(x.reason||x.id))+' <b>'+x.id+'</b>',debit:0,credit:toALL(x.total,x.currency,x.exchangeRate),status:x.status});
+      });
+    }
+  }catch(e){console.error('supplierCardHistory',e)}
+  return rows.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+}
+const supplierCardRedesignBase=supplierCard;
+supplierCard=function(id){
+  try{
+    let s=by('suppliers',id);if(!s?.id)return toast('Furnitori nuk u gjet');
+    let bal=supplierBalance(id);
+    let conf=purchaseInvoices().filter(f=>f.supplier===id&&f.status==='Konfirmuar');
+    let fatura=conf.filter(f=>!f.isPrepayment);
+    let prepayConf=conf.filter(f=>f.isPrepayment);
+    let faturaSum=fatura.reduce((a,f)=>a+toALL(f.total,f.currency,f.exchangeRate),0);
+    let payments=state.payments.filter(p=>p.supplier===id&&(p.status||'Konfirmuar')==='Konfirmuar').reduce((a,p)=>a+toALL(p.amount,p.currency,p.exchangeRate),0);
+    let prepaySum=prepayConf.reduce((a,f)=>a+toALL(f.total,f.currency,f.exchangeRate),0);
+    let unused=prepayConf.reduce((a,f)=>a+prepayUnused(f.id),0);
+    let headLine=[s.code,s.name,s.city||s.region,s.country||'Albania',s.website].filter(Boolean).map(esc).join(' &nbsp;·&nbsp; ');
+    let sub=[s.nipt?('NIPT: '+esc(s.nipt)):'',s.phone?('Tel: '+esc(s.phone)):''].filter(Boolean).join(' &nbsp;·&nbsp; ');
+    let rows=supplierCardHistory(id);
+    let body=rows.map(r=>'<tr><td>'+esc(r.date||'—')+'</td><td>'+r.veprimi+'</td><td>'+r.desc+'</td><td>'+(r.debit?fmt2(r.debit):'')+'</td><td>'+(r.credit?fmt2(r.credit):'')+'</td><td>'+status(r.status||'')+'</td></tr>').join('')||'<tr><td colspan="6" class="empty">Nuk ka veprime</td></tr>';
+    modal('Kartela — '+esc(s.name),
+      '<div id="printSupplierCard">'
+      +'<div class="card" style="border-top:4px solid #176b49;margin-bottom:12px"><div style="font-size:16px;font-weight:800">'+headLine+'</div>'
+      +(sub?'<p class="hint" style="margin:4px 0 0">'+sub+'</p>':'')+'</div>'
+      +'<div class="kpis">'
+      +'<div class="kpi"><small>Fatura (e konfirmuar)</small><strong>'+fatura.length+' · '+n(faturaSum,0)+' ALL</strong></div>'
+      +'<div class="kpi"><small>Pagesa + Parapagime</small><strong>'+n(payments+prepaySum,0)+' ALL</strong></div>'
+      +'<div class="kpi"><small>Gjendja neto</small><strong style="color:'+(bal>0.009?'#b63c46':(bal<-0.009?'#1e7e34':'#333'))+'">'+n(bal,0)+' ALL</strong></div>'
+      +'<div class="kpi"><small>Parapagim i papërdorur</small><strong>'+n(unused,0)+' ALL</strong></div>'
+      +'</div>'
+      +'<div class="card" style="padding:0;margin-top:12px"><div class="table-wrap" style="border:0"><table><thead><tr><th>Data</th><th>Veprimi</th><th>Përshkrimi</th><th>Debi (ALL)</th><th>Kredi (ALL)</th><th>Status</th></tr></thead><tbody>'+body+'</tbody></table></div></div>'
+      +'</div>',
+      '<button class="btn" onclick="closeModal()">Mbyll</button>'
+      +'<button class="btn primary" onclick="purchaseInvoiceForm(\''+id+'\')">+ Faturë blerjeje</button>'
+      +'<button class="btn" onclick="supplierEditForm(\''+id+'\')">✎ Ndrysho</button>'
+      +'<button class="btn" onclick="exportLedgerXlsx(\''+id+'\')">Eksporto XLSX</button>'
+      +'<button class="btn" onclick="printOnly(\'printSupplierCard\',\'Kartela '+esc(s.code)+'\')">🖨 Printo A4</button>');
+  }catch(e){console.error(e);try{supplierCardRedesignBase(id)}catch(_){}}
+};
+function supplierEditForm(id){
+  try{
+    let s=by('suppliers',id);if(!s?.id)return toast('Furnitori nuk u gjet');
+    modal('Ndrysho furnitorin — '+esc(s.name),
+      '<div class="form-grid">'
+      +'<div class="field"><label>Kodi</label><input id="sefCode" value="'+esc(s.code||'')+'"></div>'
+      +'<div class="field"><label>Emri</label><input id="sefName" value="'+esc(s.name||'')+'"></div>'
+      +'<div class="field"><label>Qyteti</label><input id="sefCity" value="'+esc(s.city||'')+'"></div>'
+      +'<div class="field"><label>Shteti</label><input id="sefCountry" value="'+esc(s.country||'Albania')+'"></div>'
+      +'<div class="field"><label>Qarku / Zona</label><input id="sefRegion" value="'+esc(s.region||'')+'"></div>'
+      +'<div class="field"><label>Telefon</label><input id="sefPhone" value="'+esc(s.phone||'')+'"></div>'
+      +'<div class="field"><label>NIPT</label><input id="sefNipt" value="'+esc(s.nipt||'')+'"></div>'
+      +'<div class="field"><label>Website</label><input id="sefWebsite" value="'+esc(s.website||'')+'"></div>'
+      +'</div>',
+      '<button class="btn" onclick="supplierCard(\''+id+'\')">Anulo</button><button class="btn primary" onclick="saveSupplierEdit(\''+id+'\')">Ruaj</button>');
+  }catch(e){console.error(e);try{toast('Gabim: '+(e&&e.message))}catch(_){}}
+}
+function saveSupplierEdit(id){
+  try{
+    let s=by('suppliers',id);if(!s?.id)return toast('Furnitori nuk u gjet');
+    let name=$val('sefName');if(!name)return toast('Emri është i detyrueshëm');
+    Object.assign(s,{code:$val('sefCode')||s.code,name:name,city:$val('sefCity'),country:$val('sefCountry','Albania'),region:$val('sefRegion'),phone:$val('sefPhone'),nipt:$val('sefNipt'),website:$val('sefWebsite')});
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Ndryshim furnitori',ref:s.id,text:(s.code||s.id)+' — '+name+' u përditësua'});
+    save();closeModal();render();supplierCard(id);toast('Furnitori u ruajt');
+  }catch(e){console.error(e);try{toast('Gabim: '+(e&&e.message))}catch(_){}}
+}
+
+/* ---------------- 5) quickResetAdminPassword ------------------------------------- */
+function quickResetAdminPassword(){
+  try{return (typeof resetAdminPasswordForm==='function')?resetAdminPasswordForm():toast('Moduli i sigurisë nuk u ngarkua')}
+  catch(e){try{toast('Gabim: '+(e&&e.message))}catch(_){}}
+}
 </script>
 </body></html>
