@@ -8,7 +8,7 @@ services:
   - type: web
     name: biobes-erp
     runtime: static
-    buildCommand: mkdir -p public && cp index.html public/index.html
+    buildCommand: mkdir -p public && cp index.html public/index.html && cp index.known-good.html public/index.known-good.html && mkdir -p public/snapshots && cp -r snapshots/. public/snapshots/
     staticPublishPath: ./public
     headers:
       - path: /*
