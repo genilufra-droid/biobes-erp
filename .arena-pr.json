@@ -1,9 +1,7 @@
 {
-  "title": "fix: 7 bugfixe + sintaksë 0 BAD — BioBes ERP",
+  "github_pr": 24,
+  "github_url": "https://github.com/genilufra-droid/biobes-erp/pull/24",
+  "commit": "bbe06c0b15b3a7377c693409afdc0615c9de0cfb",
   "source_branch": "arena/01a08ce3-biobes-erp",
-  "target_branch": "main",
-  "status": "open",
-  "description": "Kontroll sintakse 0 BAD + 7 bugfixe sipas spec",
-  "commits": 1,
-  "files_changed": ["index.html"]
+  "target_branch": "main"
 }

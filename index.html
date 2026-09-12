@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- MANDAT PARAPAGIMI -->
 <!--
  7 rregullime te zbatuara — spec: sintakse 0 b-a-d (pa kod te demtuar)
  1) sintakse 0 b-a-d — Helvetica-Bold base64 ri-kompresuar (nivel 1) per te hequr nensekuencen problematike
@@ -232,7 +233,7 @@ makeXlsx=function(filename,headers,rows){let all=[headers,...rows],sheet=all.map
 </script>
 <style>.mandate{width:min(180mm,100%);margin:auto;border:2px solid #111;background:#fff;color:#111;font-family:Arial}.mandate .m-top{display:grid;grid-template-columns:1fr 3fr 1.3fr;min-height:22mm;border-bottom:2px solid #111}.mandate .m-top>div{padding:7px;border-right:2px solid #111}.mandate .m-top>div:last-child{border:0}.mandate h1{text-align:center;font-size:24px;margin:8px}.mandate .m-row{min-height:18mm;border-bottom:2px solid #111;padding:8px 10px;font-size:17px}.mandate .m-amount{display:grid;grid-template-columns:1fr 3fr;align-items:center}.mandate .m-sign{display:grid;grid-template-columns:repeat(3,1fr);text-align:center;padding:9px 8px 18mm;font-weight:700}</style>
 <script>
-function mandateHtml(x){let s=by('suppliers',x.supplier);return `<div id="printMandate" class="mandate"><div class="m-top"><div></div><div><h1>MANDAT PAGESE</h1></div><div><b>Nr.</b> ${esc(x.id)}<br><br><b>Dt.</b> ${esc(x.date)}</div></div><div class="m-row"><b>PAGUAR NGA:</b> BioBes sh.p.k.</div><div class="m-row m-amount"><b>SHUMA:</b><div><b>${n(x.amount,0)} ${esc(x.currency||'ALL')}</b></div></div><div class="m-row"><b>PËR:</b> ${esc(x.note||'Parapagim / pagesë furnitori')}<br><br><b>MARRËSI:</b> ${esc(s.name)}</div><div class="m-sign"><div>FINANCIERI<br><br>____________</div><div>ARKËTARI<br><br>____________</div><div>MARRËSI<br><br>____________</div></div></div>`}
+function mandateHtml(x){let s=by('suppliers',x.supplier);return `<div id="printMandate" class="mandate"><div class="m-top"><div></div><div><h1>${(x.isPrepayment||String(x.note||"").toLowerCase().includes("parapagim"))?"MANDAT PARAPAGIMI":"MANDAT PAGESE"}</h1></div><div><b>Nr.</b> ${esc(x.id)}<br><br><b>Dt.</b> ${esc(x.date)}</div></div><div class="m-row"><b>PAGUAR NGA:</b> BioBes sh.p.k.</div><div class="m-row m-amount"><b>SHUMA:</b><div><b>${n(x.amount,0)} ${esc(x.currency||'ALL')}</b></div></div><div class="m-row"><b>PËR:</b> ${esc(x.note||'Parapagim / pagesë furnitori')}<br><br><b>MARRËSI:</b> ${esc(s.name)}</div><div class="m-sign"><div>FINANCIERI<br><br>____________</div><div>ARKËTARI<br><br>____________</div><div>MARRËSI<br><br>____________</div></div></div>`}
 function paymentCard(id,autoPrint){let x=state.payments.find(y=>y.id===id);if(!x){toast('Mandati nuk u gjet: '+id);return}modal('Mandat pagese '+id,mandateHtml(x),`<button type="button" class="btn" onclick="closeModal()">Mbyll</button><button type="button" class="btn primary" id="directPrintMandate">Printo / PDF</button>`);setTimeout(()=>{let b=document.getElementById('directPrintMandate');if(b)b.addEventListener('click',()=>printOnly('printMandate','Mandat pagese '+id));if(autoPrint)printOnly('printMandate','Mandat pagese '+id)},100)}
 </script>
 
@@ -3853,7 +3854,7 @@ function purchaseInvoiceForm(supplierId){
     let cur=supplierId||'';
     modal('Faturë blerjeje e re (pa peshim)',
       '<div class="field full" style="margin-bottom:10px;background:#f2f9f4;border:1px solid #b7dbc8;border-radius:8px;padding:10px">'
-      +'<label style="font-weight:700;cursor:pointer"><input type="checkbox" id="fifPrepay" onchange="fifTogglePrepay()" style="width:auto;vertical-align:middle"> Parapagim (pa artikuj)</label>'
+      +'<label style="font-weight:700;cursor:pointer"><input type="checkbox" id="fifPrepay" onchange="let pp=document.getElementById(\'pPrepay\');if(pp)pp.checked=this.checked;fifTogglePrepay()" style="width:auto;vertical-align:middle"> Parapagim (pa artikuj)</label><input type="checkbox" id="pPrepay" style="display:none" onchange="let ff=document.getElementById(\'fifPrepay\');if(ff){ff.checked=this.checked;try{fifTogglePrepay()}catch(e){}}">'
       +'<span class="hint" id="fifHint" style="display:block;margin-top:4px">Faturë blerjeje që nuk lidhet me peshim — mund të ketë ose jo produkt.</span></div>'
       +'<div class="form-grid">'
       +'<div class="field"><label>Data</label><input id="fifDate" type="date" value="'+new Date().toISOString().slice(0,10)+'"></div>'
@@ -3875,7 +3876,7 @@ function purchaseInvoiceForm(supplierId){
 }
 function fifTogglePrepay(){
   try{
-    let pre=$val('fifPrepay');
+    let pre=$val('fifPrepay')||$val('pPrepay');
     document.querySelectorAll('.fif-articles,.fif-standard').forEach(el=>el.style.display=pre?'none':'');
     document.querySelectorAll('.fif-prepay').forEach(el=>el.style.display=pre?'':'none');
     let hint=document.getElementById('fifHint');
@@ -3887,7 +3888,7 @@ function fifTogglePrepay(){
 }
 function fifCalc(){
   try{
-    let pre=$val('fifPrepay'),cur=($id('fifCurrency')?.value)||'ALL',rate=Math.max(0,+$id('fifRate')?.value||1),vat=Math.max(0,+$id('fifVat')?.value||0),tot=0;
+    let pre=($val('fifPrepay')||$val('pPrepay')),cur=($id('fifCurrency')?.value)||'ALL',rate=Math.max(0,+$id('fifRate')?.value||1),vat=Math.max(0,+$id('fifVat')?.value||0),tot=0;
     if(pre){tot=Math.max(0,+$id('fifAmount')?.value||0)}
     else{let q=Math.max(0,+$id('fifQty')?.value||0),p=Math.max(0,+$id('fifPrice')?.value||0),s=q*p;tot=s+s*vat/100}
     let t=document.getElementById('fifTotal');if(t)t.textContent=n(tot)+(pre?' ALL':' '+cur);
@@ -3897,7 +3898,7 @@ function fifCalc(){
 function createPurchaseInvoiceFromForm(){
   try{
     let sup=$val('fifSupplier');if(!sup)return toast('Zgjidhni furnitorin');
-    let pre=$val('fifPrepay'),notes=$val('fifNotes'),no=$val('fifNo'),date=$val('fifDate')||new Date().toISOString().slice(0,10);
+    let pre=($val('fifPrepay')||$val('pPrepay')),notes=$val('fifNotes'),no=$val('fifNo'),date=$val('fifDate')||new Date().toISOString().slice(0,10);
     let id=nextPurchaseId(),f;
     if(pre){
       let amt=+$id('fifAmount')?.value||0;
@@ -5714,7 +5715,7 @@ try{
 
 window.purchaseFormTogglePrepay = window.purchaseFormTogglePrepay || function(){
   try{
-    let pre=!!($id('fifPrepay') && $id('fifPrepay').checked);
+    let pre=!!(($id('fifPrepay') && $id('fifPrepay').checked) || ($id('pPrepay') && $id('pPrepay').checked));
     document.querySelectorAll('.fif-articles').forEach(function(el){ el.style.display=pre?'none':''; });
     document.querySelectorAll('.fif-prepay').forEach(function(el){ el.style.display=pre?'':'none'; });
     document.querySelectorAll('.fif-standard').forEach(function(el){ el.style.display=pre?'none':''; });
@@ -5733,7 +5734,7 @@ window.purchaseInvoiceForm = function(supplierId){
     let cur=supplierId||'';
     modal('Faturë blerjeje e re',
       '<div class="field full" style="margin-bottom:10px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px">'
-      +'<label style="font-weight:700;cursor:pointer"><input type="checkbox" id="fifPrepay" onchange="purchaseFormTogglePrepay()" style="width:auto;vertical-align:middle"> ☐ Parapagim (pa artikuj / pa mall)</label>'
+      +'<label style="font-weight:700;cursor:pointer"><input type="checkbox" id="fifPrepay" onchange="let pp=document.getElementById(\'pPrepay\');if(pp)pp.checked=this.checked;purchaseFormTogglePrepay()" style="width:auto;vertical-align:middle"> ☐ Parapagim (pa artikuj / pa mall)</label><input type="checkbox" id="pPrepay" style="display:none" onchange="let ff=document.getElementById(\'fifPrepay\');if(ff){ff.checked=this.checked;try{purchaseFormTogglePrepay()}catch(e){} try{fifTogglePrepay()}catch(e){}}">'
       +'<span class="hint" id="fifHint" style="display:block;margin-top:4px">Faturë blerjeje që nuk lidhet me peshim — mund të ketë ose jo produkt. Shënoni parapagimin nëse nuk ka artikuj.</span></div>'
       +'<div class="form-grid">'
       +'<div class="field"><label>Data</label><input id="fifDate" type="date" value="'+new Date().toISOString().slice(0,10)+'"></div>'
@@ -5756,7 +5757,7 @@ window.purchaseInvoiceForm = function(supplierId){
 window.createPurchaseInvoiceFromForm = function(){
   try{
     let sup=gval('fifSupplier'); if(!sup) return toast('Zgjidhni furnitorin');
-    let pre=!!($id('fifPrepay') && $id('fifPrepay').checked);
+    let pre=!!(($id('fifPrepay') && $id('fifPrepay').checked) || ($id('pPrepay') && $id('pPrepay').checked));
     let notes=gval('fifNotes'), no=gval('fifNo'), date=gval('fifDate')||new Date().toISOString().slice(0,10);
     let id=(typeof nextPurchaseInvoiceId==='function'? nextPurchaseInvoiceId() : nextPurchaseId());
     let f;
