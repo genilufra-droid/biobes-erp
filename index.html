@@ -5004,11 +5004,18 @@ window.showPackLotModal = function(prefix){
         // add row to packaging form
         const c = packSourceContainer(prefix);
         const oldMap = packSourceOldMap(prefix);
-        // Sasinë e shkruan përdoruesi — rreshti shtohet BOSH, asnjë para-mbushje/ndarje automatike.
+        // Auto-sugjerim: minimumi mes stokut të lirë dhe KG që mbeten për paketim.
+        // Pas shtimit fusha mbetet plotësisht editable; packSourceSum nuk e mbishkruan vlerën.
+        const totalNeeded = ($num(prefix+'Bags',0))*($num(prefix+'BagWeight',0));
+        const alreadyTaken = packSourceRows(prefix).reduce((a,r)=>a+(parseFloat(r.querySelector('[data-pack-qty]')?.value)||0),0);
+        const remaining = Math.max(0, Math.round((totalNeeded-alreadyTaken)*1000)/1000);
+        const lotForAuto = by('lots', lotId);
+        const freeForAuto = lotForAuto && lotForAuto.id ? pkFree(lotForAuto, oldMap) : 0;
+        const autoQty = Math.round(Math.min(freeForAuto, remaining>0?remaining:freeForAuto)*1000)/1000;
         const tbody = document.querySelector(`[data-pack-rows="${prefix}"]`);
         if(tbody){
-          tbody.insertAdjacentHTML('beforeend', packSourceRowHtml(prefix, lotId, '', oldMap));
-          try{ const ni=tbody.lastElementChild.querySelector('[data-pack-qty]'); if(ni) setTimeout(()=>{ try{ ni.focus(); }catch(e){} }, 50); }catch(e){}
+          tbody.insertAdjacentHTML('beforeend', packSourceRowHtml(prefix, lotId, autoQty, oldMap));
+          try{ const ni=tbody.lastElementChild.querySelector('[data-pack-qty]'); if(ni) setTimeout(()=>{ try{ ni.focus(); ni.select(); }catch(e){} }, 50); }catch(e){}
           const lot = by('lots', lotId);
           const prodSel = document.getElementById(prefix+'Product');
           if(lot && lot.id && prodSel && !prodSel.value){
