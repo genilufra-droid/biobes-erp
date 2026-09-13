@@ -6784,7 +6784,7 @@ console.log('BioBes Fatura Blerje + Peshime v1 u ngarkua');
 (function(){
  'use strict';
  const VERSION='biobes-qr-deeplink-v1';
- const KINDS={lot:'lots',peshim:'weighings',fb:'invoices',furnitor:'suppliers',produkt:'products',klient:'customers'};
+ const KINDS={lot:'lots',peshim:'weighings',fb:'purchaseInvoices',furnitor:'suppliers',produkt:'products',klient:'customers'};
  const PAGES={lot:'warehouse',peshim:'weighings',fb:'purchases',furnitor:'suppliers',produkt:'products',klient:'customers'};
  let last=null;
 
@@ -6857,7 +6857,7 @@ console.log('BioBes Fatura Blerje + Peshime v1 u ngarkua');
  function openRecord(kind,rec){
   if(kind==='lot'&&typeof lotCard==='function'){lotCard(rec.id);return'lotCard'}
   if(kind==='peshim'&&typeof weightCard==='function'){weightCard(rec.id);return'weightCard'}
-  if(kind==='fb'&&typeof purchaseInvoiceCard==='function'){purchaseInvoiceCard(rec.id);return'purchaseInvoiceCard'}
+  if(kind==='fb'&&typeof purchaseCard==='function'){purchaseCard(rec.id);return'purchaseCard'}
   if(kind==='furnitor'&&typeof supplierCard==='function'){supplierCard(rec.id);return'supplierCard'}
   if(kind==='produkt'&&typeof productCard==='function'){productCard(rec.id);return'productCard'}
   if(kind==='klient'&&typeof customerCard==='function'){customerCard(rec.id);return'customerCard'}

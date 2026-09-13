@@ -71,7 +71,22 @@ const PRODUCTION_WEIGHING_ID='PS-2026-002';
     assert.ok((await p.locator('#modalBody').innerText()).includes(code),'modali permban kodin '+code);
     await p.waitForSelector('#qrDeepLinkRow',{timeout:4000});
     assert.equal(await p.locator('#qrDeepLinkBar').count(),1);
+    assert.equal(await p.evaluate(()=>window.biobesDeepLinkState().kind),'lot');
     assert.equal(await stateString(),before,'lexuesemer: pa save, pa mutate');
+    await close();
+    /* `?fb=` duhet te zgjidhet me koleksionin e vertet te aplikacionit
+       (state.purchaseInvoices) dhe te therraje purchaseCard — jo nje emer tjeter. */
+    const fbr=await p.evaluate(()=>{const snap=JSON.parse(JSON.stringify(state.purchaseInvoices||[]));
+     (state.purchaseInvoices=state.purchaseInvoices||[]).push({id:'FB-AUDIT-QR',date:new Date().toISOString().slice(0,10),supplier:state.suppliers[0].id,product:state.products[0].id,weighing:null,physical:0,billable:0,price:0,total:0,currency:'ALL',status:'Draft',documentType:'FB nga audit QR'});
+     let out;try{out=window.biobesOpenDeepLink({href:'?fb=FB-AUDIT-QR',navigate:false})}catch(e){out={ok:false,error:String(e&&e.message)}}
+     const title=((document.getElementById('modalTitle')||{}).textContent)||'';
+     if(typeof closeModal==='function')closeModal();
+     state.purchaseInvoices=snap;save();
+     return{out,title,emptyAfter:(state.purchaseInvoices||[]).length===snap.length}});
+    assert.equal(fbr.out.ok,true,'?fb= zgjidhet nga state.purchaseInvoices ('+(fbr.out.error||fbr.out.reason||'')+')');
+    assert.equal(fbr.out.via,'purchaseCard','cartela e FB hapet nga purchaseCard');
+    assert.match(fbr.title,/FB-AUDIT-QR/,'modalen mban titullin e fatures');
+    assert.equal(fbr.emptyAfter,true,'recordi i proves u hoq nga profili');
    });
 
    await step('Pastro clears address, closes modal and reports cleared',async()=>{
