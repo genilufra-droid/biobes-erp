@@ -18,6 +18,7 @@ npm test
 |---|---|
 | `test:syntax` | Nxjerr çdo inline script dhe ekzekuton `node --check`. |
 | `test:browser` | 16 grupe × desktop/telefon: navigimi, peshime, FB, mandate, furnitorë, inventar, lidhjet, raporte, backup/import, E2E/financa. |
+| `test:warehouse` | 12 prova × desktop/telefon për defektin e Magazina Gur: magazinë pa rafte → peshim 8 thasë/216 kg → konfirmim → rafti `R1 — Rafti kryesor` me lotin; rakordimi i loteve pa raft, idempotenca, reload, konfirmimi i përsëritur, magazina e pavlefshme dhe mesazhet shpjeguese. Çdo provë ka guard që dështon nëse preket dokumenti real `PS-2026-002`. |
 | `test:operations` | 7 grupe × desktop/telefon: krijim/modifikim produkti me foto, magazinë/raft/etiketë, mostër, porosi, proces, paketim dhe ngarkesë. |
 | `test:recovery` | Backup automatik, Pastro, Erase dhe Boot-Guard pas dy nisjeve të dështuara. |
 | `test:ocr` | 6 grupe × desktop/telefon: PNG real, PDF me tekst, PDF i skanuar, set eksporti/arkiv/shkarkim, PDF i dëmtuar, kartelë A4. |
