@@ -1,0 +1,484 @@
+### KG të marra @ 1851435
+<h3>Si funksionon "Ndiq fotot"</h3><p class="hint">Çdo foto e ngarkuar lidhet automatikisht me lotin dhe rrjedhën dokumentare:</p><ul style="line-height:1.7"><li><b>Peshimi:</b> kuponi elektronik i peshores — shfaqet te loti dhe te gjurmueshmëria</li><li><b>Mostra:</b> analiza / CoA — shihet te loti burimor</li><li><b>Porosia:</b> dokumenti i klientit (PO)</li><li><b>Plumbçe & Dokumente eksporti:</b> foto e plumbçes + Invoice, Packing List, CMR etj. — ndiqen deri te ngarkesa</li></ul><p><b>Këshillë:</b> kërkoni lotin te <a class="link" onclick="go('trace')">Gjurmueshmëria</a> dhe hapni <b>📸 Ndiq fotot</b> për të parë gjithë galerinë e lidhur.</p></div>`;
+};
+window.filterPhotosList = function(q){
+  q=(q||'').toLowerCase();
+  const grid=document.getElementById('allPhotosGrid');
+  if(!grid) return;
+  grid.querySelectorAll('.photo-card').forEach(card=>{
+    const txt = card.textContent.toLowerCase();
+    card.style.display = txt.includes(q) ? '' : 'none';
+  });
+};
+
+/* ---------- Normalize existing data on load ---------- */
+try{
+  ensureSampleOrderPhotoFields();
+  // Ensure weighings have attachmentType field if missing
+  (state.weighings||[]).forEach(w=>{ if(w.attachmentData && !w.attachmentType) w.attachmentType = w.attachmentType||'image/jpeg'; });
+}catch(e){}
+
+console.log('BioBes Photos Gallery v1 loaded — ndiq fotot aktiv');
+
+})();
+
+</script>
+<script id="biobes-paketim-v4">
+/* BioBes ERP — Paketim me shumë lote burimore v4 (2026-09-12)
+   Zëvendëson dropdown-in e vetëm të lotit me kartën "Lotet burimore (përzierja)"
+   sipas udhëzimit: tabelë + modal + 3 KPI live + validim + stockMove PACK
+   MOS prek raportet Alpha/Odoo 19 */
+(function(){
+if(window.__biobesPaketimV4) return;
+window.__biobesPaketimV4 = true;
+
+// CSS për kartën e përzierjes
+const cssPaketim = `
+.pk-card{border:1px solid #dfe6e2;border-radius:10px;padding:12px;background:#fff;margin-bottom:12px}
+.pk-card h4{margin:0 0 8px;font-size:14px}
+.pk-table{width:100%;border-collapse:collapse}
+.pk-table th{background:#f5f8f6;text-align:left;font-size:11px;color:#5d6e65;padding:8px 8px;border-bottom:1px solid #dfe6e2}
+.pk-table td{padding:7px 8px;border-bottom:1px solid #edf1ef;vertical-align:middle}
+.pk-table input{width:110px;padding:7px 8px;border:1px solid #cfd9d4;border-radius:7px}
+.pk-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.pk-kpi{padding:10px;border-radius:8px;text-align:center;border:1px solid #dfe6e2}
+.pk-kpi b{display:block;font-size:16px}
+.pk-kpi.good{background:#e1f4e8;border-color:#b7dbc8;color:#167044}
+.pk-kpi.warn{background:#fff0d4;border-color:#e8c98f;color:#975e00}
+.pk-kpi.bad{background:#fbe5e7;border-color:#e2a5ab;color:#a32934}
+.pk-empty{padding:14px;text-align:center;color:#6b7d75;background:#f8fbf9;border:1px dashed #c9d8d1;border-radius:8px}
+`;
+const st=document.createElement('style');
+st.textContent=cssPaketim;
+document.head.appendChild(st);
+
+// Helper: free stock
+function pkFree(lot, oldMap){
+  let extra = (oldMap && oldMap[lot.id] != null) ? +oldMap[lot.id] : 0;
+  return lotUnpacked(lot) + extra;
+}
+
+// Override packSourceRowHtml to return <tr>
+window.packSourceRowHtml = function(prefix, lotId, qty, oldMap){
+  oldMap = oldMap || {};
+  const lot = by('lots', lotId);
+  if(!lot || !lot.id) return '';
+  const sup = by('suppliers', lot.supplier);
+  const free = pkFree(lot, oldMap);
+  const qtyVal = (qty===''||qty==null) ? '' : mgStr(+qty||0);
+  return `<tr data-pack-source-row="${prefix}" data-lot="${lotId}">
+    <td><b>${esc(lot.code)}</b><br><small style="color:#6b7d75">${esc(lot.code)}</small></td>
+    <td>${esc(sup.code||'—')}<br><small>${esc(sup.name||'')}</small></td>
+    <td>${fmt2(free)} kg</td>
+    <td><input type="number" step="0.001" min="0" value="${qtyVal}" data-pack-qty oninput="packSourceSum('${prefix}')" style="width:110px"> kg</td>
+    <td><button type="button" class="btn small danger" onclick="packSourceRemoveRow(this,'${prefix}')" title="Fshi rreshtin">×</button></td>
+  </tr>`;
+};
+
+// Override packSourcePickerHtml to use table + KPIs + modal button
+window.packSourcePickerHtml = function(prefix, selected, productId, packId){
+  selected = selected || [];
+  let oldMap={};
+  if(packId){
+    const ex = packById(packId);
+    (ex && ex.sourceLots||[]).forEach(id=> oldMap[id]=packLotQty(ex,id));
+  }
+  // build initial rows
+  const rows = selected.map(z=> packSourceRowHtml(prefix, z.lot, z.qty, oldMap)).join('');
+  const totalNeeded = 0; // will be computed in packSourceSum
+  return `<div class="field full pk-card" data-pack-source="${prefix}" data-pack-bags="${prefix}Bags" data-pack-bw="${prefix}BagWeight" data-pack-old='${esc(JSON.stringify(oldMap))}'>
+    <h4>Lotet burimore (përzierja) * <small style="font-weight:400;color:#6b7d75">— përzierje shumë-lotëshe</small></h4>
+    <div class="table-wrap" style="border:1px solid #dfe6e2;border-radius:8px;overflow:auto">
+      <table class="pk-table">
+        <thead><tr><th>Loti burimor</th><th>Furnitori</th><th>Stok i papaketuar</th><th>KG të marra</th><th></th></tr></thead>
+        <tbody data-pack-rows="${prefix}">${rows || ''}</tbody>
+      </table>
+    </div>
+    <div id="${prefix}Empty" class="pk-empty" style="${selected.length?'display:none':''}">Nuk ka lot të shtuar — shto nga magazina.</div>
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="btn small primary" onclick="showPackLotModal('${prefix}')">+ Shto lot</button>
+      <button type="button" class="btn small" onclick="packSourceDistribute('${prefix}')">Shpërnda njëlloj</button>
+      <span class="hint" style="align-self:center">Vetëm lote me stok të papaketuar &gt;0 dhe të së njëjtit produkt.</span>
+    </div>
+    <div class="pk-kpis">
+      <div class="pk-kpi" id="${prefix}KpiTotal"><small>Totali nga lotet</small><b>0.00 kg</b></div>
+      <div class="pk-kpi" id="${prefix}KpiNeed"><small>Duhet</small><b>0.00 kg</b></div>
+      <div class="pk-kpi" id="${prefix}KpiDiff"><small>Diferenca</small><b>0.00 kg</b></div>
+    </div>
+    <p class="hint" data-pack-sum="${prefix}" style="margin:6px 0 0;display:none"></p>
+  </div>`;
+};
+
+// Show modal with available lots
+window.showPackLotModal = function(prefix){
+  try{
+    const prodId = $val(prefix+'Product');
+    // if no product selected, show all with stock
+    let lots = packagingCandidateLots(prodId).filter(l=> lotUnpacked(l) > 0.001);
+    // filter out already selected
+    const chosen = new Set(packSourceRows(prefix).map(r=> r.dataset.lot));
+    lots = lots.filter(l=> !chosen.has(l.id));
+    if(!lots.length){
+      return toast('Nuk ka lote të disponueshme për këtë produkt/magazinë');
+    }
+    const rows = lots.map(l=>{
+      const sup = by('suppliers', l.supplier);
+      const p = by('products', l.product);
+      return `<tr>
+        <td><b>${esc(l.code)}</b><br><small>${esc(p.code+' — '+p.name)}</small></td>
+        <td>${esc(sup.code||'—')}<br><small>${esc(sup.name||'')}</small></td>
+        <td>${fmt2(lotUnpacked(l))} kg<br><small>${esc(by('warehouses', l.warehouse).name||'')}</small></td>
+        <td><button class="btn small primary" onclick="packLotModalAdd('${prefix}','${l.id}')">Shto</button></td>
+      </tr>`;
+    }).join('');
+    modal('Zgjedh lotet burimore', `<div class="table-wrap"><table><thead><tr><th>Loti</th><th>Furnitori</th><th>Stok i papaketuar</th><th></th></tr></thead><tbody>${rows}</tbody></table></div><p class="hint">Vetëm lote të papaketuara &gt;0. Pasi zgjedh, vendos KG të marra te tabela kryesore.</p>`, `<button class="btn" onclick="closeModal(); setTimeout(()=>{if(typeof enhanceEntitySelects==='function') enhanceEntitySelects();},50)">Mbyll</button>`);
+  }catch(e){ console.error(e); toast('Gabim: '+e.message); }
+};
+
+window.packLotModalAdd = function(prefix, lotId){
+  try{
+    closeModal();
+    setTimeout(()=>{
+      // need to reopen packaging form? Actually we closed lot modal, but packaging modal was closed? We used modal() which replaces packaging modal. Need to restore packaging form.
+      // Instead we should not close packaging modal but show lot selector as nested modal? For now we close selector and re-add to packaging form, then reopen packaging form is lost.
+      // Workaround: we stored packaging form state before opening modal? Simpler: close selector modal and then directly add row to the packaging form which is no longer visible because modal was overwritten.
+      // So we need to keep packaging form data and reopen it.
+      // Instead we will not use modal() for selector but use a custom overlay.
+      // For now, fallback: add to a temp store and reopen packaging form? This is complex.
+      // Alternative approach: directly add row without closing packaging modal by using a custom div overlay instead of modal().
+      toast('Loti u shtua — rihape formularin dhe shto përsëri');
+    }, 100);
+  }catch(e){}
+};
+
+// Better implementation: custom overlay for lot selector that does not close packaging modal
+// Override showPackLotModal to use overlay div
+window.showPackLotModal = function(prefix){
+  try{
+    // remove existing overlay
+    let old = document.getElementById('pkLotOverlay');
+    if(old) old.remove();
+    const prodId = $val(prefix+'Product');
+    let lots = packagingCandidateLots(prodId).filter(l=> lotUnpacked(l) > 0.001);
+    const wareSel = document.getElementById(prefix+'Warehouse');
+    const wareId = wareSel ? wareSel.value : '';
+    if(wareId) lots = lots.filter(l=> l.warehouse===wareId);
+    const chosen = new Set(packSourceRows(prefix).map(r=> r.dataset.lot));
+    lots = lots.filter(l=> !chosen.has(l.id));
+    if(!lots.length){
+      return toast('Nuk ka lote të disponueshme për magazinën/produktin');
+    }
+    const overlay = document.createElement('div');
+    overlay.id='pkLotOverlay';
+    overlay.style.cssText='position:fixed;inset:0;background:#13251d88;z-index:90;display:flex;align-items:flex-start;justify-content:center;padding:35px 14px;overflow:auto';
+    const box = document.createElement('div');
+    box.style.cssText='background:#fff;width:min(700px,100%);border-radius:11px;box-shadow:0 20px 70px #0004;overflow:hidden';
+    const rows = lots.map(l=>{
+      const sup = by('suppliers', l.supplier);
+      const p = by('products', l.product);
+      return `<tr>
+        <td><b>${esc(l.code)}</b><br><small>${esc(p.code||'')} — ${esc(p.name)}</small></td>
+        <td>${esc(sup.code||'—')}<br><small>${esc(sup.name||'')}</small></td>
+        <td>${fmt2(lotUnpacked(l))} kg</td>
+        <td><button class="btn small primary" data-add-lot="${l.id}">Shto</button></td>
+      </tr>`;
+    }).join('');
+    box.innerHTML = `<div style="padding:16px 19px;border-bottom:1px solid #dfe6e2;display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">Zgjedh lotet — ${esc(by('products', prodId).name||'Të gjitha')}</h3><button class="btn small" id="pkLotClose">✕</button></div><div style="padding:19px;max-height:60vh;overflow:auto"><div class="table-wrap"><table><thead><tr><th>Loti</th><th>Furnitori</th><th>Stok i papaketuar</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div><div style="padding:14px 19px;border-top:1px solid #dfe6e2;display:flex;justify-content:flex-end"><button class="btn" id="pkLotClose2">Mbyll</button></div>`;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    const close = ()=> overlay.remove();
+    box.querySelectorAll('#pkLotClose, #pkLotClose2').forEach(b=> b.onclick=close);
+    overlay.addEventListener('click', e=>{ if(e.target===overlay) close(); });
+    box.querySelectorAll('[data-add-lot]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const lotId = btn.dataset.addLot;
+        // add row to packaging form
+        const c = packSourceContainer(prefix);
+        const oldMap = packSourceOldMap(prefix);
+        const total = packSourceTarget(prefix);
+        const cur = packSourceRows(prefix).reduce((a,r)=> a + (parseFloat(r.querySelector('[data-pack-qty]').value)||0), 0);
+        // if single row and balanced, split?
+        const rowsEl = packSourceRows(prefix);
+        if(rowsEl.length===1){
+          let q1 = parseFloat(rowsEl[0].querySelector('[data-pack-qty]').value)||0;
+          if(Math.abs(q1 - total) <= 0.01){
+            let half = Math.round(total/2*1000)/1000;
+            rowsEl[0].querySelector('[data-pack-qty]').value = fmt2(half);
+          }
+        }
+        let rest = Math.round((total - packSourceRows(prefix).reduce((a,r)=> a + (parseFloat(r.querySelector('[data-pack-qty]').value)||0),0))*1000)/1000;
+        const tbody = document.querySelector(`[data-pack-rows="${prefix}"]`);
+        if(tbody){
+          tbody.insertAdjacentHTML('beforeend', packSourceRowHtml(prefix, lotId, rest>0?rest:'', oldMap));
+          const lot = by('lots', lotId);
+          const prodSel = document.getElementById(prefix+'Product');
+          if(lot && lot.id && prodSel && !prodSel.value){
+            try{ fillSearchSelect(prefix+'Product', lot.product); }catch(e){ prodSel.value = lot.produc
+
+### Paketim i ri @ 123269
+6/main"><fonts count="2"><font/><font><b/></font></fonts><fills count="1"><fill><patternFill patternType="none"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="2"><xf/><xf fontId="1" applyFont="1"/></cellXfs></styleSheet>`},{name:'xl/worksheets/sheet1.xml',data:`<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${sheet}</sheetData></worksheet>`}],blob=new Blob([zipStore(files)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename.endsWith('.xlsx')?filename:filename+'.xlsx';a.style.display='none';document.body.appendChild(a);a.click();setTimeout(()=>{if(document.getElementById('modal').classList.contains('open')){let box=document.createElement('div');box.className='card';box.innerHTML=`<b>Skedari u përgatit:</b> <a class="link" href="${url}" download="${a.download}">Kliko këtu për ta shkarkuar ${a.download}</a>`;modalBody.appendChild(box)}a.remove()},300);setTimeout(()=>URL.revokeObjectURL(url),120000)}
+</script>
+<style>.mandate{width:min(180mm,100%);margin:auto;border:2px solid #111;background:#fff;color:#111;font-family:Arial}.mandate .m-top{display:grid;grid-template-columns:1fr 3fr 1.3fr;min-height:22mm;border-bottom:2px solid #111}.mandate .m-top>div{padding:7px;border-right:2px solid #111}.mandate .m-top>div:last-child{border:0}.mandate h1{text-align:center;font-size:24px;margin:8px}.mandate .m-row{min-height:18mm;border-bottom:2px solid #111;padding:8px 10px;font-size:17px}.mandate .m-amount{display:grid;grid-template-columns:1fr 3fr;align-items:center}.mandate .m-sign{display:grid;grid-template-columns:repeat(3,1fr);text-align:center;padding:9px 8px 18mm;font-weight:700}</style>
+<script>
+function mandateHtml(x){let s=by('suppliers',x.supplier);return `<div id="printMandate" class="mandate"><div class="m-top"><div></div><div><h1>${(x.isPrepayment===true)?"MANDAT PARAPAGIMI":"MANDAT PAGESE"}</h1></div><div><b>Nr.</b> ${esc(x.id)}<br><br><b>Dt.</b> ${esc(x.date)}</div></div><div class="m-row"><b>PAGUAR NGA:</b> BioBes sh.p.k.</div><div class="m-row m-amount"><b>SHUMA:</b><div><b>${n(x.amount,0)} ${esc(x.currency||'ALL')}</b></div></div><div class="m-row"><b>PËR:</b> ${esc(x.note||'Parapagim / pagesë furnitori')}<br><br><b>MARRËSI:</b> ${esc(s.name)}</div><div class="m-sign"><div>FINANCIERI<br><br>____________</div><div>ARKËTARI<br><br>____________</div><div>MARRËSI<br><br>____________</div></div></div>`}
+function paymentCard(id,autoPrint){let x=state.payments.find(y=>y.id===id);if(!x){toast('Mandati nuk u gjet: '+id);return}modal((x.isPrepayment?'MANDAT PARAPAGIMI ':'Mandat pagese ')+id,mandateHtml(x),`<button type="button" class="btn" onclick="closeModal()">Mbyll</button><button type="button" class="btn primary" id="directPrintMandate">Printo / PDF</button>`);setTimeout(()=>{let b=document.getElementById('directPrintMandate');if(b)b.addEventListener('click',()=>printOnly('printMandate','Mandat pagese '+id));if(autoPrint)printOnly('printMandate','Mandat pagese '+id)},100)}
+</script>
+
+<style>
+.final-label{width:100mm;min-height:72mm;border:1.5px solid #222;border-radius:4mm;padding:4mm;background:#fff;color:#111;font-family:Arial}.fl-head{display:grid;grid-template-columns:25mm 1fr;gap:3mm;align-items:center}.fl-logo{font-size:22px;font-weight:900;color:#176b49;text-align:center}.fl-product{font-size:21px;font-weight:800;border-bottom:1px solid #111}.fl-lot{font-size:22px;font-weight:900;margin:4px 0}.checks{display:flex;gap:8px;flex-wrap:wrap;font-weight:700;margin:5px 0}.check{font-size:16px}.fl-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-top:5px}.client-label{width:100mm;border:1px solid #444;background:#fff;color:#111;font-family:Arial}.client-label .cl-row{display:grid;grid-template-columns:42% 58%;border-bottom:1px solid #777;min-height:9mm}.client-label .cl-row:last-child{border:0}.client-label .cl-row>div{padding:4px 6px}.client-label .cl-row>div+div{border-left:1px solid #777;font-weight:650}.label-preview-wrap{overflow:auto;padding:12px;background:#edf1ef;border-radius:8px}.scale-ticket{font:16px/1.25 monospace;background:#fff;color:#111;width:70mm;padding:8mm;box-shadow:0 2px 8px #0002}.scale-ticket .st-row{display:flex;justify-content:space-between;margin:2px 0}.scale-ticket .st-sep{height:12mm}@media print{.final-label,.client-label{break-inside:avoid}}
+</style>
+<script>
+if(!modules.some(x=>x[0]==='packaging')){let i=modules.findIndex(x=>x[0]==='shipments');modules.splice(i,0,['packaging','▧','Paketimi & Etiketa']);renderNav()}
+entitySelectIds.add('pkOrder');entitySelectIds.add('pkProduct');
+function packs(){return state.packagings||(state.packagings=[])}
+views.packaging=function(){let a=packs();return head('Paketimi & Etiketat','Lotet përfundimtare dhe skedarët për BarTender',`<button class="btn primary" onclick="packagingForm()">+ Paketim i ri</button>`)+tableCard(['Paketimi','Porosia','Produkti','Loti BioBes','Loti klientit','Thasë','Neto','Modeli','Veprime'],a.map(x=>[`<a class="link" onclick="packagingCard('${x.id}')">${x.id}</a>`,`<a class="link" onclick="orderCard('${x.order}')">${x.order}</a>`,by('products',x.product).name,x.internalLot,x.customerLot||'—',x.bags,n(x.bags*x.bagWeight)+' kg',x.template,`<button class="btn small" onclick="packagingCard('${x.id}')">Hap</button>`]))}
+function packagingForm(){modal('Paketim i ri',`<div class="form-grid"><div class="field"><label>Porosia</label><select id="pkOrder">${opts(state.orders,x=>x.id+' — '+by('customers',x.customer).name)}</select></div><div class="field"><label>Produkti</label><select id="pkProduct">${opts(state.products,x=>x.code+' — '+x.name)}</select></div><div class="field"><label>Loti përfundimtar BioBes</label><input id="pkInternal" placeholder="B2W01F/1a-II-115-26"></div><div class="field"><label>Loti i klientit</label><input id="pkCustomer" placeholder="NCH_LOT_R.fru_A_160"></div><div class="field"><label>Modeli i etiketës</label><select id="pkTemplate"><option>BioBes standard</option><option>Etiketë klienti</option></select></div><div class="field"><label>Nr. thasëve</label><input id="pkBags" type="number" value="300"></div><div class="field"><label>Pesha neto/thes kg</label><input id="pkBagWeight" type="number" step="0.01" value="20"></div><div class="field"><label>Viti i prodhimit</label><input id="pkCrop" type="number" value="${new Date().getFullYear()}"></div><div class="field"><label>Best before</label><input id="pkBest" type="number" value="${new Date().getFullYear()+3}"></div><div class="field"><label>Certifikimi</label><input id="pkCert" value="AL BIO 161"></div><div class="field"><label>Statusi</label><select id="pkOrganic"><option>Organik</option><option>Konvencional</option></select></div><div class="field"><label>Origjina</label><select id="pkOriginType"><option>Wild collected</option><option>Cultivated</option></select></div><div class="field"><label>Pjesa e bimës</label><select id="pkPart"><option>Folia</option><option>Herba</option><option>Flores</option><option>Radix</option><option>Fructus</option></select></div><div class="field"><label>Vendi i origjinës</label><input id="pkOrigin" value="Albania"></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="savePackaging()">Ruaj & krijo etiketën</button>`)}
+function savePackaging(){try{let pkOrd=$val('pkOrder'),o=by('orders',pkOrd);if(!pkOrd||!$val('pkProduct')||!$val('pkInternal'))return toast('Plotësoni porosinë, produktin dhe lotin');let x={id:nextSeqId('PK',packs(),1,new Date().getFullYear()),order:pkOrd,customer:o.customer,product:$val('pkProduct'),internalLot:$val('pkInternal'),customerLot:$val('pkCustomer'),template:$val('pkTemplate'),bags:$num('pkBags',0),bagWeight:$num('pkBagWeight',0),cropYear:$num('pkCrop',new Date().getFullYear()),bestBefore:$num('pkBest',new Date().getFullYear()+3),cert:$val('pkCert'),organic:$val('pkOrganic'),originType:$val('pkOriginType'),part:$val('pkPart'),origin:$val('pkOrigin'),date:new Date().toISOString().slice(0,10)};packs().push(x);state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Paketim',ref:x.id,text:`U krijua ${x.id}, loti ${x.internalLot}`});save();closeModal();render();packagingCard(x.id)}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
+function biobesLabel(x){let p=by('products',x.product);return `<div id="printFinalLabel" class="final-label"><div class="fl-head"><div class="fl-logo">BioBes<br><small style="font-size:9px">www.biobes-al.com</small></div><div><div>Product: <span class="fl-product">${esc(p.botanical||p.name)} ${x.part==='Folia'?'FW':''}</span></div><div>Producer / Name: <b>BioBes sh.p.k.</b></div><div>Lot: <div class="fl-lot">${esc(x.internalLot)}</div></div></div></div><div class="checks"><span class="check">${x.organic==='Organik'?'☒':'☐'} Organic</span><span class="check">${x.organic!=='Organik'?'☒':'☐'} Conventional</span><span class="check">${x.originType==='Wild collected'?'☒':'☐'} Wild collected</span><span class="check">${x.originType==='Cultivated'?'☒':'☐'} Cultivated</span></div><div class="checks">${['Herba','Flores','Folia','Radix','Fructus'].map(y=>`<span>${x.part===y?'☒':'☐'} ${y}</span>`).join(' ')}</div><div class="fl-grid"><div>Bag weight: <b>${n(x.bagWeight)} kg</b></div><div>Crop year: <b>${x.cropYear}</b></div><div>Country of origin: <b>${esc(x.origin)}</b></div><div>Best before: <b>${x.bestBefore}</b></div></div><div style="font-size:25px;text-align:center;margin-top:5px">${esc(x.cert)}</div></div>`}
+function customerLabel(x){let p=by('products',x.product),c=by('customers',x.customer);return `<div id="printFinalLabel" class="client-label"><div class="cl-row"><div>Supplier:</div><div>${esc(c.name)}<br>${esc(c.country||'')}</div></div><div class="cl-row"><div>Product:</div><div>${esc(p.botanical)}, ${esc(x.part.toLowerCase())}</div></div><div class="cl-row"><div>Product No. (if available):</div><div>${esc(p.code)}</div></div><div class="cl-row"><div>Lot No.:</div><div>${esc(x.customerLot||'—')}</div></div><div class="cl-row"><div>Origin:</div><div>${esc(x.origin)}</div></div><div class="cl-row"><div>Weight of Unit (net):</div><div>${n(x.bagWeight)} kg</div></div><div class="cl-row"><div>Name of Sub-contractor:</div><div>BioBes sh.p.k.<br>9021 Divjakë, Albania</div></div><div class="cl-row"><div>Lot / Traz. No. of Subcontractor:</div><div>${esc(x.internalLot)}</div></div></div>`}
+function packagingCard(id){let x=packs().find(y=>y.id===id);if(!x)return;let html=x.template==='Etiketë klienti'?customerLabel(x):biobesLabel(x);modal(x.id+' — Etiketa përfundimtare',`<div class="label-preview-wrap">${html}</div><div class="card"><p><b>Porosia:</b> <a class="link" onclick="orderCard('${x.order}')">${x.order}</a></p><p><b>Sasia:</b> ${x.bags} thasë × ${n(x.bagWeight)} kg = <b>${n(packNet(x))} kg</b></p><p><b>Lotet burimorë:</b> ${packSourceLots(x).map(l=>esc(l.code)+' — '+fmt2(packLotQty(x,l.id))+' kg').join('; ')||'—'}${packSourceLots(x).length>1?' <span class="pill orange">♺ përzierje '+packSourceLots(x).length+' lotësh</span>':''}</p><p><b>Loti BioBes:</b> ${esc(x.internalLot)} &nbsp; <b>Loti klientit:</b> ${esc(x.customerLot||'—')}</p></div>`,`<button class="btn" onclick="closeModal()">Mbyll</button><button class="btn" onclick="exportBartender('${id}')">Eksporto XLSX për BarTender</button><button class="btn primary" onclick="printOnly('printFinalLabel','Etiketa ${esc(x.internalLot)}')">Printo modelin</button>`)}
+function exportBartender(id){let x=packs().find(y=>y.id===id),p=by('products',x.product),c=by('customers',x.customer),rows=[];for(let i=1;i<=x.bags;i++)rows.push([p.name,p.botanical,p.code,x.internalLot,x.customerLot,x.organic,x.originType,x.part,x.bagWeight,x.cropYear,x.bestBefore,x.origin,x.cert,c.name,i+'/'+x.bags]);makeXlsx('BarTender-'+x.internalLot.replace(/[^a-z0-9-]/gi,'_')+'.xlsx',['Product','BotanicalName','ProductCode','BioBesLot','CustomerLot','Status','SourceType','PlantPart','BagWeightKg','CropYear','BestBefore','Origin','Certification','Customer','BagNumber'],rows)}
+</script>
+
+<style>.weigh-entry td{padding:5px}.weigh-entry input{width:100%;min-width:80px;border:1px solid #ccd8d2;border-radius:5px;padding:8px}.weigh-entry .row-sum{font-weight:800;white-space:nowrap}.weigh-entry .remove-row{min-width:auto;color:#b63c46}</style>
+<script>
+// Peshimi is row based: every physical weighing has its own bag count, gross, packaging and net.
+weighForm=function(){modal('Peshim i ri',`<div class="stepbar"><span class="step on">Të dhënat</span><span class="step">Peshimet</span><span class="step">Konfirmimi</span></div><div class="form-grid"><div class="field"><label>Data</label><input id="wDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field"><label>Magazina / pika e peshimit</label><select id="wWarehouse"><option value="">Zgjidh magazin
+
+### Shpërnda njëlloj @ 1851976
+ onclick="go('trace')">Gjurmueshmëria</a> dhe hapni <b>📸 Ndiq fotot</b> për të parë gjithë galerinë e lidhur.</p></div>`;
+};
+window.filterPhotosList = function(q){
+  q=(q||'').toLowerCase();
+  const grid=document.getElementById('allPhotosGrid');
+  if(!grid) return;
+  grid.querySelectorAll('.photo-card').forEach(card=>{
+    const txt = card.textContent.toLowerCase();
+    card.style.display = txt.includes(q) ? '' : 'none';
+  });
+};
+
+/* ---------- Normalize existing data on load ---------- */
+try{
+  ensureSampleOrderPhotoFields();
+  // Ensure weighings have attachmentType field if missing
+  (state.weighings||[]).forEach(w=>{ if(w.attachmentData && !w.attachmentType) w.attachmentType = w.attachmentType||'image/jpeg'; });
+}catch(e){}
+
+console.log('BioBes Photos Gallery v1 loaded — ndiq fotot aktiv');
+
+})();
+
+</script>
+<script id="biobes-paketim-v4">
+/* BioBes ERP — Paketim me shumë lote burimore v4 (2026-09-12)
+   Zëvendëson dropdown-in e vetëm të lotit me kartën "Lotet burimore (përzierja)"
+   sipas udhëzimit: tabelë + modal + 3 KPI live + validim + stockMove PACK
+   MOS prek raportet Alpha/Odoo 19 */
+(function(){
+if(window.__biobesPaketimV4) return;
+window.__biobesPaketimV4 = true;
+
+// CSS për kartën e përzierjes
+const cssPaketim = `
+.pk-card{border:1px solid #dfe6e2;border-radius:10px;padding:12px;background:#fff;margin-bottom:12px}
+.pk-card h4{margin:0 0 8px;font-size:14px}
+.pk-table{width:100%;border-collapse:collapse}
+.pk-table th{background:#f5f8f6;text-align:left;font-size:11px;color:#5d6e65;padding:8px 8px;border-bottom:1px solid #dfe6e2}
+.pk-table td{padding:7px 8px;border-bottom:1px solid #edf1ef;vertical-align:middle}
+.pk-table input{width:110px;padding:7px 8px;border:1px solid #cfd9d4;border-radius:7px}
+.pk-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.pk-kpi{padding:10px;border-radius:8px;text-align:center;border:1px solid #dfe6e2}
+.pk-kpi b{display:block;font-size:16px}
+.pk-kpi.good{background:#e1f4e8;border-color:#b7dbc8;color:#167044}
+.pk-kpi.warn{background:#fff0d4;border-color:#e8c98f;color:#975e00}
+.pk-kpi.bad{background:#fbe5e7;border-color:#e2a5ab;color:#a32934}
+.pk-empty{padding:14px;text-align:center;color:#6b7d75;background:#f8fbf9;border:1px dashed #c9d8d1;border-radius:8px}
+`;
+const st=document.createElement('style');
+st.textContent=cssPaketim;
+document.head.appendChild(st);
+
+// Helper: free stock
+function pkFree(lot, oldMap){
+  let extra = (oldMap && oldMap[lot.id] != null) ? +oldMap[lot.id] : 0;
+  return lotUnpacked(lot) + extra;
+}
+
+// Override packSourceRowHtml to return <tr>
+window.packSourceRowHtml = function(prefix, lotId, qty, oldMap){
+  oldMap = oldMap || {};
+  const lot = by('lots', lotId);
+  if(!lot || !lot.id) return '';
+  const sup = by('suppliers', lot.supplier);
+  const free = pkFree(lot, oldMap);
+  const qtyVal = (qty===''||qty==null) ? '' : mgStr(+qty||0);
+  return `<tr data-pack-source-row="${prefix}" data-lot="${lotId}">
+    <td><b>${esc(lot.code)}</b><br><small style="color:#6b7d75">${esc(lot.code)}</small></td>
+    <td>${esc(sup.code||'—')}<br><small>${esc(sup.name||'')}</small></td>
+    <td>${fmt2(free)} kg</td>
+    <td><input type="number" step="0.001" min="0" value="${qtyVal}" data-pack-qty oninput="packSourceSum('${prefix}')" style="width:110px"> kg</td>
+    <td><button type="button" class="btn small danger" onclick="packSourceRemoveRow(this,'${prefix}')" title="Fshi rreshtin">×</button></td>
+  </tr>`;
+};
+
+// Override packSourcePickerHtml to use table + KPIs + modal button
+window.packSourcePickerHtml = function(prefix, selected, productId, packId){
+  selected = selected || [];
+  let oldMap={};
+  if(packId){
+    const ex = packById(packId);
+    (ex && ex.sourceLots||[]).forEach(id=> oldMap[id]=packLotQty(ex,id));
+  }
+  // build initial rows
+  const rows = selected.map(z=> packSourceRowHtml(prefix, z.lot, z.qty, oldMap)).join('');
+  const totalNeeded = 0; // will be computed in packSourceSum
+  return `<div class="field full pk-card" data-pack-source="${prefix}" data-pack-bags="${prefix}Bags" data-pack-bw="${prefix}BagWeight" data-pack-old='${esc(JSON.stringify(oldMap))}'>
+    <h4>Lotet burimore (përzierja) * <small style="font-weight:400;color:#6b7d75">— përzierje shumë-lotëshe</small></h4>
+    <div class="table-wrap" style="border:1px solid #dfe6e2;border-radius:8px;overflow:auto">
+      <table class="pk-table">
+        <thead><tr><th>Loti burimor</th><th>Furnitori</th><th>Stok i papaketuar</th><th>KG të marra</th><th></th></tr></thead>
+        <tbody data-pack-rows="${prefix}">${rows || ''}</tbody>
+      </table>
+    </div>
+    <div id="${prefix}Empty" class="pk-empty" style="${selected.length?'display:none':''}">Nuk ka lot të shtuar — shto nga magazina.</div>
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="btn small primary" onclick="showPackLotModal('${prefix}')">+ Shto lot</button>
+      <button type="button" class="btn small" onclick="packSourceDistribute('${prefix}')">Shpërnda njëlloj</button>
+      <span class="hint" style="align-self:center">Vetëm lote me stok të papaketuar &gt;0 dhe të së njëjtit produkt.</span>
+    </div>
+    <div class="pk-kpis">
+      <div class="pk-kpi" id="${prefix}KpiTotal"><small>Totali nga lotet</small><b>0.00 kg</b></div>
+      <div class="pk-kpi" id="${prefix}KpiNeed"><small>Duhet</small><b>0.00 kg</b></div>
+      <div class="pk-kpi" id="${prefix}KpiDiff"><small>Diferenca</small><b>0.00 kg</b></div>
+    </div>
+    <p class="hint" data-pack-sum="${prefix}" style="margin:6px 0 0;display:none"></p>
+  </div>`;
+};
+
+// Show modal with available lots
+window.showPackLotModal = function(prefix){
+  try{
+    const prodId = $val(prefix+'Product');
+    // if no product selected, show all with stock
+    let lots = packagingCandidateLots(prodId).filter(l=> lotUnpacked(l) > 0.001);
+    // filter out already selected
+    const chosen = new Set(packSourceRows(prefix).map(r=> r.dataset.lot));
+    lots = lots.filter(l=> !chosen.has(l.id));
+    if(!lots.length){
+      return toast('Nuk ka lote të disponueshme për këtë produkt/magazinë');
+    }
+    const rows = lots.map(l=>{
+      const sup = by('suppliers', l.supplier);
+      const p = by('products', l.product);
+      return `<tr>
+        <td><b>${esc(l.code)}</b><br><small>${esc(p.code+' — '+p.name)}</small></td>
+        <td>${esc(sup.code||'—')}<br><small>${esc(sup.name||'')}</small></td>
+        <td>${fmt2(lotUnpacked(l))} kg<br><small>${esc(by('warehouses', l.warehouse).name||'')}</small></td>
+        <td><button class="btn small primary" onclick="packLotModalAdd('${prefix}','${l.id}')">Shto</button></td>
+      </tr>`;
+    }).join('');
+    modal('Zgjedh lotet burimore', `<div class="table-wrap"><table><thead><tr><th>Loti</th><th>Furnitori</th><th>Stok i papaketuar</th><th></th></tr></thead><tbody>${rows}</tbody></table></div><p class="hint">Vetëm lote të papaketuara &gt;0. Pasi zgjedh, vendos KG të marra te tabela kryesore.</p>`, `<button class="btn" onclick="closeModal(); setTimeout(()=>{if(typeof enhanceEntitySelects==='function') enhanceEntitySelects();},50)">Mbyll</button>`);
+  }catch(e){ console.error(e); toast('Gabim: '+e.message); }
+};
+
+window.packLotModalAdd = function(prefix, lotId){
+  try{
+    closeModal();
+    setTimeout(()=>{
+      // need to reopen packaging form? Actually we closed lot modal, but packaging modal was closed? We used modal() which replaces packaging modal. Need to restore packaging form.
+      // Instead we should not close packaging modal but show lot selector as nested modal? For now we close selector and re-add to packaging form, then reopen packaging form is lost.
+      // Workaround: we stored packaging form state before opening modal? Simpler: close selector modal and then directly add row to the packaging form which is no longer visible because modal was overwritten.
+      // So we need to keep packaging form data and reopen it.
+      // Instead we will not use modal() for selector but use a custom overlay.
+      // For now, fallback: add to a temp store and reopen packaging form? This is complex.
+      // Alternative approach: directly add row without closing packaging modal by using a custom div overlay instead of modal().
+      toast('Loti u shtua — rihape formularin dhe shto përsëri');
+    }, 100);
+  }catch(e){}
+};
+
+// Better implementation: custom overlay for lot selector that does not close packaging modal
+// Override showPackLotModal to use overlay div
+window.showPackLotModal = function(prefix){
+  try{
+    // remove existing overlay
+    let old = document.getElementById('pkLotOverlay');
+    if(old) old.remove();
+    const prodId = $val(prefix+'Product');
+    let lots = packagingCandidateLots(prodId).filter(l=> lotUnpacked(l) > 0.001);
+    const wareSel = document.getElementById(prefix+'Warehouse');
+    const wareId = wareSel ? wareSel.value : '';
+    if(wareId) lots = lots.filter(l=> l.warehouse===wareId);
+    const chosen = new Set(packSourceRows(prefix).map(r=> r.dataset.lot));
+    lots = lots.filter(l=> !chosen.has(l.id));
+    if(!lots.length){
+      return toast('Nuk ka lote të disponueshme për magazinën/produktin');
+    }
+    const overlay = document.createElement('div');
+    overlay.id='pkLotOverlay';
+    overlay.style.cssText='position:fixed;inset:0;background:#13251d88;z-index:90;display:flex;align-items:flex-start;justify-content:center;padding:35px 14px;overflow:auto';
+    const box = document.createElement('div');
+    box.style.cssText='background:#fff;width:min(700px,100%);border-radius:11px;box-shadow:0 20px 70px #0004;overflow:hidden';
+    const rows = lots.map(l=>{
+      const sup = by('suppliers', l.supplier);
+      const p = by('products', l.product);
+      return `<tr>
+        <td><b>${esc(l.code)}</b><br><small>${esc(p.code||'')} — ${esc(p.name)}</small></td>
+        <td>${esc(sup.code||'—')}<br><small>${esc(sup.name||'')}</small></td>
+        <td>${fmt2(lotUnpacked(l))} kg</td>
+        <td><button class="btn small primary" data-add-lot="${l.id}">Shto</button></td>
+      </tr>`;
+    }).join('');
+    box.innerHTML = `<div style="padding:16px 19px;border-bottom:1px solid #dfe6e2;display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">Zgjedh lotet — ${esc(by('products', prodId).name||'Të gjitha')}</h3><button class="btn small" id="pkLotClose">✕</button></div><div style="padding:19px;max-height:60vh;overflow:auto"><div class="table-wrap"><table><thead><tr><th>Loti</th><th>Furnitori</th><th>Stok i papaketuar</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div><div style="padding:14px 19px;border-top:1px solid #dfe6e2;display:flex;justify-content:flex-end"><button class="btn" id="pkLotClose2">Mbyll</button></div>`;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    const close = ()=> overlay.remove();
+    box.querySelectorAll('#pkLotClose, #pkLotClose2').forEach(b=> b.onclick=close);
+    overlay.addEventListener('click', e=>{ if(e.target===overlay) close(); });
+    box.querySelectorAll('[data-add-lot]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const lotId = btn.dataset.addLot;
+        // add row to packaging form
+        const c = packSourceContainer(prefix);
+        const oldMap = packSourceOldMap(prefix);
+        const total = packSourceTarget(prefix);
+        const cur = packSourceRows(prefix).reduce((a,r)=> a + (parseFloat(r.querySelector('[data-pack-qty]').value)||0), 0);
+        // if single row and balanced, split?
+        const rowsEl = packSourceRows(prefix);
+        if(rowsEl.length===1){
+          let q1 = parseFloat(rowsEl[0].querySelector('[data-pack-qty]').value)||0;
+          if(Math.abs(q1 - total) <= 0.01){
+            let half = Math.round(total/2*1000)/1000;
+            rowsEl[0].querySelector('[data-pack-qty]').value = fmt2(half);
+          }
+        }
+        let rest = Math.round((total - packSourceRows(prefix).reduce((a,r)=> a + (parseFloat(r.querySelector('[data-pack-qty]').value)||0),0))*1000)/1000;
+        const tbody = document.querySelector(`[data-pack-rows="${prefix}"]`);
+        if(tbody){
+          tbody.insertAdjacentHTML('beforeend', packSourceRowHtml(prefix, lotId, rest>0?rest:'', oldMap));
+          const lot = by('lots', lotId);
+          const prodSel = document.getElementById(prefix+'Product');
+          if(lot && lot.id && prodSel && !prodSel.value){
+            try{ fillSearchSelect(prefix+'Product', lot.product); }catch(e){ prodSel.value = lot.product; }
+          }
+          packSourceSum(prefix);
+          // remove this lot from overlay table
+          btn.closest('tr').remove();
+          if(!box.querySelectorAll('[data-add-lot]').length){
+            close();
+            toast('Loti u shtua');
+          } else {
+            btn.textContent='✓';
+            btn.disabled=true;
+          }
+        }
+      };
+    });
+  }catch(e){ console.error(e); toast('Gabim: '+e.message); }
+};
+
+// Update KPI logic
+const origPackSourceSum = window.packSourceSum;
+window.packSourceSum = function(
+
