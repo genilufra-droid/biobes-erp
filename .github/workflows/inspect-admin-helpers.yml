@@ -1,0 +1,34 @@
+name: Inspect admin helper names
+on:
+  push:
+    branches: [chatgpt/fix-paketim-kg]
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract helper context
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          terms=['requireAdmin','isAdmin','adminOverride','verifyAdmin','data-admin-only','currentUser','userRole']
+          out=[]
+          for t in terms:
+              pos=0
+              for _ in range(5):
+                  i=s.find(t,pos)
+                  if i<0: break
+                  out.append('### '+t+' @ '+str(i)+'\n'+s[max(0,i-700):min(len(s),i+1700)])
+                  pos=i+len(t)
+          Path('ADMIN-HELPERS.txt').write_text('\n\n'.join(out),encoding='utf-8')
+          PY
+      - name: Commit snippet
+        run: |
+          git config user.name "chatgpt-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add ADMIN-HELPERS.txt
+          git commit -m "chore: inspect admin helpers" || exit 0
+          git push
