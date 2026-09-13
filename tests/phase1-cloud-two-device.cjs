@@ -23,13 +23,13 @@ async function waitHttp(url, timeout=30000){
   await dbSrv.start();
   const api = spawn(process.execPath,['server.js'],{cwd:path.join(process.cwd(),'api/backend'),env:{...process.env,PORT:String(API_PORT),DATABASE_URL:`postgres://biobes:biobes@127.0.0.1:${DB_PORT}/biobes`,ADMIN_USERNAME:ADMIN,ADMIN_PASSWORD:PASS,SESSION_TTL_HOURS:'24',PGSSLMODE:'disable',CORS_ORIGIN:'*'},stdio:['ignore','pipe','pipe']});
   let apiLog=''; api.stdout.on('data',d=>apiLog+=d); api.stderr.on('data',d=>apiLog+=d);
-  const web = spawn('python3',['-m','http.server',String(WEB_PORT),'--bind','127.0.0.1'],{cwd:process.cwd(),stdio:['ignore','pipe','pipe']});
-  await waitHttp(API+'/api/health'); await waitHttp(WEB+'/index.html');
+  const web = spawn(process.execPath,['tests/phase1-proxy-server.cjs'],{cwd:process.cwd(),env:{...process.env,WEB_PORT:String(WEB_PORT),API_PORT:String(API_PORT)},stdio:['ignore','pipe','pipe']});
+  await waitHttp(API+'/api/health'); await waitHttp(WEB+'/api/health'); await waitHttp(WEB+'/index.html');
 
   const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
   async function device(label){
     const context=await browser.newContext();
-    await context.addInitScript(({api})=>localStorage.setItem('biobesBackend',JSON.stringify({url:api})),{api:API});
+    await context.addInitScript(({url})=>localStorage.setItem('biobesBackend',JSON.stringify({url})),{url:WEB});
     const page=await context.newPage();
     const errors=[]; page.on('pageerror',e=>errors.push(e.message)); page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
     await page.goto(WEB+'/index.html');
