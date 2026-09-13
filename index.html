@@ -146,11 +146,11 @@ function addProcess(){try{if(!$val('prOrder')||!$val('prProduct')||!$val('prMach
 function shipmentForm(){modal('Ngarkesë e re',`<div class="form-grid"><div class="field"><label>Data</label><input id="shDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field"><label>Porosia</label><select id="shOrder" onchange="syncShipCustomer()">${opts(state.orders,x=>x.id)}</select></div><div class="field"><label>Klienti</label><select id="shCustomer">${opts(state.customers,x=>x.name+' — '+x.country)}</select></div><div class="field"><label>Targa</label><input id="shPlate"></div><div class="field"><label>Transportuesi</label><input id="shCarrier"></div><div class="field"><label>Numri i plumbçes</label><input id="shSeal"></div><div class="field"><label>Pesha neto kg</label><input id="shNet" type="number"></div><div class="field"><label>Pesha bruto kg</label><input id="shGross" type="number"></div><div class="field"><label>Nr. thasëve</label><input id="shBags" type="number"></div><div class="field"><label>Nr. paletave</label><input id="shPallets" type="number"></div><div class="field full"><label>Foto e plumbçes</label><input type="file" accept="image/*"></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addShipment()">Krijo ngarkesën</button>`);syncShipCustomer()}
 function syncShipCustomer(){let o=by('orders',$val('shOrder'));if(o&&o.id){let c=$id('shCustomer');if(c)c.value=o.customer}}
 function addShipment(){try{if(!$val('shOrder')||!$val('shCustomer'))return toast('Plotësoni porosinë dhe klientin');let x={id:'NG-'+new Date().getFullYear()+'-'+String((state.shipments||[]).length+1).padStart(4,'0'),date:$val('shDate',new Date().toISOString().slice(0,10)),order:$val('shOrder'),customer:$val('shCustomer'),plate:$val('shPlate'),carrier:$val('shCarrier'),seal:$val('shSeal'),net:$num('shNet',0),gross:$num('shGross',0),bags:$num('shBags',0),pallets:$num('shPallets',0),status:'Në përgatitje'};state.shipments.push(x);['Commercial Invoice','Packing List','CMR','Certifikatë fitosanitare','Certifikatë origjine','EUR.1'].forEach((t,i)=>state.documents.push({id:uid('D'),shipment:x.id,type:t,number:'',date:x.date,status:i<2?'Draft':'Mungon'}));save();closeModal();render();toast('Ngarkesa dhe dosja e eksportit u krijuan')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
-function simpleForm(type){let title=type==='warehouse'?'Magazinë e re':type==='rack'?'Raft i ri':'Makineri / Dhomë e re';modal(title,`<div class="form-grid">${type==='rack'?`<div class="field full"><label>Magazina</label><select id="sfWarehouse">${opts(state.warehouses,x=>x.name)}</select></div>`:''}<div class="field"><label>Kodi</label><input id="sfCode"></div><div class="field"><label>Emri</label><input id="sfName"></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addSimple('${type}')">Ruaj</button>`)}
+function simpleForm(type){if(type==='product')return(typeof productFormV2==='function')?productFormV2():entityForm('product');if(type==='supplier')return entityForm('supplier');if(type==='customer')return customerForm();let title=type==='warehouse'?'Magazinë e re':type==='rack'?'Raft i ri':'Makineri / Dhomë e re';modal(title,`<div class="form-grid">${type==='rack'?`<div class="field full"><label>Magazina</label><select id="sfWarehouse">${opts(state.warehouses,x=>x.name)}</select></div>`:''}<div class="field"><label>Kodi</label><input id="sfCode"></div><div class="field"><label>Emri</label><input id="sfName"></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addSimple('${type}')">Ruaj</button>`)}
 function addSimple(type){try{if(type==='warehouse')state.warehouses.push({id:uid('W'),code:$val('sfCode'),name:$val('sfName')});if(type==='rack')state.racks.push({id:uid('R'),warehouse:$val('sfWarehouse'),code:$val('sfCode'),name:$val('sfName')});if(type==='machine')state.machines.push({id:uid('M'),code:$val('sfCode'),name:$val('sfName'),status:'E lirë'});save();closeModal();render();toast('U ruajt')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
 function lotCard(id){let x=by('lots',id),p=by('products',x.product),s=by('suppliers',x.supplier);modal('Loti '+x.code,`<div class="grid2"><div><div class="card"><h3>Të dhënat</h3><p><b>Produkti:</b> ${p.code} — ${p.name}</p><p><b>Kodi furnitorit:</b> ${s.code} <span class="hint">(emri shihet vetëm pas login)</span></p><p><b>Bruto:</b> ${n(x.gross)} kg &nbsp; <b>Ambalazh:</b> ${n(x.tare)} kg</p><p><b>Neto fizike:</b> ${n(x.net)} kg</p><p><b>Vendndodhja:</b> ${by('warehouses',x.warehouse).name} / ${by('racks',x.rack).name}</p>${status(x.status)}</div></div><div class="card" style="text-align:center"><h3>Etiketa QR</h3><div style="width:150px;height:150px;margin:auto;background:repeating-conic-gradient(#111 0 25%,#fff 0 50%) 0/18px 18px;border:12px solid #fff;outline:1px solid #ccc"></div><b>${x.code}</b><p>${p.code} — ${p.name}<br>${n(x.net)} kg</p><button class="btn" onclick="print()">Printo</button></div></div><div class="card"><h3>Dokumentet e lidhura</h3><a class="link">Peshimi: ${x.weighing||'—'}</a> · <a class="link">Mostrat: ${state.samples.filter(y=>y.lot===x.id).length}</a> · <a class="link">Proceset: ${state.processes.filter(y=>(y.lots||[]).includes(x.id)).length}</a></div>`)}
 function supplierCard(id){let s=by('suppliers',id),ws=state.weighings.filter(x=>x.supplier===id),ps=state.payments.filter(x=>x.supplier===id);modal('Kartela — '+s.name,`<div class="kpis"><div class="kpi"><small>Blerje</small><strong>${ws.length}</strong></div><div class="kpi"><small>Peshë faturueshme</small><strong>${n(ws.reduce((a,x)=>a+x.billable,0),0)} kg</strong></div><div class="kpi"><small>Pagesa</small><strong>${n(ps.reduce((a,x)=>a+x.amount,0),0)}</strong></div><div class="kpi"><small>Gjendja</small><strong>${n(supplierBalance(id),0)}</strong></div></div>${tableCard(['Data','Veprimi','Përshkrimi','Debi','Kredi'],[...ws.map(x=>[x.date,'Blerje',by('products',x.product).name,n(x.billable),0]),...ps.map(x=>[x.date,'Pagesë',x.method,0,n(x.amount)])])}`)}
-function customerCard(id){let c=by('customers',id);if(!c||!c.id)return toast('Klienti nuk u gjet');let inv=salesInvoices().filter(x=>x.customer===id&&(x.status||'Konfirmuar')==='Konfirmuar'),pay=customerPayments().filter(x=>x.customer===id&&(x.status||'Konfirmuar')==='Konfirmuar'),ret=customerReturns().filter(x=>x.customer===id&&x.status==='Konfirmuar'),billed=inv.reduce((a,x)=>a+toALL(x.total,x.currency,x.exchangeRate),0),paid=pay.reduce((a,x)=>a+toALL(x.amount,x.currency,x.rate),0),returned=ret.reduce((a,x)=>a+toALL(x.total,x.currency,x.exchangeRate),0),open=billed-paid-returned;modal('Kartela — '+c.name,`<div class="kpis"><div class="kpi"><small>Fatura shitjeje</small><strong>${inv.length}</strong></div><div class="kpi"><small>Vlera e faturuar</small><strong>${n(billed,0)}</strong></div><div class="kpi"><small>Arkëtime</small><strong>${n(paid,0)}</strong></div><div class="kpi"><small>Kthime</small><strong>${n(returned,0)}</strong></div><div class="kpi"><small>Gjendja e hapur</small><strong>${n(open,0)}</strong></div></div><div class="card"><b>Kodi:</b> ${esc(c.code||'—')} · <b>Shteti:</b> ${esc(c.country||'—')} · <b>Qyteti:</b> ${esc(c.city||'—')}</div>${tableCard(['Data','Veprimi','Përshkrimi','Debi','Kredi'],[...inv.map(x=>[x.date,'Faturë',x.invoiceNumber||x.id,n(x.total),0]),...pay.map(x=>[x.date,'Arkëtim',x.method,0,n(x.amount)]),...ret.map(x=>[x.date,'Kthim',x.id,0,n(x.total)])])}`)}
+function customerCard(id){let c=by('customers',id);if(!c||!c.id)return toast('Klienti nuk u gjet');let inv=salesInvoices().filter(x=>x.customer===id&&(x.status||'Konfirmuar')==='Konfirmuar'),pay=customerPayments().filter(x=>x.customer===id&&(x.status||'Konfirmuar')==='Konfirmuar'),ret=customerReturns().filter(x=>x.customer===id&&x.status==='Konfirmuar'),billed=inv.reduce((a,x)=>a+toALL(x.total,x.currency,x.exchangeRate),0),paid=pay.reduce((a,x)=>a+toALL(x.amount,x.currency,x.rate),0),returned=ret.reduce((a,x)=>a+toALL(x.total,x.currency,x.exchangeRate),0),open=billed-paid-returned;modal('Kartela — '+c.name,`<div class="kpis"><div class="kpi"><small>Fatura shitjeje</small><strong>${inv.length}</strong></div><div class="kpi"><small>Vlera e faturuar</small><strong>${n(billed,0)}</strong></div><div class="kpi"><small>Arkëtime</small><strong>${n(paid,0)}</strong></div><div class="kpi"><small>Kthime</small><strong>${n(returned,0)}</strong></div><div class="kpi"><small>Gjendja e hapur</small><strong>${n(open,0)}</strong></div></div><div class="card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><div><b>Kodi:</b> ${esc(c.code||'—')} · <b>Shteti:</b> ${esc(c.country||'—')} · <b>Qyteti:</b> ${esc(c.city||'—')}${c.address?' · <b>Adresa:</b> '+esc(c.address):''}${c.vat?' · <b>NIPT/VAT:</b> '+esc(c.vat):''}${c.eori?' · <b>EORI:</b> '+esc(c.eori):''}<br>${c.contact?'<b>Kontakti:</b> '+esc(c.contact)+' · ':''}${c.phone?'☎ '+esc(c.phone)+' · ':''}${c.email?'✉ '+esc(c.email)+' · ':''}<b>Monedha:</b> ${esc(c.currency||'—')} · <b>Afati:</b> ${esc(c.paymentTerms??'—')} ditë</div><button class="btn small" data-admin-only onclick="customerForm('${c.id}')">Ndrysho</button></div></div>${tableCard(['Data','Veprimi','Përshkrimi','Debi','Kredi'],[...inv.map(x=>[x.date,'Faturë',x.invoiceNumber||x.id,n(x.total),0]),...pay.map(x=>[x.date,'Arkëtim',x.method,0,n(x.amount)]),...ret.map(x=>[x.date,'Kthim',x.id,0,n(x.total)])])}`)}
 function orderCard(id){let x=by('orders',id);modal(x.id,`<p><b>Klienti:</b> ${by('customers',x.customer).name}</p>${tableCard(['Produkti','Porositur','Realizuar','Mbetur'],x.items.map(i=>[by('products',i.product).name,n(i.qty)+' kg',n(i.done)+' kg',n(i.qty-i.done)+' kg']))}<div class="card"><h3>Lidhjet</h3><a class="link">Mostra: ${x.sample||'—'}</a> · <a class="link">Procese: ${state.processes.filter(p=>(p.orders||[]).includes(id)).length}</a> · <a class="link">Ngarkesa: ${state.shipments.filter(s=>s.order===id).length}</a></div>`)}
 function shipmentCard(id){let x=by('shipments',id),docs=state.documents.filter(d=>d.shipment===id);modal(x.id+' — Dosja e eksportit',`<div class="kpis"><div class="kpi"><small>Neto</small><strong>${n(x.net,0)} kg</strong></div><div class="kpi"><small>Bruto</small><strong>${n(x.gross,0)} kg</strong></div><div class="kpi"><small>Thasë</small><strong>${x.bags}</strong></div><div class="kpi"><small>Plumbçja</small><strong>${esc(x.seal)}</strong></div></div>${tableCard(['Dokumenti','Numri','Status','Veprimi'],docs.map(d=>[d.type,d.number||'—',status(d.status),'<a class="link">Ngarko / Hap</a>']))}`)}
 function traceSearch(){let q=$val('traceQ').trim().toLowerCase(),lot=state.lots.find(x=>((x.code||'').toLowerCase()).includes(q));if(!lot){$html('traceResult','<div class="empty">Nuk u gjet rezultat.</div>');return}let w=state.weighings.find(x=>x.id===lot.weighing),sms=state.samples.filter(x=>x.lot===lot.id),prs=state.processes.filter(x=>(x.lots||[]).includes(lot.id));$html('traceResult',`<div class="timeline"><div class="event"><b>Furnitori ${by('suppliers',lot.supplier).code}</b><div>${by('suppliers',lot.supplier).name}</div></div><div class="event"><b>Peshimi</b><div>${w?.id||'Dokument fillestar'} — ${n(lot.net)} kg fizik</div></div><div class="event"><b>Loti hyrës</b><div>${lot.code}</div></div><div class="event"><b>Magazinimi</b><div>${by('warehouses',lot.warehouse).name} / ${by('racks',lot.rack).name}</div></div><div class="event"><b>Mostrat</b><div>${sms.map(x=>x.id+' — '+x.status).join(', ')||'Pa mostër'}</div></div><div class="event"><b>Përpunimi</b><div>${prs.map(x=>x.id).join(', ')||'Ende pa proces'}</div></div></div>`)}
@@ -168,6 +168,35 @@ window.addEventListener('DOMContentLoaded',()=>{load().then(()=>{try{if(normaliz
 </style>
 <script>
 // Version 2: CRUD, documents, print forms, real downloads and linked traceability.
+/* ---- Klientët: formë + faqe (mungonte plotësisht — Regjistrat bazë → Klientë hapte formën e Makinerisë) ---- */
+function customerForm(id){let c=id?by('customers',id):{},isNew=!id;if(id&&!c?.id)return toast('Klienti nuk u gjet');let cur=(state.currencies||[]).filter(x=>x.active!==false).map(x=>x.code);if(!cur.length)cur=['ALL','EUR','USD'];
+ modal(isNew?'Klient i ri':'Ndrysho klientin — '+esc(c.name||''),`<div class="form-grid">
+  <div class="field"><label>Kodi *</label><input id="cfCode" value="${esc(c.code||'')}" placeholder="p.sh. K-001"></div>
+  <div class="field"><label>Emri / Kompania *</label><input id="cfName" value="${esc(c.name||'')}"></div>
+  <div class="field"><label>Shteti</label><input id="cfCountry" value="${esc(c.country||'')}" placeholder="p.sh. Germany"></div>
+  <div class="field"><label>Qyteti</label><input id="cfCity" value="${esc(c.city||'')}"></div>
+  <div class="field full"><label>Adresa</label><input id="cfAddress" value="${esc(c.address||'')}"></div>
+  <div class="field"><label>NIPT / VAT ID</label><input id="cfVat" value="${esc(c.vat||'')}"></div>
+  <div class="field"><label>EORI (eksport BE)</label><input id="cfEori" value="${esc(c.eori||'')}"></div>
+  <div class="field"><label>Personi i kontaktit</label><input id="cfContact" value="${esc(c.contact||'')}"></div>
+  <div class="field"><label>Telefon</label><input id="cfPhone" value="${esc(c.phone||'')}"></div>
+  <div class="field"><label>Email</label><input id="cfEmail" type="email" value="${esc(c.email||'')}"></div>
+  <div class="field"><label>Monedha e faturimit</label><select id="cfCurrency">${cur.map(x=>`<option ${((c.currency||'EUR')===x)?'selected':''}>${esc(x)}</option>`).join('')}</select></div>
+  <div class="field"><label>Afati i pagesës (ditë)</label><input id="cfTerms" type="number" min="0" value="${esc(c.paymentTerms??30)}"></div>
+  <div class="field"><label>Statusi</label><select id="cfActive"><option value="1" ${c.active!==false?'selected':''}>Aktiv</option><option value="0" ${c.active===false?'selected':''}>Joaktiv</option></select></div>
+  <div class="field full"><label>Shënime</label><input id="cfNotes" value="${esc(c.notes||'')}"></div>
+ </div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="saveCustomerForm('${id||''}')">Ruaj</button>`);setTimeout(()=>document.getElementById(isNew?'cfCode':'cfName')?.focus(),60)}
+function saveCustomerForm(id){try{let code=$val('cfCode').trim(),name=$val('cfName').trim();if(!code||!name)return toast('Kodi dhe emri janë të detyrueshëm');state.customers||(state.customers=[]);if(state.customers.some(x=>x.code===code&&x.id!==id))return toast('Ky kod klienti ekziston');
+ let data={code,name,country:$val('cfCountry').trim(),city:$val('cfCity').trim(),address:$val('cfAddress').trim(),vat:$val('cfVat').trim(),eori:$val('cfEori').trim(),contact:$val('cfContact').trim(),phone:$val('cfPhone').trim(),email:$val('cfEmail').trim(),currency:$val('cfCurrency')||'EUR',paymentTerms:+($val('cfTerms')||0),active:$val('cfActive')!=='0',notes:$val('cfNotes').trim()};
+ if(id){let c=by('customers',id);Object.assign(c,data,{updatedAt:new Date().toISOString()});try{audit('Ndryshim klienti',id)}catch(e){}}else{let nid='C-'+code.replace(/[^A-Za-z0-9_-]/g,'');if(state.customers.some(x=>x.id===nid))nid=uid('C');state.customers.push({id:nid,...data,createdAt:new Date().toISOString()});try{audit('Klient i ri',nid)}catch(e){}}
+ save();closeModal();render();toast(id?'Klienti u ndryshua':'Klienti u shtua')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
+function customerInUse(id){try{return (state.orders||[]).some(x=>x.customer===id)||salesInvoices().some(x=>x.customer===id)||customerPayments().some(x=>x.customer===id)||(state.shipments||[]).some(x=>x.customer===id)||exportDossiers().some(x=>x.customer===id)||customerReturns().some(x=>x.customer===id)}catch(e){return true}}
+function deleteCustomer(id){let c=by('customers',id);if(!c?.id)return;if(customerInUse(id))return toast('Nuk fshihet: klienti ka porosi, fatura, arkëtime ose dosje të lidhura — çaktivizojeni');if(!confirm('Të fshihet klienti "'+(c.name||'')+'"?'))return;state.customers=state.customers.filter(x=>x.id!==id);try{audit('Fshirje klienti',id)}catch(e){}save();render();toast('Klienti u fshi')}
+function exportCustomersXls(){downloadBlob('BioBes-kliente.xls',xlsHtml(['Kodi','Emri','Shteti','Qyteti','NIPT/VAT','Kontakti','Telefon','Email','Monedha','Statusi'],(state.customers||[]).map(x=>[x.code,x.name,x.country,x.city,x.vat,x.contact,x.phone,x.email,x.currency,x.active===false?'Joaktiv':'Aktiv'])),'application/vnd.ms-excel')}
+views.customers=function(){let rows=(state.customers||[]).map(x=>{let inv=salesInvoices().filter(f=>f.customer===x.id&&(f.status||'Konfirmuar')==='Konfirmuar'),pay=customerPayments().filter(f=>f.customer===x.id&&(f.status||'Konfirmuar')==='Konfirmuar'),billed=inv.reduce((a,f)=>a+toALL(f.total,f.currency,f.exchangeRate),0),paid=pay.reduce((a,f)=>a+toALL(f.amount,f.currency,f.rate),0);
+ return[esc(x.code||''),`<a class="link" onclick="customerCard('${x.id}')">${esc(x.name||'')}</a>`,esc([x.city,x.country].filter(Boolean).join(', ')),esc(x.vat||''),esc(x.contact||x.phone||x.email||''),n(billed-paid,0)+' ALL',x.active===false?'<span class="pill red">Joaktiv</span>':'<span class="pill green">Aktiv</span>',`<span class="row-actions"><button class="btn small" onclick="customerCard('${x.id}')">Hap</button><button class="btn small" onclick="customerForm('${x.id}')">Ndrysho</button><button class="btn small danger" onclick="deleteCustomer('${x.id}')">Fshi</button></span>`]});
+ return head('Klientët','Kartela, porositë, faturat dhe gjendja e hapur',`<button class="btn" onclick="exportCustomersXls()">Eksporto Excel</button><button class="btn primary" onclick="customerForm()">+ Shto klient</button>`)+`<div class="toolbar"><input placeholder="Kërko live..." oninput="liveFilter(this)"></div><div class="liveTable">${rows.length?tableCard(['Kodi','Emri','Vendi','NIPT/VAT','Kontakti','Gjendja e hapur','Statusi','Veprime'],rows):'<div class="card"><p class="hint">Ende s\u2019ka klientë. Shtoni klientin e parë me <b>+ Shto klient</b> — përdoret te porositë, faturat e shitjes, arkëtimet dhe dosjet e eksportit.</p></div>'}</div>`};
+if(!modules.some(m=>m[0]==='customers')){let ix=modules.findIndex(m=>m[0]==='orders');modules.splice(ix<0?modules.length-1:ix,0,['customers','☷','Klientët'])}
 function actionBtns(type,id){return `<span class="row-actions"><button class="btn small" onclick="editEntity('${type}','${id}')">Ndrysho</button><button class="btn small danger" onclick="deleteEntity('${type}','${id}')">Fshi</button></span>`}
 views.products=function(){return head('Produktet','Kodet, emërtimet dhe kategoritë e bimëve',`<button class="btn" onclick="downloadTemplate('products')">Shkarko template</button><button class="btn" onclick="document.getElementById('productImport').click()">Import CSV</button><input hidden type="file" id="productImport" accept=".csv,text/csv" onchange="importProducts(this)"><button class="btn" onclick="exportProductsXls()">Eksporto Excel</button><button class="btn primary" onclick="entityForm('product')">+ Shto produkt</button>`)+`<div class="toolbar"><input placeholder="Kërko live me kod, emër ose kategori..." oninput="liveFilter(this)"></div><div class="liveTable">${tableCard(['Kodi','Shqip','Botanik','Anglisht','Kategoria','Veprime'],state.products.map(x=>[x.code,x.name,x.botanical,x.english,x.category,actionBtns('product',x.id)]))}</div>`}
 views.suppliers=function(){return head('Furnitorët','Kartela, blerjet, pagesat dhe gjendja',`<button class="btn" onclick="exportSuppliersXls()">Eksporto Excel</button><button class="btn primary" onclick="entityForm('supplier')">+ Shto furnitor</button>`)+`<div class="toolbar"><input placeholder="Kërko live..." oninput="liveFilter(this)"></div><div class="liveTable">${tableCard(['Kodi','Emri','Qarku/Zona','Telefon','Gjendja','Veprime'],state.suppliers.map(x=>[x.code,`<a class="link" onclick="supplierCard('${x.id}')">${esc(x.name)}</a>`,x.region,x.phone,`${n(x.balance,0)} ALL`,actionBtns('supplier',x.id)]))}</div>`}
@@ -1655,7 +1684,7 @@ function loadReceiptInvoices(){let c=document.getElementById('rCustomer').value,
 function receiptRateVisibility(){let c=$id('rCurrency'),r=$id('rRate');if(c&&r&&c.value==='ALL')r.value=1}
 function saveReceipt(){try{let id=$val('rNo').trim(),customer=$val('rCustomer'),amount=$num('rAmount',0);if(!id||!customer||amount<=0)return toast('Plotësoni numrin, klientin dhe shumën');if(customerPayments().some(x=>x.id===id))return toast('Ky numër mandati ekziston');let x={id,date:$val('rDate',new Date().toISOString().slice(0,10)),customer,invoice:$val('rInvoice'),method:$val('rMethod','Cash'),amount,currency:$val('rCurrency','ALL'),rate:$num('rRate',1),description:$val('rDescription'),status:'Konfirmuar',createdAt:new Date().toISOString(),createdBy:(typeof currentRole==='function'?currentRole():'admin')};customerPayments().push(x);state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Mandat arkëtimi',ref:id,text:`${id}, ${by('customers',customer)?.name||customer}, ${fmt2(amount)} ${x.currency}`});save();closeModal();render();setTimeout(()=>receiptCard(id,true),80);toast('Mandati u ruajt')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
 function receiptHtml(x){let c=by('customers',x.customer)||{},inv=salesInvoices().find(f=>f.id===x.invoice);return `<div id="printReceipt" class="mandate"><div class="m-top"><div><b>BioBes sh.p.k.</b></div><div><h1>MANDAT ARKËTIMI</h1></div><div><b>Nr.</b> ${esc(x.id)}<br><br><b>Dt.</b> ${esc(x.date)}</div></div><div class="m-row"><b>PAGUAR NGA:</b> ${esc(c.name||'')}</div><div class="receipt-paid">${fmt2(x.amount)} ${esc(x.currency||'ALL')}</div><div class="m-row"><b>PËR:</b> ${esc(x.description||'Arkëtim klienti')}${inv?`<br><b>FATURA:</b> ${esc(inv.invoiceNumber||inv.id)}`:''}</div><div class="m-sign"><div>FINANCIERI<br><br>____________</div><div>ARKËTARI<br><br>____________</div><div>PAGUESI<br><br>____________</div></div></div>`}
-function receiptCard(id,autoPrint=false){let x=customerPayments().find(y=>y.id===id);if(!x)return toast('Mandati nuk u gjet');modal('Mandat arkëtimi '+id,receiptHtml(x),`<button class="btn" onclick="closeModal()">Mbyll</button><button class="btn" onclick="printOnly('printReceipt','Mandat arkëtimi ${id}')">Printo / PDF</button>${x.status!=='Anuluar'?`<button class="btn" onclick="receiptActions('${id}')">Veprime</button>`:''}`);if(autoPrint)setTimeout(()=>printOnly('printReceipt','Mandat arkëtimi '+id),300)}
+function receiptCard(id,autoPrint=false){let x=customerPayments().find(y=>y.id===id);if(!x)return toast('Mandati nuk u gjet');modal('Mandat arkëtimi '+id,receiptHtml(x),`<button class="btn" onclick="closeModal()">Mbyll</button><button class="btn" onclick="printOnly('printReceipt','Mandat arkëtimi ${id}')">Printo / PDF</button>${x.status!=='Anuluar'?`<button class="btn" onclick="receiptActions('${id}')">Veprime</button>`:''}`);if(autoPrint)setTimeout(()=>{if(document.getElementById('printReceipt'))printOnly('printReceipt','Mandat arkëtimi '+id)},300)}
 function receiptActions(id){if(!requireAdmin('ndryshojë ose anulojë mandat-arkëtime'))return;modal('Veprime — '+id,`<div class="actions"><button class="btn" onclick="receiptEditForm('${id}')">Ndrysho</button><button class="btn danger" onclick="cancelReceipt('${id}')">Anulo mandatin</button></div>`,`<button class="btn" onclick="closeModal()">Mbyll</button>`)}
 function receiptEditForm(id){let x=customerPayments().find(y=>y.id===id);modal('Korrigjo mandat arkëtimi',`<div class="form-grid"><div class="field"><label>Data</label><input id="reDate" type="date" value="${x.date}"></div><div class="field"><label>Klienti</label><select id="reCustomer">${opts(state.customers,c=>c.code+' — '+c.name,x.customer)}</select></div><div class="field"><label>Mënyra</label><select id="reMethod"><option ${x.method==='Cash'?'selected':''}>Cash</option><option ${x.method==='Bankë'?'selected':''}>Bankë</option></select></div><div class="field"><label>Shuma</label><input id="reAmount" type="number" value="${x.amount}"></div><div class="field"><label>Monedha</label><select id="reCurrency"><option ${x.currency==='ALL'?'selected':''}>ALL</option><option ${x.currency==='EUR'?'selected':''}>EUR</option><option ${x.currency==='USD'?'selected':''}>USD</option></select></div><div class="field"><label>Kursi</label><input id="reRate" type="number" value="${x.rate||1}"></div><div class="field full"><label>Përshkrimi</label><input id="reDescription" value="${esc(x.description||'')}"></div><div class="field full"><label>Arsyeja e korrigjimit</label><input id="reReason"></div></div>`,`<button class="btn" onclick="closeModal()">Mbyll</button><button class="btn primary" onclick="saveReceiptEdit('${id}')">Ruaj korrigjimin</button>`);setTimeout(()=>globalizeAllSelects(document),30)}
 function saveReceiptEdit(id){try{let x=customerPayments().find(y=>y.id===id),amount=$num('reAmount',0),reason=$val('reReason').trim();if(!reason||amount<=0||!$val('reCustomer'))return toast('Plotësoni klientin, shumën dhe arsyen');let old=JSON.stringify(x);Object.assign(x,{date:$val('reDate'),customer:$val('reCustomer'),method:$val('reMethod'),amount,currency:$val('reCurrency'),rate:$num('reRate',1),description:$val('reDescription')});state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Korrigjim mandat arkëtimi',ref:id,text:`Arsyeja: ${reason}. Versioni para: ${old}`});save();closeModal();render();setTimeout(()=>receiptCard(id),60);toast('Korrigjimi u ruajt')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
@@ -2268,6 +2297,7 @@ function sampleCard(id) {
 
 function openAttachedSampleDoc(id) {
   let x = by('samples', id);
+  if (x && !x.approvalData && (x.attachmentData||x.fileData)) { x.approvalData=x.attachmentData||x.fileData; x.approvalType=x.attachmentType||x.fileType||''; x.approvalName=x.attachment||x.fileName||''; }
   if (!x || !x.approvalData) return toast('Dokumenti nuk ekziston');
   let w = window.open();
   if (!w) return toast('Lejoni dritaret pop-up për të parë dokumentin');
@@ -4364,66 +4394,39 @@ window.openPhotoLightbox = function(data, type, name){
 /* ---------- Fix: mostra & porosia — ruajtja e fotos ---------- */
 function ensureSampleOrderPhotoFields(){
   try{
-    (state.samples||[]).forEach(s=>{ if(!s.attachmentData && s.fileData) { s.attachmentData=s.fileData; s.attachmentType=s.fileType; s.attachment=s.fileName; } });
-    (state.orders||[]).forEach(o=>{ if(!o.attachmentData && o.fileData) { o.attachmentData=o.fileData; o.attachmentType=o.fileType; o.attachment=o.fileName; } });
+    (state.samples||[]).forEach(s=>{ if(!s.attachmentData && s.fileData) { s.attachmentData=s.fileData; s.attachmentType=s.fileType; s.attachment=s.fileName; } if(typeof syncSampleDocFields==='function') syncSampleDocFields(s); });
+    (state.orders||[]).forEach(o=>{ if(!o.attachmentData && o.fileData) { o.attachmentData=o.fileData; o.attachmentType=o.fileType; o.attachment=o.fileName; } if(o.attachmentName && !o.attachment) o.attachment=o.attachmentName; });
   }catch(e){}
 }
 
-// Override sampleForm to use sFile id
-const _origSampleForm = window.sampleForm;
-window.sampleForm = function(){
-  modal('Mostër e re',`<div class="form-grid"><div class="field"><label>Data</label><input id="sDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field"><label>Klienti</label><select id="sCustomer">${opts(state.customers,x=>x.name+' — '+x.country)}</select></div><div class="field"><label>Produkti</label><select id="sProduct">${opts(state.products,x=>x.code+' — '+x.name)}</select></div><div class="field"><label>Loti burimor</label><select id="sLot">${opts(state.lots,x=>x.code)}</select></div><div class="field"><label>Tracking number</label><input id="sTrack"></div><div class="field"><label>Statusi</label><select id="sStatus"><option>E dërguar</option><option>Në analizë</option><option>Në pritje të klientit</option><option>E aprovuar</option><option>E refuzuar</option></select></div><div class="field full"><label>Analiza laboratorike / CoA / Foto (PDF ose Imazh)</label><input id="sFile" type="file" accept="image/*,.pdf"><span class="hint">Foto ose PDF ruhet dhe ndiqet në galeri.</span></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addSample()">Ruaj</button>`);
-};
-
-const _origAddSample = window.addSample;
-window.addSample = function(){
+/* Format e plota të Mostrës (sasia, korrieri, statusi, shënimet, CoA me #sFile) dhe të Porosisë
+   (shumë produkte, mostra e miratuar, dokumenti PO me #oFile) NUK zëvendësohen më nga moduli i fotove —
+   mbishkrimi i mëparshëm i kthente te forma e vjetër me 1 produkt dhe status "E hapur" (i panjohur nga skedat e porosive). */
+function syncSampleDocFields(s){
   try{
-    let file = $file('sFile');
-    let doSave = (data, type, name)=>{
-      let obj = {id:'SM-'+new Date().getFullYear()+'-'+String((state.samples||[]).length+1).padStart(4,'0'),date:$val('sDate',new Date().toISOString().slice(0,10)),customer:$val('sCustomer'),product:$val('sProduct'),lot:$val('sLot'),tracking:$val('sTrack'),status:$val('sStatus','E dërguar'),attachment:name||'',attachmentType:type||'',attachmentData:data||'',fileName:name||'',fileType:type||'',fileData:data||''};
-      state.samples.push(obj);
-      save();closeModal();render();toast('Mostra u regjistrua'+(data?' me foto':'')); 
-    };
-    if(file){
-      readAsData(file, data=> doSave(data, file.type, file.name));
-    } else {
-      doSave('', '', '');
-    }
-  }catch(e){ console.error(e); toast('Gabim gjatë ruajtjes: '+e.message); }
-};
-
-// Override orderForm / addOrder
-const _origOrderForm = window.orderForm;
-window.orderForm = function(){
-  modal('Porosi e re',`<div class="form-grid"><div class="field"><label>Data</label><input id="oDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field"><label>Klienti</label><select id="oCustomer">${opts(state.customers,x=>x.name+' — '+x.country)}</select></div><div class="field"><label>Produkti</label><select id="oProduct">${opts(state.products,x=>x.code+' — '+x.name)}</select></div><div class="field"><label>Sasia e kërkuar kg</label><input id="oQty" type="number"></div><div class="field"><label>Mostra e aprovuar</label><select id="oSample"><option value="">—</option>${opts(state.samples.filter(x=>x.status==='E aprovuar'),x=>x.id)}</select></div><div class="field full"><label>Dokumenti origjinal i klientit (PO) — Foto/PDF</label><input id="oFile" type="file" accept="image/*,.pdf"><span class="hint">Ruhet dhe shfaqet në galerinë e fotos.</span></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addOrder()">Ruaj porosinë</button>`);
-};
-const _origAddOrder = window.addOrder;
-window.addOrder = function(){
-  try{
-    let file = $file('oFile');
-    let doSave = (data,type,name)=>{
-      let obj = {id:'PO-'+new Date().getFullYear()+'-'+String((state.orders||[]).length+71).padStart(4,'0'),date:$val('oDate',new Date().toISOString().slice(0,10)),customer:$val('oCustomer'),sample:$val('oSample'),status:'E hapur',items:[{product:$val('oProduct'),qty:$num('oQty',0),done:0}],attachment:name||'',attachmentType:type||'',attachmentData:data||'',fileName:name||'',fileType:type||'',fileData:data||''};
-      state.orders.push(obj);
-      save();closeModal();render();toast('Porosia u krijua'+(data?' me dokument':'')); 
-    };
-    if(file){ readAsData(file, data=> doSave(data, file.type, file.name)); } else { doSave('', '', ''); }
-  }catch(e){ console.error(e); toast('Gabim gjatë ruajtjes: '+e.message); }
-};
+    if(!s) return;
+    if(s.approvalData && !s.attachmentData){ s.attachmentData=s.approvalData; s.attachmentType=s.approvalType||''; s.attachment=s.approvalName||''; }
+    if(s.attachmentData && !s.approvalData){ s.approvalData=s.attachmentData; s.approvalType=s.attachmentType||s.fileType||''; s.approvalName=s.attachment||s.fileName||''; }
+  }catch(e){}
+}
 
 // Fix sample edit to allow updating photo
 // Enhance sampleCard to show photo
 const _origSampleCard = window.sampleCard;
 window.sampleCard = function(id){
   let x=by('samples',id);
-  if(!x) return _origSampleCard(id);
-  let hasPhoto = !!(x.attachmentData || x.fileData);
-  let data = x.attachmentData || x.fileData || '';
-  let type = x.attachmentType || x.fileType || '';
-  let name = x.attachment || x.fileName || '';
-  let photoHtml = hasPhoto
-    ? (isImageType(type) ? `<img src="${data}" style="width:100%;max-height:220px;object-fit:contain;background:#f3f5f4;border-radius:8px;cursor:pointer" onclick="openPhotoLightbox('${data.replace(/'/g,"\\'")}', '${type}', '${esc(name)}')">` : `<div class="pdf-icon" style="text-align:center;padding:20px">📄 ${esc(name||'PDF')}</div><button class="btn small" onclick="openPhotoLightbox('${data.replace(/'/g,"\\'")}', '${type}', '${esc(name)}')">Hap PDF</button>`)
-    : `<div class="photo-empty">Nuk ka foto / CoA të ngarkuar</div><button class="btn small" style="margin-top:8px" onclick="updateSamplePhoto('${x.id}')">Ngarko foto</button>`;
-  modal(x.id,`<div class="form-grid"><div class="card"><b>Klienti</b><p>${esc(by('customers',x.customer).name)}</p></div><div class="card"><b>Produkti</b><p>${esc(by('products',x.product).name)}</p></div></div><div class="card"><p><b>Tracking:</b> ${esc(x.tracking||'—')}</p><p><b>Status:</b> ${status(x.status)}</p><p><b>Loti burimor:</b> <a class="link" onclick="lotCard('${x.lot}')">${esc(by('lots',x.lot).code||x.lot)}</a></p></div><div class="card"><h3>Foto / Analiza</h3>${photoHtml}<div style="margin-top:10px;display:flex;gap:8px"><button class="btn small" onclick="updateSamplePhoto('${x.id}')">${hasPhoto?'Zëvendëso foto':'Ngarko foto'}</button>${hasPhoto?`<button class="btn small" onclick="openPhotoLightbox('${data.replace(/'/g,"\\'")}', '${type}', '${esc(name)}')">Hap</button>`:''}</div></div><div class="actions"><button class="btn" onclick="lotCard('${x.lot}')">Hap lotin burimor</button></div>`);
+  if(x && x.id) syncSampleDocFields(x);
+  _origSampleCard(id);
+  if(!x || !x.id) return;
+  try{
+    const body=document.getElementById('modalBody'); if(!body) return;
+    let data=x.attachmentData||x.fileData||'', type=x.attachmentType||x.fileType||'', name=x.attachment||x.fileName||'';
+    let hasPhoto=!!data, safe=data.replace(/'/g,"\\'");
+    let preview=hasPhoto
+      ? (isImageType(type) ? `<img src="${data}" style="width:100%;max-height:220px;object-fit:contain;background:#f3f5f4;border-radius:8px;cursor:pointer" onclick="openPhotoLightbox('${safe}', '${type}', '${esc(name)}')">` : `<div class="pdf-icon" style="text-align:center;padding:20px">📄 ${esc(name||'PDF')}</div><button class="btn small" onclick="openPhotoLightbox('${safe}', '${type}', '${esc(name)}')">Hap PDF</button>`)
+      : `<div class="photo-empty">Nuk ka foto / CoA të ngarkuar</div>`;
+    body.insertAdjacentHTML('beforeend', `<div class="card" style="margin-top:10px"><h3>📸 Foto / Analiza (CoA)</h3>${preview}<div style="margin-top:10px;display:flex;gap:8px"><button class="btn small" onclick="updateSamplePhoto('${x.id}')">${hasPhoto?'Zëvendëso foto':'Ngarko foto'}</button></div></div>`);
+  }catch(e){ console.error('sampleCard photos', e); }
 };
 
 window.updateSamplePhoto = function(id){
@@ -4434,7 +4437,7 @@ window.saveSamplePhoto = function(id){
     let x=by('samples',id); if(!x) return;
     let f=$file('upSampleFile'); if(!f) return toast('Zgjidhni skedarin');
     readAsData(f, data=>{
-      Object.assign(x,{attachmentData:data,attachmentType:f.type,attachment:f.name,fileData:data,fileType:f.type,fileName:f.name});
+      Object.assign(x,{attachmentData:data,attachmentType:f.type,attachment:f.name,fileData:data,fileType:f.type,fileName:f.name,approvalData:data,approvalType:f.type,approvalName:f.name});
       save();closeModal();sampleCard(id);toast('Foto u ruajt');
     });
   }catch(e){ toast('Gabim: '+e.message); }
@@ -5380,7 +5383,7 @@ console.log('BioBes Paketim v4 loaded');
 <script id="biobes-gaps-complete">
 /* BioBes ERP — Patch i plotë për spec-in e fotove 1-7 (2026-09-12)
    Mbulon: Rrjedha Peshim->Blerje, Veprime globale, Konfigurime 3 karta,
-   Auto-resolve sync, Faturë blerëje e vetme + Parapagim, Kartela furnitori A4 */
+   Auto-resolve sync, Faturë blerjeje e vetme + Parapagim, Kartela furnitori A4 */
 (function(){
 if(window.__biobesGapsComplete) return;
 window.__biobesGapsComplete = true;
@@ -5963,14 +5966,14 @@ try{
         +'<div class="card" style="padding:0;margin-top:12px"><div class="table-wrap" style="border:0"><table><thead><tr><th>Data</th><th>Veprimi</th><th>Përshkrimi</th><th>Debi</th><th>Kredi</th><th>Status</th></tr></thead><tbody>'+body+'</tbody></table></div></div>'
         +'</div>',
         '<button class="btn" onclick="closeModal()">Mbyll</button>'
-        +'<button class="btn primary" onclick="purchaseInvoiceForm(\''+id+'\')">+ Faturë blerëje</button>'
+        +'<button class="btn primary" onclick="purchaseInvoiceForm(\''+id+'\')">+ Faturë blerjeje</button>'
         +'<button class="btn" onclick="supplierEditForm(\''+id+'\')">✎ Ndrysho</button>'
         +'<button class="btn" onclick="printOnly(\'printSupplierCard\',\'Kartela '+esc(s.code)+'\')">🖨 Printo</button>');
     }catch(e){ console.error(e); try{ prevCard(id); }catch(_){ toast('Gabim: '+(e&&e.message)); } }
   };
 }catch(e){}
 
-// Ensure views.purchases has single + Faturë blerëje
+// Ensure views.purchases has single + Faturë blerjeje
 try{
   const origPurch = views.purchases;
   views.purchases = function(){
@@ -5986,8 +5989,8 @@ try{
           second=h.indexOf('purchaseInvoiceForm()',first+1);
         }
       }
-      if(h.indexOf('+ Faturë blerëje')<0){
-        h=h.replace('<button class="btn" onclick="syncPurchaseDrafts', '<button class="btn primary" onclick="purchaseInvoiceForm()">+ Faturë blerëje</button> <button class="btn" onclick="syncPurchaseDrafts');
+      if(h.indexOf('+ Faturë blerjeje')<0){
+        h=h.replace('<button class="btn" onclick="syncPurchaseDrafts', '<button class="btn primary" onclick="purchaseInvoiceForm()">+ Faturë blerjeje</button> <button class="btn" onclick="syncPurchaseDrafts');
       }
     }catch(e){}
     return h;
@@ -6073,7 +6076,7 @@ console.log('BioBes gaps complete loaded');
       (ose të fshira) fshihen; pastaj save() dhe render().
    2) views.purchases       — faqja "Faturat e Blerjes" me kolonat:
       Fature, Data, Furnitori, Produkt, Peshimi, Neto, Cmimi, Totali, Monedha,
-      Status, Veprime + butonat "↻ Merr peshimet" dhe "+ Fature blerjeje".
+      Status, Veprime + butonat "↻ Merr peshimet" dhe "+ Faturë blerjeje".
    3) views.weighings       — kolona "Veprime" me "Hap" dhe "⋮ Veprime";
       ID-ja e peshimit është buton i klikueshëm (weightCard).
    4) confirmExistingWeight  — hiqet kushti që kërkonte bagRows.
@@ -6203,7 +6206,7 @@ views.purchases=function(){
     ];
   });
   return head('Faturat e Blerjes','Pesha e faturueshme, çmimi dhe detyrimi ndaj furnitorit',
-      '<button class="btn" onclick="returnsCenter(\'supplier\')">↩ Kthim furnitori</button> <button class="btn" onclick="syncPurchaseDrafts();render()">↻ Merr peshimet</button> <button class="btn primary" onclick="purchaseInvoiceForm()">+ Fature blerjeje</button>')
+      '<button class="btn" onclick="returnsCenter(\'supplier\')">↩ Kthim furnitori</button> <button class="btn" onclick="syncPurchaseDrafts();render()">↻ Merr peshimet</button> <button class="btn primary" onclick="purchaseInvoiceForm()">+ Faturë blerjeje</button>')
     +'<div class="stepbar"><span class="step on">Peshim i konfirmuar</span><span class="step">Draft blerjeje</span><span class="step">Çmim &amp; TVSH</span><span class="step">Konfirmuar</span></div>'
     +'<div class="hint" style="margin:-4px 0 10px">Draft: <b>'+count('Draft')+'</b> · Konfirmuar: <b>'+count('Konfirmuar')+'</b> · Anuluar: <b>'+count('Anuluar')+'</b> — draft-et krijohen automatikisht nga peshimet e konfirmuara.</div>'
     +tableCard(['Fature','Data','Furnitori','Produkt','Peshimi','Neto','Cmimi','Totali','Monedha','Status','Veprime'],rows);

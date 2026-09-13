@@ -20,12 +20,12 @@ fs.mkdirSync('.audit',{recursive:true});
  });
 
  await step('Create approved sample through UI',async()=>{
-   await p.evaluate(()=>sampleForm());await choose('sCustomer','C1');await choose('sProduct','P105');await choose('sLot','L1');await choose('sStatus','E aprovuar');await p.locator('#sTrack').fill('UI-TRACK-001');await b('Ruaj').click();await p.waitForTimeout(250);
+   await p.evaluate(()=>sampleForm());await choose('sCustomer','C1');await choose('sProduct','P105');await choose('sLot','L1');await choose('sStatus','E aprovuar');await p.locator('#sTrack').fill('UI-TRACK-001');await b('Ruaj Mostrën').click();await p.waitForTimeout(250);
    sample=await p.evaluate(()=>state.samples.at(-1));assert.equal(sample.product,'P105');assert.equal(sample.customer,'C1');assert.equal(sample.status,'E aprovuar');assert.equal(sample.tracking,'UI-TRACK-001');
  });
  await step('Create order linked to sample and open operational card',async()=>{
-   await p.evaluate(()=>orderForm());await choose('oCustomer','C1');await choose('oProduct','P105');await choose('oSample',sample.id);await p.locator('#oQty').fill('50');await b('Ruaj porosinë').click();await p.waitForTimeout(250);
-   order=await p.evaluate(()=>state.orders.at(-1));assert.equal(order.items[0].product,'P105');assert.equal(+order.items[0].qty,50);await p.evaluate(id=>orderCard(id),order.id);assert.ok((await p.locator('#modalBody').innerText()).includes('50'));
+   await p.evaluate(()=>orderForm());await p.waitForTimeout(150);await choose('oCustomer','C1');await choose('oSample',sample.id);await p.evaluate(()=>{const s=document.querySelector('#newOrderItems .oni-product');s.value='P105';s.dispatchEvent(new Event('change',{bubbles:true}))});await p.locator('#newOrderItems .oni-qty').first().fill('50');await b('Ruaj Porosinë').click();await p.waitForTimeout(250);
+   order=await p.evaluate(()=>state.orders.at(-1));assert.equal(order.items[0].product,'P105');assert.equal(+order.items[0].qty,50);assert.equal(order.sample,sample.id);assert.equal(order.status,'E re');await p.evaluate(id=>orderCard(id),order.id);assert.ok((await p.locator('#modalBody').innerText()).includes('50'));
  });
  await step('Create multi-lot process through UI; raw stock actually decreases',async()=>{
    await p.evaluate(()=>processForm());await choose('prOrder',order.id);await choose('prProduct','P105');await choose('prMachine','M1');await p.locator('#prInput').fill('60');await p.locator('#prOutput').fill('50');await choose('prAddLot','L1');await b('+ Shto lot').click();await b('Fillo procesin').click();await p.waitForTimeout(250);
