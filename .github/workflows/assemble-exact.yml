@@ -1,39 +1,48 @@
-name: Inspect BioBes core packaging
+name: Apply BioBes packaging core override
 on:
   push:
     branches:
       - chatgpt/fix-paketim-kg
     paths:
+      - '.github/patch_packaging_core_override.py'
       - '.github/workflows/assemble-exact.yml'
 permissions:
   contents: write
 jobs:
-  inspect:
+  patch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Extract corePackage source
+      - name: Apply core override patch
         shell: bash
         run: |
           set -euo pipefail
+          python3 .github/patch_packaging_core_override.py
           python3 - <<'PY'
           from pathlib import Path
           s=Path('index.html').read_text(encoding='utf-8')
-          terms=['function corePackage','corePackage =','corePackage(data)','lotUnpacked(lot)']
-          blocks=[]
-          for term in terms:
-              pos=0
-              for _ in range(20):
-                  i=s.find(term,pos)
-                  if i<0: break
-                  blocks.append('### '+term+' @ '+str(i)+'\n'+s[max(0,i-6000):min(len(s),i+16000)])
-                  pos=i+len(term)
-          if not blocks:
-              raise SystemExit('corePackage context not found')
-          Path('COREPACKAGE.txt').write_text('\n\n'.join(blocks),encoding='utf-8')
+          checks={
+            'autofill_remaining':'suggestedQty = rest>0 ? Math.min(freeForQty, rest) : freeForQty',
+            'editable_not_overwritten':"if(inp && !String(inp.value||'').trim())",
+            'server_admin_role':"data.user.role!=='ROLE-ADMIN'",
+            'reason_required':"const reason=box.querySelector('#pkAdminReason').value.trim()",
+            'core_permit':'window.__pkStockOverrideLots',
+            'permit_cleanup':'delete window.__pkStockOverrideLots',
+            'audit':'Tejkalim stoku në paketim. Admin:',
+          }
+          missing=[k for k,v in checks.items() if v not in s]
+          if missing: raise SystemExit('Missing packaging invariants: '+','.join(missing))
+          if 'password:password' in s and 'JSON.stringify({username,password})' not in s:
+              raise SystemExit('Unexpected password persistence marker')
+          print('Packaging invariants PASS:', ', '.join(checks))
           PY
+          git diff --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add COREPACKAGE.txt
-          git commit -m 'chore: inspect core package source' || exit 0
+          git add index.html
+          if git diff --cached --quiet; then
+            echo 'index.html already patched'
+            exit 0
+          fi
+          git commit -m 'fix: allow audited admin packaging stock override'
           git push
