@@ -3863,8 +3863,16 @@ views.settings=function(){
         setSyncStatus('🟡 Duke u lidhur me serverin…'+(i?(' tentativa '+(i+1)+'/'+waits.length):''));
         if(await healthCheck()){
           let r={ok:false,offline:true};
-          try{r=await nativePullState()}catch(e){}
-          if((r&&r.ok)||serverOnline){
+          try{
+            if(syncIsDirty())r=await nativePushState();
+            else r=await nativePullState();
+          }catch(e){}
+          if(r&&r.conflict){
+            serverOnline=true;
+            try{nativeUpdateSyncUI()}catch(e){}
+            return false;
+          }
+          if(r&&r.ok&&!r.offline){
             wakeCooldownUntil=0;
             try{nativeUpdateSyncUI()}catch(e){}
             try{toast('Lidhja me serverin u rikthye')}catch(e){}
