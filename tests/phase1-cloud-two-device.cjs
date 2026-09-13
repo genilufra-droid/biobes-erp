@@ -31,7 +31,21 @@ async function waitHttp(url, timeout=30000){
     const context=await browser.newContext();
     await context.addInitScript(({url})=>localStorage.setItem('biobesBackend',JSON.stringify({url})),{url:WEB});
     const page=await context.newPage();
-    const errors=[]; page.on('pageerror',e=>errors.push(e.message)); page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
+    const errors=[], net=[];
+    page.on('pageerror',e=>errors.push(e.message));
+    page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
+    page.on('request',req=>{
+      if(req.method()==='PUT' && req.url().includes('/api/state')){
+        let body={}; try{body=JSON.parse(req.postData()||'{}')}catch(e){}
+        net.push({kind:'REQ',method:'PUT',baseVersion:body.baseVersion,hasOffA:!!body.state?.customers?.some(x=>x.id==='OFF-A'),customerIds:(body.state?.customers||[]).map(x=>x.id).slice(-12)});
+      }
+    });
+    page.on('response',async res=>{
+      if(res.request().method()==='PUT' && res.url().includes('/api/state')){
+        let data={}; try{data=await res.json()}catch(e){}
+        net.push({kind:'RES',status:res.status(),version:data.version,code:data.code,error:data.error});
+      }
+    });
     await page.goto(WEB+'/index.html');
     await page.waitForSelector('#loginLock',{timeout:15000});
     const before=await page.evaluate(async()=>{let h='';try{h=await fetch(serverBaseUrl()+'/api/health').then(r=>r.status+':'+r.ok)}catch(e){h='ERR:'+e.message}return{base:serverBaseUrl(),cfg:localStorage.getItem('biobesBackend'),health:h,token:!!serverToken}});
@@ -48,11 +62,16 @@ async function waitHttp(url, timeout=30000){
     await page.waitForFunction(()=>!!serverToken,{timeout:5000});
     await page.waitForFunction(()=>serverVersion!==null && serverVersion!==undefined,{timeout:15000});
     console.log('PASS',label,'login cloud v'+await page.evaluate(()=>serverVersion));
-    return {context,page,errors,label};
+    return {context,page,errors,net,label};
   }
   async function serverState(dev){
     const token=await dev.page.evaluate(()=>serverToken);
     const r=await fetch(API+'/api/state',{headers:{Authorization:'Bearer '+token}}); assert.equal(r.status,200); return r.json();
+  }
+  async function diag(dev,name){
+    const d=await dev.page.evaluate(()=>({dirty:syncIsDirty(),serverOnline,serverVersion,syncPushInFlight:typeof syncPushInFlight==='undefined'?null:syncPushInFlight,syncPushQueued:typeof syncPushQueued==='undefined'?null:syncPushQueued,syncChangeSeq:typeof syncChangeSeq==='undefined'?null:syncChangeSeq,hasOffA:!!state.customers?.some(x=>x.id==='OFF-A'),status:document.getElementById('syncStatus')?.textContent||''}));
+    console.log('DIAG',dev.label,name,JSON.stringify(d),'NET',JSON.stringify(dev.net.slice(-12)));
+    return d;
   }
   async function addCustomer(dev,id,name){
     await dev.page.evaluate(({id,name})=>{state.customers=Array.isArray(state.customers)?state.customers:[]; if(!state.customers.some(x=>x.id===id))state.customers.push({id,code:id,name,balance:0}); save();},{id,name});
@@ -68,8 +87,16 @@ async function waitHttp(url, timeout=30000){
   await A.context.setOffline(true); await addCustomer(A,'OFF-A','Offline A');
   await A.page.waitForFunction(()=>syncIsDirty()===true,{timeout:5000}); await sleep(1200);
   assert.ok(await A.page.evaluate(()=>state.customers.some(x=>x.id==='OFF-A'))); console.log('PASS offline local retained');
-  await A.context.setOffline(false); await A.page.evaluate(()=>{window.dispatchEvent(new Event('online')); return pollServerVersion()}); await waitSynced(A);
-  s=await serverState(A); assert.ok(s.state.customers.some(x=>x.id==='OFF-A')); console.log('PASS reconnect uploaded');
+  await diag(A,'before-reconnect');
+  A.net.length=0;
+  await A.context.setOffline(false);
+  await A.page.evaluate(()=>{window.dispatchEvent(new Event('online')); return pollServerVersion()});
+  await waitSynced(A);
+  await sleep(500);
+  await diag(A,'after-reconnect');
+  s=await serverState(A);
+  console.log('DIAG server-after-reconnect',JSON.stringify({version:s.version,hasOffA:!!s.state?.customers?.some(x=>x.id==='OFF-A'),ids:(s.state?.customers||[]).map(x=>x.id).slice(-12)}));
+  assert.ok(s.state.customers.some(x=>x.id==='OFF-A')); console.log('PASS reconnect uploaded');
   await A.page.evaluate(()=>pullState()); await B.page.evaluate(()=>pullState());
   const va=await A.page.evaluate(()=>serverVersion), vb=await B.page.evaluate(()=>serverVersion); assert.equal(va,vb); console.log('PASS same base version',va);
   await addCustomer(A,'CAS-A','CAS winner A'); await waitSynced(A);
