@@ -34,9 +34,18 @@ async function waitHttp(url, timeout=30000){
     const errors=[]; page.on('pageerror',e=>errors.push(e.message)); page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
     await page.goto(WEB+'/index.html');
     await page.waitForSelector('#loginLock',{timeout:15000});
+    const before=await page.evaluate(async()=>{let h='';try{h=await fetch(serverBaseUrl()+'/api/health').then(r=>r.status+':'+r.ok)}catch(e){h='ERR:'+e.message}return{base:serverBaseUrl(),cfg:localStorage.getItem('biobesBackend'),health:h,token:!!serverToken}});
+    console.log('DIAG',label,'before-login',JSON.stringify(before));
     await page.locator('#loginName').fill(ADMIN); await page.locator('#loginPass').fill(PASS);
     await page.locator('#loginLock button').filter({hasText:'Hyr'}).click();
-    await page.waitForFunction(()=>!document.getElementById('loginLock') && !!serverToken,{timeout:20000});
+    await page.waitForTimeout(5000);
+    if(await page.locator('#loginLock').count()){
+      const after=await page.evaluate(()=>({base:serverBaseUrl(),err:document.getElementById('loginError')?.innerText||'',token:!!serverToken,user:serverUser||null}));
+      console.log('DIAG',label,'login-failed',JSON.stringify(after));
+      console.log('API_LOG_TAIL',apiLog.split('\n').slice(-25).join('\n'));
+      throw new Error('Cloud login failed for '+label+': '+JSON.stringify(after));
+    }
+    await page.waitForFunction(()=>!!serverToken,{timeout:5000});
     await page.waitForFunction(()=>serverVersion!==null && serverVersion!==undefined,{timeout:15000});
     console.log('PASS',label,'login cloud v'+await page.evaluate(()=>serverVersion));
     return {context,page,errors,label};
@@ -52,21 +61,17 @@ async function waitHttp(url, timeout=30000){
     await dev.page.waitForFunction(()=>typeof syncIsDirty==='function' && !syncIsDirty() && serverOnline===true,{timeout:20000});
   }
   const A=await device('A'), B=await device('B');
-
   await addCustomer(A,'TWO-A','Nga pajisja A'); await waitSynced(A);
   let s=await serverState(A); assert.ok(s.state.customers.some(x=>x.id==='TWO-A')); console.log('PASS A -> server');
   await B.page.evaluate(()=>pollServerVersion());
   await B.page.waitForFunction(()=>state.customers?.some(x=>x.id==='TWO-A'),{timeout:15000}); console.log('PASS server -> B');
-
   await A.context.setOffline(true); await addCustomer(A,'OFF-A','Offline A');
   await A.page.waitForFunction(()=>syncIsDirty()===true,{timeout:5000}); await sleep(1200);
   assert.ok(await A.page.evaluate(()=>state.customers.some(x=>x.id==='OFF-A'))); console.log('PASS offline local retained');
   await A.context.setOffline(false); await A.page.evaluate(()=>{window.dispatchEvent(new Event('online')); return pollServerVersion()}); await waitSynced(A);
   s=await serverState(A); assert.ok(s.state.customers.some(x=>x.id==='OFF-A')); console.log('PASS reconnect uploaded');
-
   await A.page.evaluate(()=>pullState()); await B.page.evaluate(()=>pullState());
   const va=await A.page.evaluate(()=>serverVersion), vb=await B.page.evaluate(()=>serverVersion); assert.equal(va,vb); console.log('PASS same base version',va);
-
   await addCustomer(A,'CAS-A','CAS winner A'); await waitSynced(A);
   await addCustomer(B,'CAS-B','CAS stale B');
   await B.page.waitForFunction(()=>document.getElementById('modal') && /konflikt/i.test(document.getElementById('modal').innerText),{timeout:20000});
@@ -77,15 +82,11 @@ async function waitHttp(url, timeout=30000){
   const conflictUI=await B.page.locator('#modal').innerText();
   console.log('PASS 409 blocks stale overwrite');
   console.log('CONFLICT_UI_BEGIN\n'+conflictUI.slice(0,1800)+'\nCONFLICT_UI_END');
-
   const retry=await B.page.evaluate(()=>pushState(true));
   await sleep(800);
   const after=(await serverState(A)).state;
-  if(after.customers?.some(x=>x.id==='CAS-B') && !after.customers?.some(x=>x.id==='CAS-A')){
-    throw new Error('DATA LOSS: conflict recovery uploaded stale local snapshot and erased CAS-A');
-  }
+  if(after.customers?.some(x=>x.id==='CAS-B') && !after.customers?.some(x=>x.id==='CAS-A'))throw new Error('DATA LOSS: conflict recovery uploaded stale local snapshot and erased CAS-A');
   console.log('PASS recovery did not erase accepted remote mutation',JSON.stringify(retry));
-
   assert.deepEqual(A.errors,[]); assert.deepEqual(B.errors,[]);
   console.log('ALL PHASE1 CLOUD TESTS PASS');
   await A.context.close(); await B.context.close(); await browser.close(); api.kill('SIGTERM'); web.kill('SIGTERM'); await dbSrv.stop();
