@@ -1,0 +1,179 @@
+===== addEventListener('online' @ 1776418 =====
+){}
+      return false;
+    }finally{
+      wakeBusy=false;
+    }
+  }
+
+  updateSyncUI=function(){
+    try{
+      if(canWake()&&Date.now()>=wakeCooldownUntil){
+        setSyncStatus('🟡 Duke u lidhur me serverin…');
+        if(!wakeBusy)setTimeout(()=>wakeServerAndSync(),0);
+        return;
+      }
+    }catch(e){}
+    return nativeUpdateSyncUI();
+  };
+
+  pullState=async function(){
+    if(canWake())setSyncStatus('🟡 Duke u lidhur me serverin…');
+    const r=await nativePullState();
+    if(r&&r.offline&&canWake()&&!wakeBusy)setTimeout(()=>wakeServerAndSync(),0);
+    return r;
+  };
+
+  pushState=async function(force){
+    const r=await nativePushState(force);
+    if(canWake()&&!wakeBusy)setTimeout(()=>wakeServerAndSync(),0);
+    return r;
+  };
+
+  afterLocalLogin=function(){
+    try{normalizeState()}catch(e){}
+    serverOnline=false;
+    if(serverBaseUrl()){
+      syncSetDirty(true);
+      setSyncStatus('🟡 Serveri po zgjohet — puna po ruhet lokalisht');
+      try{toast('Serveri po zgjohet — ndryshimet ruhen lokalisht derisa të rilidhet')}catch(e){}
+      if(serverToken&&!wakeBusy)setTimeout(()=>wakeServerAndSync(),0);
+      return;
+    }
+    return nativeAfterLocalLogin();
+  };
+
+  window.addEventListener('online',()=>{
+    wakeCooldownUntil=0;
+    if(canWake()&&!wakeBusy)wakeServerAndSync();
+  });
+
+  setInterval(()=>{
+    if(canWake()&&!wakeBusy&&Date.now()>=wakeCooldownUntil)wakeServerAndSync();
+  },30000);
+})();
+</script>
+<script id="biobes-prepay-v1">
+/* ============================================================================
+   RREGULLIME URGJENTE + PARAPAGIME (2026-09-12)
+   ----------------------------------------------------------------------------
+   1) Faturë blerjeje PA PESHIM + PARAPAGIME (FB):
+      • butoni i vetëm "+ Faturë blerjeje" në Blerje dhe në kartelën e furnitorit
+      • purchaseInvoiceForm(): Data, Furnitori, (Produkt), Numër faturë,
+        (Sasi, Çmim/njësi) ose Shuma e parapagimit, Monedha, Kurs, TVSH, Përshkrim
+      • checkbox "Parapagim (pa artikuj)" — fshin Produkti/Sasia/Çmimi
+      • createPurchaseInvoiceFromForm(): prepay → isPrepayment:true, sasi=0,
+        çmim=0, total=amt, status:Draft; jo prepay → faturë pa peshim
+      • supplierBalance: debit = FB të konfirmuar jo-parapagime;
+        credit = pagesat + parapagimet
+      • allocatePrepaymentsAgainstInvoice(): kur konfirmohet FB e rregullt,
+        ulet automatikisht nga parapagimet e konfirmuara (FIFO)
+      • nextPurchaseId(): maksimumi ekzistues FB-YYYY-NNNN për vitin aktual
+   2) Kartela e furnitorit e ridizajnuar: kreu kod-emer-qytet-shtet-website,
+      4 KPI, histori Data/Veprimi/Përshkrimi/Debi/Kredi/Status, Printo A4
+   3) Veprime globale: saleActions / quickConfirmPurchase / quickConfirmSale
+      / editWeightById / kolona Veprime në Blerje dhe Shitje
+   4) quickResetAdminPassword (alias → resetAdminPasswordForm)
+   ========================================================================== */
+
+/* ---------------- 1a) ID e rradhës FB (maksimumi ekzistues për vitin) ------------ */
+function nextPurchaseId(){
+  try{
+    let y=new Date().getFullYear(),re=new RegExp('^FB-'+y+'-(\\d+)$'),max=0;
+    (purchaseInvoices()||[]).forEach(f=>{let m=String(f.id||'').match(re);if(m)max=Math.max(max,+m[1])});
+    return 'FB-'+y+'-'+String(max+1).padStart(4,'0');
+  }catch(e){return 'FB-'+Date.now()}
+}
+
+/* ---------------- 1b) Parapagimet: alokimet dhe mbetja e përdorur --------------- */
+function prepayAllocations(prepayId){
+  try{let p=purchaseInvoices().find(f=>f.id===prepayId);return (p&&p.prepayAllocations)||[]}catch(e){return[]}
+}
+function prepayUnused
+
+===== pullState() @ 1688027 =====
+:false,offline:true}}}
+async function serverLoginRetry(name,pass,onAttempt){let delays=[0,3000,8000];try{if(window.__loginRetryDelays)delays=window.__loginRetryDelays}catch(e){}let timeoutMs=12000;try{if(window.__loginRetryTimeout)timeoutMs=window.__loginRetryTimeout}catch(e){}let last={ok:false,offline:true};for(let a=0;a<delays.length;a++){if(a>0)await new Promise(r=>setTimeout(r,delays[a]));try{if(onAttempt)onAttempt(a+1,delays.length)}catch(e){}let s=null;try{s=await Promise.race([serverLogin(name,pass),new Promise(res=>setTimeout(()=>res({ok:false,offline:true,timeout:true}),timeoutMs))])}catch(e){s={ok:false,offline:true}}if(!s)s={ok:false,offline:true};last=s;if(s.ok||!s.offline)return s}return last}
+async function afterServerLogin(){try{normalizeState()}catch(e){}try{document.getElementById('loginLock')?.remove()}catch(e){}if(syncIsDirty()){let g=null;try{g=await apiCall('/api/state')}catch(e){}if(g&&g.ok){serverVersion=g.data.version;if(g.data.wipedAt){await honorServerWipe(g.data.wipedAt);return}if(g.data.state){render();try{applyRoleSecurity()}catch(e){}updateSyncUI();showSyncConflict(g.data);return}}render();try{applyRoleSecurity()}catch(e){}updateSyncUI();return}await pullState();render();try{applyRoleSecurity()}catch(e){}}
+function afterLocalLogin(){try{normalizeState()}catch(e){}serverOnline=false;if(serverBaseUrl()){syncSetDirty(true)}updateSyncUI()}
+function wipeAckGet(){try{return localStorage.getItem('biobesWipeAck')||null}catch(e){return null}}
+function wipeAckSet(v){try{if(v)localStorage.setItem('biobesWipeAck',v);else localStorage.removeItem('biobesWipeAck')}catch(e){}}
+function localHasBusinessData(){try{let keys=['weighings','lots','payments','customerPayments','samples','orders','processes','shipments','documents','documentSets','exportDossiers','events','packagings','purchaseInvoices','salesInvoices','bankTransactions','inventories','inventoryTransfers','stockMovements','customerReturns','supplierReturns','deletedExportIds','deletedExportRecords','deletedSalesRows','products','suppliers','customers','warehouses','racks','machines','bankAccounts','alphaMasters'];if(keys.some(k=>(state[k]||[]).length))return true;if(state.cashRegisters)return true;if(((state.accounting||{}).entries||[]).length)return true;return false}catch(e){return true}}
+function wipeBusinessArrays(reason){['weighings','lots','payments','customerPayments','samples','orders','processes','shipments','documents','documentSets','exportDossiers','events','packagings','purchaseInvoices','salesInvoices','bankTransactions','inventories','inventoryTransfers','stockMovements','customerReturns','supplierReturns','deletedExportIds','deletedExportRecords','deletedSalesRows','products','suppliers','customers','warehouses','racks','machines','bankAccounts','alphaMasters'].forEach(k=>{state[k]=[]});delete state.cashRegisters;if(state.accounting)state.accounting.entries=[];state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Pastrim total',ref:'—',text:reason||'U fshi gjithçka'});try{securityAudit('RESET_OK',reason||'Pastrim')}catch(e){}}
+async function honorServerWipe(wipedAt){if(!wipedAt)return false;if(!localHasBusinessData()){wipeAckSet(wipedAt);serverOnline=true;updateSyncUI();return true}if(!syncIsDirty()){wipeBusinessArrays('Pastrim i përhapur — u fshi gjithçka');wipeAckSet(wipedAt);syncSetDirty(false);save();serverOnline=true;render();updateSyncUI();toast('U krye pastrim i plotë');return true}serverOnline=true;updateSyncUI();showWipeConflict(wipedAt);return true}
+function showWipeConflict(wipedAt){window._pendingWipe=wipedAt;modal('U kërk
+
+===== pullState() @ 1691192 =====
+essData()){wipeAckSet(wipedAt);serverOnline=true;updateSyncUI();return true}if(!syncIsDirty()){wipeBusinessArrays('Pastrim i përhapur — u fshi gjithçka');wipeAckSet(wipedAt);syncSetDirty(false);save();serverOnline=true;render();updateSyncUI();toast('U krye pastrim i plotë');return true}serverOnline=true;updateSyncUI();showWipeConflict(wipedAt);return true}
+function showWipeConflict(wipedAt){window._pendingWipe=wipedAt;modal('U kërkua pastrim i plotë','<p><b>Një administrator bëri Reset të plotë.</b></p><p>Kjo pajisje ka ndryshime të paruajtura. Zgjidh:</p>','<button class="btn danger" onclick="wipeConflictWipe()">Fshi edhe këtë pajisje</button> <button class="btn primary" onclick="wipeConflictKeep()">Mbaj të miat — rifillo epokën</button>')}
+function wipeConflictWipe(){let w=null;try{w=window._pendingWipe}catch(e){}wipeBusinessArrays('Pastrim i përhapur — u fshi gjithçka');if(w)wipeAckSet(w);syncSetDirty(false);save();closeModal();render();updateSyncUI();toast('Pajisja u pastrua')}
+async function wipeConflictKeep(){let w=null;try{w=window._pendingWipe}catch(e){}if(w)wipeAckSet(w);closeModal();toast('Po rifillon epoka…');await pushState(true);render();updateSyncUI()}
+async function pullState(){if(!serverBaseUrl()||!serverToken)return{ok:false};try{let r=await apiCall('/api/state');if(r.status===401){serverToken=null;serverUser=null;try{sessionStorage.removeItem('biobesServerToken');sessionStorage.removeItem('biobesServerUser')}catch(e){}serverOnline=false;updateSyncUI();serverRelogin();return{ok:false}}if(!r.ok)throw new Error('net');if(r.data.wipedAt&&await honorServerWipe(r.data.wipedAt)){serverVersion=r.data.version;if(!r.data.state&&!localHasBusinessData()){try{await pushState(true)}catch(e){}}return{ok:true}}serverVersion=r.data.version;if(!r.data.state){serverOnline=true;updateSyncUI();await pushState(true);return{ok:true}}if(syncIsDirty()){serverOnline=true;updateSyncUI();showSyncConflict(r.data);return{ok:true,conflict:true}}skipPush=true;try{state=r.data.state;normalizeState();save()}finally{skipPush=false}syncSetDirty(false);serverOnline=true;updateSyncUI();return{ok:true}}catch(e){serverOnline=false;updateSyncUI();return{ok:false,offline:true}}}
+let syncPushInFlight=false,syncPushQueued=false,syncChangeSeq=0;
+async function syncFetchServerVersion(){let r=await apiCall('/api/state/version');if(!r||!r.ok||r.data.version==null)throw new Error('version');serverVersion=+r.data.version;return serverVersion}
+async function pushState(force){if(!serverBaseUrl()||!serverToken)return{ok:false};if(syncPushInFlight){syncPushQueued=true;syncSetDirty(true);updateSyncUI();return{ok:false,queued:true}}syncPushInFlight=true;let sentSeq=syncChangeSeq;try{let base=serverVersion;if(force||base===null||base===undefined||!Number.isFinite(+base))base=await syncFetchServerVersion();base=+base;let r=await apiCall('/api/state',{method:'PUT',body:JSON.stringify({state:state,baseVersion:base,wipeAck:wipeAckGet()})});if(r.status===401){serverToken=null;serverUser=null;try{sessionStorage.removeItem('biobesServerToken');sessionStorage.removeItem('biobesServerUser')}catch(e){}serverOnline=false;syncSetDirty(true);updateSyncUI();serverRelogin();return{ok:false,auth:true}}if(r.status===409){if(r.data&&r.data.wiped){await honorServerWipe(r.data.wipedAt);return{ok:false,wiped:true}}let g=null;try{g=await apiCall('/api/state')}catch(e){}if(g&&g.ok)serverVersion=+g.data.version;syncSetDirty(true);serverOnline=true;updateSyncUI();showSyncConflict(g&&g.ok?g.data:null);return{ok:false,conflict:true}}if(r.status===400||r.status===428){syncSetDirty(true);serverOnline=
+
+===== pullState() @ 1694890 =====
+);return{ok:false,rejected:true}}if(!r.ok)throw new Error('net');serverVersion=+r.data.version;wipeAckSet(null);serverOnline=true;if(syncChangeSeq===sentSeq)syncSetDirty(false);else{syncSetDirty(true);syncPushQueued=true}updateSyncUI();return{ok:true,version:serverVersion}}catch(e){serverOnline=false;syncSetDirty(true);updateSyncUI();return{ok:false,offline:true}}finally{syncPushInFlight=false;if(syncPushQueued&&serverBaseUrl()&&serverToken){syncPushQueued=false;if(syncTimer)clearTimeout(syncTimer);syncTimer=setTimeout(()=>{pushState()},250)}}}
+function queuePush(){if(skipPush)return;syncChangeSeq++;syncSetDirty(true);updateSyncUI();if(serverBaseUrl()&&!serverToken)return;if(!serverBaseUrl()||!serverToken)return;if(syncPushInFlight){syncPushQueued=true;return}if(syncTimer)clearTimeout(syncTimer);syncTimer=setTimeout(()=>{pushState()},800)}
+let syncPollTimer=null,syncPolling=false;
+async function pollServerVersion(){if(syncPolling||!serverBaseUrl()||!serverToken)return;syncPolling=true;try{if(syncIsDirty()){await pushState();return}let r=await apiCall('/api/state/version');if(!r||!r.ok||r.data.version==null)return;let v=+r.data.version;if(serverVersion==null||v>+serverVersion)await pullState()}catch(e){}finally{syncPolling=false}}
+
+function startSyncPoll(){try{if(syncPollTimer)clearInterval(syncPollTimer)}catch(e){}try{syncPollTimer=setInterval(()=>{pollServerVersion()},5000);if(syncPollTimer&&syncPollTimer.unref)syncPollTimer.unref()}catch(e){}}
+function showSyncConflict(sd){serverOnline=true;updateSyncUI();window._pendingServer=sd||null;modal('Ndryshime më të reja','<p><b>U gjetën ndryshime më të reja.</b></p><p>Zgjidhni cila kopje të fitojë. Rekomandohet të shkarkoni kopjen tuaj si backup përpara se të merrni kopjen tjetër.</p>','<button class="btn" onclick="closeModal()">Vendos më vonë</button> <button class="btn" onclick="syncTakeServer()">Merr kopjen tjetër</button> <button class="btn" onclick="backup();syncTakeServer()">Shkarko kopjen + Merr tjetrën</button> <button class="btn primary" onclick="syncKeepMine()">Mbaj të miat</button>')}
+async function syncTakeServer(){let sd=window._pendingServer;if(!sd||!sd.state){try{let g=await apiCall('/api/state');if(!g.ok||!g.data.state){toast('Nuk u arritën të dhënat');return}sd=g.data}catch(e){toast('Nuk u arritën të dhënat');return}}skipPush=true;try{state=sd.state;normalizeState();save()}finally{skipPush=false}serverVersion=sd.version;syncSetDirty(false);serverOnline=true;window._pendingServer=null;try{closeModal()}catch(e){}render();try{applyRoleSecurity()}catch(e){}updateSyncUI();toast('Kopja tjetër u mor')}
+async function syncKeepMine(){window._pendingServer=null;try{closeModal()}catch(e){}await pushState(true);render();if(!syncIsDirty())toast('Kopja juaj u ruajt')}
+function serverRelogin(){modal('Sesioni skadoi','<p>Sesioni ka skaduar. Hyni përsëri për të vazhduar.</p><div class="field"><label>Përdoruesi</label><input id="rsUser"></div><div class="field"><label>Fjalëkalimi</label><input id="rsPass" type="password"></div><p id="rsErr" class="doc-missing"></p>','<button class="btn" onclick="closeModal()">Mbyll</button> <button class="btn primary" onclick="serverReloginGo()">Hyr</button>')}
+async function serverReloginGo(){let u=$val('rsUser').trim(),p=$val('rsPass');let s=null;try{s=await serverLogin(u,p)}catch(e){s={ok:false,offline:true}}if(s.ok){try{closeModal()}catch(e){}toast('Sesioni u ripërtëri');await afterServerLogin()}else{$text('rsErr',s.offline?'Nuk u arrit — kontrollo lidhjen':(s.error||'Gabim'))}}
+async function manualSync(){if(!serverBaseUrl()||!serverToken)return;if(syn
+
+===== pullState() @ 1697330 =====
+lse);serverOnline=true;window._pendingServer=null;try{closeModal()}catch(e){}render();try{applyRoleSecurity()}catch(e){}updateSyncUI();toast('Kopja tjetër u mor')}
+async function syncKeepMine(){window._pendingServer=null;try{closeModal()}catch(e){}await pushState(true);render();if(!syncIsDirty())toast('Kopja juaj u ruajt')}
+function serverRelogin(){modal('Sesioni skadoi','<p>Sesioni ka skaduar. Hyni përsëri për të vazhduar.</p><div class="field"><label>Përdoruesi</label><input id="rsUser"></div><div class="field"><label>Fjalëkalimi</label><input id="rsPass" type="password"></div><p id="rsErr" class="doc-missing"></p>','<button class="btn" onclick="closeModal()">Mbyll</button> <button class="btn primary" onclick="serverReloginGo()">Hyr</button>')}
+async function serverReloginGo(){let u=$val('rsUser').trim(),p=$val('rsPass');let s=null;try{s=await serverLogin(u,p)}catch(e){s={ok:false,offline:true}}if(s.ok){try{closeModal()}catch(e){}toast('Sesioni u ripërtëri');await afterServerLogin()}else{$text('rsErr',s.offline?'Nuk u arrit — kontrollo lidhjen':(s.error||'Gabim'))}}
+async function manualSync(){if(!serverBaseUrl()||!serverToken)return;if(syncIsDirty())await pushState();else await pullState();render();try{applyRoleSecurity()}catch(e){}}
+function onBackendUrlChanged(v){serverToken=null;serverUser=null;serverVersion=null;serverOnline=false;syncSetDirty(false);try{sessionStorage.removeItem('biobesServerToken');sessionStorage.removeItem('biobesServerUser')}catch(e){}updateSyncUI()}
+function updateSyncUI(){try{let el=document.getElementById('syncStatus');if(!el)return;let t='';if(!serverBaseUrl())t='Lokal';else if(!serverToken)t='Pa sesion cloud';else if(syncPushInFlight)t='Po sinkronizohet…';else if(!serverOnline&&syncIsDirty())t='Offline • ndryshime në pritje';else if(!serverOnline)t='Offline';else if(syncIsDirty())t='Në pritje për sinkronizim';else t='Sinkronizuar';el.textContent=t;if(serverVersion!=null)el.title='Version serveri: '+serverVersion}catch(e){}}
+const sessionUserBase=sessionUser;sessionUser=function(){try{let s=sessionUserBase();if(s)return s}catch(e){}return(serverToken&&serverUser)?{token:'server',user:serverUser.id,server:true,expiresAt:'2099-01-01T00:00:00'}:undefined};
+const logoutUserBase=logoutUser;logoutUser=function(){let t=serverToken,u=serverBaseUrl();serverToken=null;serverUser=null;serverVersion=null;serverOnline=false;try{sessionStorage.removeItem('biobesServerToken');sessionStorage.removeItem('biobesServerUser')}catch(e){}if(t&&u){try{fetch(u+'/api/auth/logout',{method:'POST',headers:{'Authorization':'Bearer '+t}}).catch(()=>{})}catch(e){}}updateSyncUI();logoutUserBase()};
+function normalizeState(t){try{t=(t===undefined)?state:t;if(!t||typeof t!=='object'||Array.isArray(t))return t;['products','suppliers','customers','warehouses','racks','machines','weighings','lots','payments','customerPayments','samples','orders','processes','shipments','documents','documentSets','exportDossiers','events','packagings','purchaseInvoices','salesInvoices','bankTransactions','inventories','inventoryTransfers','stockMovements','customerReturns','supplierReturns','deletedExportIds','deletedExportRecords','deletedSalesRows','bankAccounts','alphaMasters','users'].forEach(k=>{if(!Array.isArray(t[k]))t[k]=[]});return t}catch(e){return t}}
+function syncBoot(){if(typeof state==='undefined'||!state)return setTimeout(syncBoot,300);try{normalizeState()}catch(e){}updateSyncUI();try{if(window.__biobesBootOk)window.__biobesBootOk()}catch(e){}if(serverBaseUrl()&&serverToken){pullState().then(()=>{try{render()}catch(e){}}).catch(()=>{})}}
+setT
+
+===== pullState() @ 1699662 =====
+erverUser=null;serverVersion=null;serverOnline=false;try{sessionStorage.removeItem('biobesServerToken');sessionStorage.removeItem('biobesServerUser')}catch(e){}if(t&&u){try{fetch(u+'/api/auth/logout',{method:'POST',headers:{'Authorization':'Bearer '+t}}).catch(()=>{})}catch(e){}}updateSyncUI();logoutUserBase()};
+function normalizeState(t){try{t=(t===undefined)?state:t;if(!t||typeof t!=='object'||Array.isArray(t))return t;['products','suppliers','customers','warehouses','racks','machines','weighings','lots','payments','customerPayments','samples','orders','processes','shipments','documents','documentSets','exportDossiers','events','packagings','purchaseInvoices','salesInvoices','bankTransactions','inventories','inventoryTransfers','stockMovements','customerReturns','supplierReturns','deletedExportIds','deletedExportRecords','deletedSalesRows','bankAccounts','alphaMasters','users'].forEach(k=>{if(!Array.isArray(t[k]))t[k]=[]});return t}catch(e){return t}}
+function syncBoot(){if(typeof state==='undefined'||!state)return setTimeout(syncBoot,300);try{normalizeState()}catch(e){}updateSyncUI();try{if(window.__biobesBootOk)window.__biobesBootOk()}catch(e){}if(serverBaseUrl()&&serverToken){pullState().then(()=>{try{render()}catch(e){}}).catch(()=>{})}}
+setTimeout(syncBoot,600);
+setTimeout(function(){try{if(typeof state!=='undefined'&&state&&window.__biobesBootOk)window.__biobesBootOk();}catch(e){}},1500);
+</script>
+
+
+<style>
+/* Odoo 19 Reports - Enhanced UI */
+.reports-mode-tabs{display:flex;gap:0;background:#fff;border:1px solid var(--line);border-radius:8px;padding:4px;margin-bottom:16px;width:fit-content}
+.reports-mode-tabs .btn{border:0;background:transparent;padding:8px 18px;border-radius:6px;font-weight:600;transition:.15s}
+.reports-mode-tabs .btn.active{background:var(--brand);color:#fff;box-shadow:0 2px 8px #176b4930}
+.odoo-report-modules{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.odoo-report-module{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 18px;text-align:left;cursor:pointer;transition:.18s;position:relative;overflow:hidden}
+.odoo-report-module:hover{border-color:#176b49;transform:translateY(-3px);box-shadow:0 8px 24px #173b2b18}
+.odoo-report-module i{font-style:normal;font-size:32px;display:block;margin-bottom:10px;background:#e8f4ed;width:56px;height:56px;display:grid;place-items:center;border-radius:12px}
+.odoo-report-module b{display:block;font-size:15px;margin-bottom:4px}
+.odoo-report-module small{color:var(--muted);font-size:12px;line-height:1.35;display:block}
+.odoo-report-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.odoo-report-head h2{margin:0;font-size:18px}
+.odoo-kpi-highlight{border-left:4px solid var(--brand)}
+.report-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px}
+.report-kpi{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;transition:.15s}
+.report-kpi:hover{border-color:#b8d5c6}
+.report-kpi small{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.3px}
+.report-kpi strong{display:block;font-size:22px;margin-top:4px;color:#163d2c}
+</style>
+<script>
+/* ============================================================
+   ROUTER FINAL I RAPORTEVE - v2 Enhanced Odoo 19
+   - Odoo 19 si default, me 8 module të stilizuara
+   - Alpha ruhet 100% siç ishte
+   - Tabs me persistencë + search
+   ====================================
