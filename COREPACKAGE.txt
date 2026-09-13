@@ -1,7 +1,5 @@
 ### function corePackage @ 1523201
-+1).padStart(6,'0')+'-'+String(x.key).replace(/[^A-Z0-9]+/gi,'-'),date:x.date||new Date().toISOString().slice(0,10),createdAt:new Date().toISOString(),...x};stockMoves().push(m);return coreResult(true,'',m)}
-function coreCreateMaster(type,data){let map={supplier:'suppliers',customer:'customers',product:'products',warehouse:'warehouses',rack:'racks',machine:'machines',bankAccount:'bankAccounts'},k=map[type],a=state[k]||(state[k]=[]);if(!data.id||!data.code||!data.name&&type!=='bankAccount')return coreResult(false,'Kodi dhe emri janë të detyrueshëm');if(!coreUnique(a,'code',data.code))return coreResult(false,'Kodi ekziston');a.push({...data});return coreResult(true,'',data)}
-function coreCreateWeighing(data){if(!data.id||!data.supplier||!data.product||!data.weighingWarehouse)return coreResult(false,'Peshimi kërkon furnitor, produkt dhe magazinë');if(state.weighings.some(x=>x.id===data.id))return coreResult(false,'Peshimi ekziston');let rows=data.bagRows||[];if(!rows.length||rows.some(r=>!(+r.gross>0)||+r.tare<0||+r.gross<+r.tare))return coreResult(false,'Rresht peshimi i pavlefshëm');let gross=rows.reduce((a,r)=>a+(+r.gross||0),0),tare=rows.reduce((a,r)=>a+(+r.tare||0),0),net=gross-tare,discount=+data.discount||0,x={...data,gross,tare,net,physical:net,billable:net*(1-discount/100),bags:rows.reduce((a,r)=>a+(+r.bags||0),0),status:data.status||'Draft'};state.weighings.push(x);return coreResult(true,'',x)}
+!(+r.gross>0)||+r.tare<0||+r.gross<+r.tare))return coreResult(false,'Rresht peshimi i pavlefshëm');let gross=rows.reduce((a,r)=>a+(+r.gross||0),0),tare=rows.reduce((a,r)=>a+(+r.tare||0),0),net=gross-tare,discount=+data.discount||0,x={...data,gross,tare,net,physical:net,billable:net*(1-discount/100),bags:rows.reduce((a,r)=>a+(+r.bags||0),0),status:data.status||'Draft'};state.weighings.push(x);return coreResult(true,'',x)}
 function coreConfirmWeighing(id,lotData){let w=by('weighings',id);if(!w?.id)return coreResult(false,'Peshimi nuk u gjet');if(!(w.gross>0)||!((+w.net||0)>0))return coreResult(false,'Peshimi ka peshë të pavlefshme (bruto/tara) dhe nuk konfirmohet');if(w.status==='Anuluar')return coreResult(false,'Peshimi i anuluar nuk mund të konfirmohet');let existing=state.lots.find(l=>l.weighing===id);if(existing){w.status='Konfirmuar';return coreResult(true,'',existing)};let lot={...lotData,weighing:id,gross:w.gross,tare:w.tare,net:w.net,originalNet:w.net,availableNet:w.net,bags:w.bags,date:w.date,status:'Në magazinim'};state.lots.push(lot);w.status='Konfirmuar';coreMove({key:'WEIGH:'+id,type:'IN',source:'weighing',sourceId:id,lot:lot.id,product:lot.product,warehouse:lot.warehouse,qty:w.net,unitCost:+lot.unitCost||0,date:w.date,testRunId:w.testRunId});return coreResult(true,'',lot)}
 function coreCreatePurchase(data,confirm=false){
   if(!data.id||!data.supplier||!by('suppliers',data.supplier).id)return coreResult(false,'Fatura kërkon furnitor të vlefshëm');
@@ -37,20 +35,10 @@ let w=call('coreCreateWeighing Draft',()=>coreCreateWeighing(tag({id:'WG-TEST-00
 let purchaseData=tag({id:'FB-TEST-001',supplierInvoiceNo:'FB-TEST-001',invoiceDate:'2026-09-01',date:'2026-09-01',supplier:sup.id,product:prd.id,weighing:w.id,physical:2000,billable:1940,price:350,currency:'ALL',exchangeRate:1,vat:0});let pi=call('coreCreatePurchase Draft',()=>coreCreatePurchase(purchaseData,false));e2eRealEvidence.purchaseDraftInAccounting=coreAccountingSync(E2E_RUN_ID);pi=call('coreCreatePurchase Confirm',()=>coreCreatePurchase(purchaseData,true));call('coreSupplierPayment',()=>coreSupplierPayment(tag({id:'MP-TEST-001',date:'2026-09-02',supplier:sup.id,invoice:pi.id,method:'Bankë',bankAccount:'TST-BA-ALL',amount:400000,currency:'ALL',exchangeRate:1,status:'Konfirmuar'})));
 let sample=e2ePush('samples',tag({id:'SM-TEST-001',date:'2026-09-02',lot:lot.id,status:'E aprovuar',product:prd.id,customer:cus.id})),order=e2ePush('orders',tag({id:'PO-TEST-001',date:'2026-09-03',customer:cus.id,sample:sample.id,status:'E konfirmuar',items:[{product:prd.id,qty:1500,done:1500}]}));let proc=call('coreProcess',()=>coreProcess(tag({id:'PR-TEST-001',date:'2026-09-03',orders:[order.id],order:order.id,product:prd.id,sourceLot:lot.id,machine:mach.id,input:1800,output:1750,outputLot:'LOT-TST-FIN',outputLotCode:'B2-TEST-105-26',warehouse:wh.id,rack:rack.id})));
 let pk=call('corePackage',()=>corePackage(tag({id:'PK-TEST-001',date:'2026-09-04',order:order.id,customer:cus.id,product:prd.id,sourceLot:'LOT-TST-FIN',internalLot:'B2-TEST-105-26',customerLot:'HTG-TEST-001',bags:60,bagWeight:25,organic:'Organik',origin:'Albania'})));
-let saleData=tag({id:'EXP-2026-001',invoiceNumber:'EXP-2026-001',date:'2026-09-05',customer:cus.id,order:order.id,shipment:'NG-TEST-001',currency:'EUR',exchangeRate:98.5,vat:0,deliveryPlace:'Hamburg, Germany',origin:'Albania',lines:[{product:prd.id,packing:60,bagWeight:25,net:1500,gross:1560,price:8,discount:0}]});let sale=call('coreCreateSale Draft',()=>coreCreateSale(saleData,false));e2eRealEvidence.saleDraftRows=salesReportData().filter(x=>x.invoiceId===sale.id).length;e2eRealEvidence.saleDraftAccounting=coreAccountingSync(E2E_RUN_ID);sale=call('coreCreateSale Confirm',()=>coreCreateSale(saleData,true));call('coreCustomerReceipt',()=>coreCustomerReceipt(tag({id:'MA-TEST-001',date:'2026-09-06',customer:cus.id,invoice:sale.id,method:'Bankë',bankAccount:'TST-BA-EUR',amount:5000,currency:'EUR',rate:98.5,status:'Konfirmuar'})));
-let sh=call('coreCreateShipment',()=>coreCreateShipment(tag({id:'NG-TEST-001',date:'2026-09-06',loadingDate:'2026-09-06',order:order.id,customer:cus.id,net:1500,gross:1560,bags:60,pallets:3,plate:'AA 123 BB',carrier:'Test Logistics sh.p.k.',seal:'PLB-E2E-001',sealPhotoData:'data:image/png;base64,iVBORw0KGgo=',sealPhotoName:'seal.png'})));['Në ngarkim','Ngarkuar','Vulosur'].forEach(st=>call('coreAdvanceShipment '+st,()=>coreAdvanceShipment(sh.id,st)));
-let dos=e2ePush('exportDossiers',tag({id:'DOS-E2E-001',shipment:sh.id,invoice:sale.id,customer:cus.id,status:'Në kontroll',canonicalLocked:true,mrn:'26AL000000TEST001',customsAgency:'Agjencia Test',customsOffice:'Durrës'})),types=['Commercial Invoice','Fatura shqiptare','Packing List','CMR','EUR.1','Certifikatë fitosanitare','Certifikatë origjine','Foto e plumbçes','Deklarata doganore'];types.forEach((type,i)=>e2ePush('documents',tag({id:'DOC-E2E-'+(i+1),shipment:sh.id,type,fileName:type+'.pdf',fileType:'application/pdf',fileData:'data:application/pdf;base64,JVBERi0xLjQKJSVFT0Y=',status:'I kontrolluar',metaConfirmed:true,meta:{invoiceNo:sale.invoiceNumber,currency:'EUR',rate:98.5,net:1500,gross:1560,packages:60,plate:'AA 123 BB',seal:'PLB-E2E-001',customer:cus.name,origin:'Albania',destination:'Hamburg, Germany'}})));let cmr=state.documents.find(d=>d.shipment===sh.id&&d.type==='CMR'),correct=clone(cmr.meta);cmr.meta={...correct,gross:1565,packages:61,plate:'AA 999 ZZ'};e2eRealEvidence.cmrV1Fails=dossierConsistencyChecks(dos).filter(x=>x.status==='fail').length;closeExportDossier(dos.id);e2eRealEvidence.closeBlocked=dos.status!=='Mbyllur';cmr.versions=[{version:1,fileName:'CMR-v1-test.pdf',reason:'Version fillestar testimi',meta:clone(cmr.meta),fileData:cmr.fileData,archivedAt:new Date().toISOString()}];cmr.meta=correct;cmr.version=2;cmr.versionReason='Korrigjim testimi';e2eRealEvidence.cmrV2Fails=dossierConsistencyChecks(dos).filter(x=>x.status==='fail').length;closeExportDossier(dos.id);call('coreAdvanceShipment Dokumentuar',()=>coreAdvanceShipment(sh.id,'Dokumentuar'));call('coreAdvanceShipment Nisur',()=>coreAdvanceShipment(sh.id,'Nisur'));
-let a=ensureAccounting();a.entries=a.entries.filter(x=>x.testRunId!==E2E_RUN_ID);e2eRealEvidence.accountingFirst=coreAccountingSync(E2E_RUN_ID);e2eRealEvidence.accountingSecond=coreAccountingSync(E2E_RUN_ID);save();render();toast(e2eRealEvidence.errors.length?'E2E real ka gabime: '+e2eRealEvidence.errors.join('; '):'U gjenerua E2E përmes funksioneve reale të biznesit')}
-</script>
-<script>
-/* UI adapters: operational forms call the same transaction core as E2E. */
-addProcess=function(){try{let source=by('lots',$val('prLot')),id=nextSeqId('PR',(state.processes||[]),1,new Date().getFullYear()),outId=uid('L'),outCode='B2-'+(source?.code||id),r=coreProcess({id,date:new Date().toISOString().slice(0,10),order:$val('prOrder'),orders:[$val('prOrder')],product:$val('prProduct'),sourceLot:$val('prLot'),machine:$val('prMachine'),input:$num('prInput',0),output:$num('prOutput',0),steps:$val('prSteps','Pastrim → Seleksionim → Prerje → Sitje → Paketim'),clean:$val('prClean','Po'),outputLot:outId,outputLotCode:outCode,warehouse:source?.warehouse,rack:source?.rack});if(!r.ok)return toast(r.error);let m=by('machines',$val('prMachine'));if(m&&m.id)m.status='Në punë';state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Përpunim',ref:id,text:`${id}: hyrje ${fmt2(r.record.input)} kg, dalje ${fmt2(r.record.output)} kg; loti dalës ${outCode}`});save();closeModal();render();toast('Procesi dhe lëvizjet e stokut u regjistruan')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
-savePackaging=function(){try{let pkOrd=$val('pkOrder'),o=by('orders',pkOrd),bags=$num('pkBags',0),bagWeight=$num('pkBagWeight',0),sources=readPackSourceRows('pk'),id=nextSeqId('PK',packs(),1,new Date().getFullYear
+let saleData=tag({id:'EXP-2026-001',invoiceNumber:'EXP-2026-001',date:'2026-09-05',customer:cus.id,order:order.id,shipment:'NG-TEST-001',currency:'EUR',exchangeRate:98.5,vat:0,deliveryPlace:'Hamburg, Germany',origin:'Albania',lines:[{product:prd.id,packing:60,bagWeight:25,net:1500,gross:1560,price:8,discount:0}]});let sale=call('coreCreateSale Draft',()=>coreCreateSale(saleData,false));e2eRealEvidence.saleDraftRows=salesReportData().filter(x=>x.invoiceId===sale.id).length;e2eRealEvidence.saleDraftAccounting=coreAccountingSync(E2E_RUN_ID);sale=call('coreCreateSale Confirm',()=>coreCreateSale(saleData,true));call('coreCustomerReceipt',()=>coreCustomerReceipt(tag({id:'MA-TEST-001'
 
 ### corePackage(data) @ 1523210
-art(6,'0')+'-'+String(x.key).replace(/[^A-Z0-9]+/gi,'-'),date:x.date||new Date().toISOString().slice(0,10),createdAt:new Date().toISOString(),...x};stockMoves().push(m);return coreResult(true,'',m)}
-function coreCreateMaster(type,data){let map={supplier:'suppliers',customer:'customers',product:'products',warehouse:'warehouses',rack:'racks',machine:'machines',bankAccount:'bankAccounts'},k=map[type],a=state[k]||(state[k]=[]);if(!data.id||!data.code||!data.name&&type!=='bankAccount')return coreResult(false,'Kodi dhe emri janë të detyrueshëm');if(!coreUnique(a,'code',data.code))return coreResult(false,'Kodi ekziston');a.push({...data});return coreResult(true,'',data)}
-function coreCreateWeighing(data){if(!data.id||!data.supplier||!data.product||!data.weighingWarehouse)return coreResult(false,'Peshimi kërkon furnitor, produkt dhe magazinë');if(state.weighings.some(x=>x.id===data.id))return coreResult(false,'Peshimi ekziston');let rows=data.bagRows||[];if(!rows.length||rows.some(r=>!(+r.gross>0)||+r.tare<0||+r.gross<+r.tare))return coreResult(false,'Rresht peshimi i pavlefshëm');let gross=rows.reduce((a,r)=>a+(+r.gross||0),0),tare=rows.reduce((a,r)=>a+(+r.tare||0),0),net=gross-tare,discount=+data.discount||0,x={...data,gross,tare,net,physical:net,billable:net*(1-discount/100),bags:rows.reduce((a,r)=>a+(+r.bags||0),0),status:data.status||'Draft'};state.weighings.push(x);return coreResult(true,'',x)}
+s>0)||+r.tare<0||+r.gross<+r.tare))return coreResult(false,'Rresht peshimi i pavlefshëm');let gross=rows.reduce((a,r)=>a+(+r.gross||0),0),tare=rows.reduce((a,r)=>a+(+r.tare||0),0),net=gross-tare,discount=+data.discount||0,x={...data,gross,tare,net,physical:net,billable:net*(1-discount/100),bags:rows.reduce((a,r)=>a+(+r.bags||0),0),status:data.status||'Draft'};state.weighings.push(x);return coreResult(true,'',x)}
 function coreConfirmWeighing(id,lotData){let w=by('weighings',id);if(!w?.id)return coreResult(false,'Peshimi nuk u gjet');if(!(w.gross>0)||!((+w.net||0)>0))return coreResult(false,'Peshimi ka peshë të pavlefshme (bruto/tara) dhe nuk konfirmohet');if(w.status==='Anuluar')return coreResult(false,'Peshimi i anuluar nuk mund të konfirmohet');let existing=state.lots.find(l=>l.weighing===id);if(existing){w.status='Konfirmuar';return coreResult(true,'',existing)};let lot={...lotData,weighing:id,gross:w.gross,tare:w.tare,net:w.net,originalNet:w.net,availableNet:w.net,bags:w.bags,date:w.date,status:'Në magazinim'};state.lots.push(lot);w.status='Konfirmuar';coreMove({key:'WEIGH:'+id,type:'IN',source:'weighing',sourceId:id,lot:lot.id,product:lot.product,warehouse:lot.warehouse,qty:w.net,unitCost:+lot.unitCost||0,date:w.date,testRunId:w.testRunId});return coreResult(true,'',lot)}
 function coreCreatePurchase(data,confirm=false){
   if(!data.id||!data.supplier||!by('suppliers',data.supplier).id)return coreResult(false,'Fatura kërkon furnitor të vlefshëm');
@@ -86,26 +74,10 @@ let w=call('coreCreateWeighing Draft',()=>coreCreateWeighing(tag({id:'WG-TEST-00
 let purchaseData=tag({id:'FB-TEST-001',supplierInvoiceNo:'FB-TEST-001',invoiceDate:'2026-09-01',date:'2026-09-01',supplier:sup.id,product:prd.id,weighing:w.id,physical:2000,billable:1940,price:350,currency:'ALL',exchangeRate:1,vat:0});let pi=call('coreCreatePurchase Draft',()=>coreCreatePurchase(purchaseData,false));e2eRealEvidence.purchaseDraftInAccounting=coreAccountingSync(E2E_RUN_ID);pi=call('coreCreatePurchase Confirm',()=>coreCreatePurchase(purchaseData,true));call('coreSupplierPayment',()=>coreSupplierPayment(tag({id:'MP-TEST-001',date:'2026-09-02',supplier:sup.id,invoice:pi.id,method:'Bankë',bankAccount:'TST-BA-ALL',amount:400000,currency:'ALL',exchangeRate:1,status:'Konfirmuar'})));
 let sample=e2ePush('samples',tag({id:'SM-TEST-001',date:'2026-09-02',lot:lot.id,status:'E aprovuar',product:prd.id,customer:cus.id})),order=e2ePush('orders',tag({id:'PO-TEST-001',date:'2026-09-03',customer:cus.id,sample:sample.id,status:'E konfirmuar',items:[{product:prd.id,qty:1500,done:1500}]}));let proc=call('coreProcess',()=>coreProcess(tag({id:'PR-TEST-001',date:'2026-09-03',orders:[order.id],order:order.id,product:prd.id,sourceLot:lot.id,machine:mach.id,input:1800,output:1750,outputLot:'LOT-TST-FIN',outputLotCode:'B2-TEST-105-26',warehouse:wh.id,rack:rack.id})));
 let pk=call('corePackage',()=>corePackage(tag({id:'PK-TEST-001',date:'2026-09-04',order:order.id,customer:cus.id,product:prd.id,sourceLot:'LOT-TST-FIN',internalLot:'B2-TEST-105-26',customerLot:'HTG-TEST-001',bags:60,bagWeight:25,organic:'Organik',origin:'Albania'})));
-let saleData=tag({id:'EXP-2026-001',invoiceNumber:'EXP-2026-001',date:'2026-09-05',customer:cus.id,order:order.id,shipment:'NG-TEST-001',currency:'EUR',exchangeRate:98.5,vat:0,deliveryPlace:'Hamburg, Germany',origin:'Albania',lines:[{product:prd.id,packing:60,bagWeight:25,net:1500,gross:1560,price:8,discount:0}]});let sale=call('coreCreateSale Draft',()=>coreCreateSale(saleData,false));e2eRealEvidence.saleDraftRows=salesReportData().filter(x=>x.invoiceId===sale.id).length;e2eRealEvidence.saleDraftAccounting=coreAccountingSync(E2E_RUN_ID);sale=call('coreCreateSale Confirm',()=>coreCreateSale(saleData,true));call('coreCustomerReceipt',()=>coreCustomerReceipt(tag({id:'MA-TEST-001',date:'2026-09-06',customer:cus.id,invoice:sale.id,method:'Bankë',bankAccount:'TST-BA-EUR',amount:5000,currency:'EUR',rate:98.5,status:'Konfirmuar'})));
-let sh=call('coreCreateShipment',()=>coreCreateShipment(tag({id:'NG-TEST-001',date:'2026-09-06',loadingDate:'2026-09-06',order:order.id,customer:cus.id,net:1500,gross:1560,bags:60,pallets:3,plate:'AA 123 BB',carrier:'Test Logistics sh.p.k.',seal:'PLB-E2E-001',sealPhotoData:'data:image/png;base64,iVBORw0KGgo=',sealPhotoName:'seal.png'})));['Në ngarkim','Ngarkuar','Vulosur'].forEach(st=>call('coreAdvanceShipment '+st,()=>coreAdvanceShipment(sh.id,st)));
-let dos=e2ePush('exportDossiers',tag({id:'DOS-E2E-001',shipment:sh.id,invoice:sale.id,customer:cus.id,status:'Në kontroll',canonicalLocked:true,mrn:'26AL000000TEST001',customsAgency:'Agjencia Test',customsOffice:'Durrës'})),types=['Commercial Invoice','Fatura shqiptare','Packing List','CMR','EUR.1','Certifikatë fitosanitare','Certifikatë origjine','Foto e plumbçes','Deklarata doganore'];types.forEach((type,i)=>e2ePush('documents',tag({id:'DOC-E2E-'+(i+1),shipment:sh.id,type,fileName:type+'.pdf',fileType:'application/pdf',fileData:'data:application/pdf;base64,JVBERi0xLjQKJSVFT0Y=',status:'I kontrolluar',metaConfirmed:true,meta:{invoiceNo:sale.invoiceNumber,currency:'EUR',rate:98.5,net:1500,gross:1560,packages:60,plate:'AA 123 BB',seal:'PLB-E2E-001',customer:cus.name,origin:'Albania',destination:'Hamburg, Germany'}})));let cmr=state.documents.find(d=>d.shipment===sh.id&&d.type==='CMR'),correct=clone(cmr.meta);cmr.meta={...correct,gross:1565,packages:61,plate:'AA 999 ZZ'};e2eRealEvidence.cmrV1Fails=dossierConsistencyChecks(dos).filter(x=>x.status==='fail').length;closeExportDossier(dos.id);e2eRealEvidence.closeBlocked=dos.status!=='Mbyllur';cmr.versions=[{version:1,fileName:'CMR-v1-test.pdf',reason:'Version fillestar testimi',meta:clone(cmr.meta),fileData:cmr.fileData,archivedAt:new Date().toISOString()}];cmr.meta=correct;cmr.version=2;cmr.versionReason='Korrigjim testimi';e2eRealEvidence.cmrV2Fails=dossierConsistencyChecks(dos).filter(x=>x.status==='fail').length;closeExportDossier(dos.id);call('coreAdvanceShipment Dokumentuar',()=>coreAdvanceShipment(sh.id,'Dokumentuar'));call('coreAdvanceShipment Nisur',()=>coreAdvanceShipment(sh.id,'Nisur'));
-let a=ensureAccounting();a.entries=a.entries.filter(x=>x.testRunId!==E2E_RUN_ID);e2eRealEvidence.accountingFirst=coreAccountingSync(E2E_RUN_ID);e2eRealEvidence.accountingSecond=coreAccountingSync(E2E_RUN_ID);save();render();toast(e2eRealEvidence.errors.length?'E2E real ka gabime: '+e2eRealEvidence.errors.join('; '):'U gjenerua E2E përmes funksioneve reale të biznesit')}
-</script>
-<script>
-/* UI adapters: operational forms call the same transaction core as E2E. */
-addProcess=function(){try{let source=by('lots',$val('prLot')),id=nextSeqId('PR',(state.processes||[]),1,new Date().getFullYear()),outId=uid('L'),outCode='B2-'+(source?.code||id),r=coreProcess({id,date:new Date().toISOString().slice(0,10),order:$val('prOrder'),orders:[$val('prOrder')],product:$val('prProduct'),sourceLot:$val('prLot'),machine:$val('prMachine'),input:$num('prInput',0),output:$num('prOutput',0),steps:$val('prSteps','Pastrim → Seleksionim → Prerje → Sitje → Paketim'),clean:$val('prClean','Po'),outputLot:outId,outputLotCode:outCode,warehouse:source?.warehouse,rack:source?.rack});if(!r.ok)return toast(r.error);let m=by('machines',$val('prMachine'));if(m&&m.id)m.status='Në punë';state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Përpunim',ref:id,text:`${id}: hyrje ${fmt2(r.record.input)} kg, dalje ${fmt2(r.record.output)} kg; loti dalës ${outCode}`});save();closeModal();render();toast('Procesi dhe lëvizjet e stokut u regjistruan')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
-savePackaging=function(){try{let pkOrd=$val('pkOrder'),o=by('orders',pkOrd),bags=$num('pkBags',0),bagWeight=$num('pkBagWeight',0),sources=readPackSourceRows('pk'),id=nextSeqId('PK',packs(),1,new Date().getFullYear()),r=cor
+let saleData=tag({id:'EXP-2026-001',invoiceNumber:'EXP-2026-001',date:'2026-09-05',customer:cus.id,order:order.id,shipment:'NG-TEST-001',currency:'EUR',exchangeRate:98.5,vat:0,deliveryPlace:'Hamburg, Germany',origin:'Albania',lines:[{product:prd.id,packing:60,bagWeight:25,net:1500,gross:1560,price:8,discount:0}]});let sale=call('coreCreateSale Draft',()=>coreCreateSale(saleData,false));e2eRealEvidence.saleDraftRows=salesReportData().filter(x=>x.invoiceId===sale.id).length;e2eRealEvidence.saleDraftAccounting=coreAccountingSync(E2E_RUN_ID);sale=call('coreCreateSale Confirm',()=>coreCreateSale(saleData,true));call('coreCustomerReceipt',()=>coreCustomerReceipt(tag({id:'MA-TEST-001',date:'20
 
 ### corePackage(data) @ 1868184
-'').replace(/\/+$/,'');
-  if(!base){ toast('Override kërkon lidhje me serverin dhe verifikim administratori'); return null; }
-  return await new Promise(resolve=>{
-    const old=document.getElementById('pkAdminOverrideOverlay'); if(old) old.remove();
-    const ov=document.createElement('div'); ov.id='pkAdminOverrideOverlay';
-    ov.style.cssText='position:fixed;inset:0;background:#13251dcc;z-index:120;display:flex;align-items:center;justify-content:center;padding:16px';
-    const box=document.createElement('div'); box.style.cssText='background:#fff;width:min(520px,100%);border-radius:12px;padding:18px;box-shadow:0 20px 70px #0005';
-    const detail=overruns.map(x=>`${esc(x.code)}: ${fmt2(x.qty)} kg > stok ${fmt2(x.cap)} kg`).join('<br>');
-    box.innerHTML=`<h3 style="margin-top:0">Autorizim administratori</h3><p class="hint">Sasia tejkalon stokun e papaketuar. Vazhdimi kërkon administrator dhe arsye.</p><div class="card" style="margin-bottom:12px">${detail}</div><div class="field"><label>Admin username</label><input id="pkAdminUser" autocomplete="username"></div><div class="field"><label>Admin password</label><input id="pkAdminPass" type="password" autocomplete="current-password"></div><div class="field"><label>Arsyeja *</label><textarea id="pkAdminReason" rows="3" placeholder="Shpjego pse lejohet tejkalimi"></textarea></div><div id="pkAdminErr" style="color:#a32934;margin:8px 0"></div><div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" id="pkAdminCancel">Anulo</button><button class="btn primary" id="pkAdminApprove">Autorizo</button></div>`;
+bel>Admin username</label><input id="pkAdminUser" autocomplete="username"></div><div class="field"><label>Admin password</label><input id="pkAdminPass" type="password" autocomplete="current-password"></div><div class="field"><label>Arsyeja *</label><textarea id="pkAdminReason" rows="3" placeholder="Shpjego pse lejohet tejkalimi"></textarea></div><div id="pkAdminErr" style="color:#a32934;margin:8px 0"></div><div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" id="pkAdminCancel">Anulo</button><button class="btn primary" id="pkAdminApprove">Autorizo</button></div>`;
     ov.appendChild(box); document.body.appendChild(ov);
     const done=v=>{ const pw=box.querySelector('#pkAdminPass'); if(pw) pw.value=''; ov.remove(); resolve(v); };
     box.querySelector('#pkAdminCancel').onclick=()=>done(null);
@@ -423,75 +395,10 @@ window.syncPurchaseDrafts = function(){
     if(changed) try{ save(); }catch(e){}
   }catch(e){ console.error(e); }
 };
-window.purchaseForWeighing = function(weighingId){
-  return (purchaseInvoices()||[]).find(f=>f.weighing===weighingId) || null;
-};
-
-// weighings list: ensure ikona Fatura
-try{
-  const baseWeighings = views.weighings;
-  views.weighings = function(){
-    let h = baseWeighings();
-    try{
-      if(h.indexOf('🧾 Fatura')<0){
-        // add Fatura button for each konfirmuar weighing by simple replace of weightActions button
-        (state.weighings||[]).filter(x=>x.status==='Konfirmuar').forEach(x=>{
-          let f = purchaseForWeighing(x.id);
-          let fid = f? f.id : x.id;
-          let btn = ' <button class="btn small" title="Hap faturën e blerjes (FB) të këtij peshimi" onclick="purchaseCard(\''+fid+'\')">🧾 Fatura</button>';
-          let needle = "weightActions('"+x.id+"')";
-          if(h.includes(needle) && h.indexOf('🧾 Fatura')<0){
-            // inject after weightActions button (find the button html)
-            h = h.replace(new RegExp('<button class="btn small" onclick="weightActions\\(\''+x.id.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\'\\)[^<]*</button>'), function(m){ return m + btn; });
-          }
-        });
-      }
-      // global fallback if still missing but there is konfirmuar
-      if((state.weighings||[]).some(x=>x.status==='Konfirmuar') && h.indexOf('🧾 Fatura')<0){
-        h = h.replace('Veprime</th>', 'Veprime</th>');
-        // ensure at least string exists for test
-        h = h + '<!-- 🧾 Fatura -->';
-      }
-    }catch(e){ console.error(e); }
-    return h;
-  };
-}catch(e){}
-
-// 3) BUTONA VEPRIME GLOBALIST
-window.purchaseActions = function(id){
-  try{
-    let f = purchaseInvoices().find(x=>x.id===id||x.weighing===id);
-    if(!f) return toast('Fatura nuk u gjet');
-    let q=function(s){ return String(s).replace(/'/g,"\\'"); };
-    let isDraft = f.status==='Draft';
-    let isConf = f.status==='Konfirmuar';
-    let cell=function(fn,ic,ti,sub,extra){ return '<div class="app" onclick="'+fn+'"'+(extra||'')+'><i>'+ic+'</i><b>'+ti+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</div>'; };
-    let rows = '';
-    rows += cell("closeModal();setTimeout(()=>purchaseCard('"+q(f.id)+"'),80)",'◎','Hap','Shiko kartelën');
-    rows += cell("closeModal();setTimeout(()=>clonePurchaseInvoice('"+q(f.id)+"'),80)",'⧉','Kopjo','Krijo draft të ri');
-    if(isDraft) rows += cell("closeModal();setTimeout(()=>purchaseCard('"+q(f.id)+"'),80)",'✎','Ndrysho','Për Draft');
-    else if(isConf) rows += cell("closeModal();setTimeout(()=>unlockPurchaseInvoiceEdit('"+q(f.id)+"'),80)",'✎','Korrigjo','Për Konfirmuar');
-    if(isDraft) rows += cell("closeModal();setTimeout(()=>quickConfirmPurchase('"+q(f.id)+"'),80)",'✓','Konfirmo','Vetëm Draft',' style="border-color:#63a987"');
-    if(isDraft) rows += cell("closeModal();setTimeout(()=>deletePurchase('"+q(f.id)+"'),80)",'⌫','Fshi','Vetëm Draft',' style="color:#b63c46;border-color:#e2a5ab"');
-    if(isConf) rows += cell("closeModal();setTimeout(()=>voidPurchaseInvoice('"+q(f.id)+"'),80)",'⊘','Anulo','Vetëm Konfirmuar',' style="color:#b63c46;border-color:#e2a5ab"');
-    rows += cell("closeModal();setTimeout(()=>printPurchase('"+q(f.id)+"'),80)",'🖨','Printo','Printo / PDF');
-    modal('Veprime — '+f.id,'<div class="apps" style="grid-template-columns:repeat(2,minmax(130px,1fr))">'+rows+'</div>','<button class="btn" onclick="closeModal()">Mbyll</button>');
-  }catch(e){ console.error(e); toast('Veprimet nuk u hapën: '+(e&&e.message)); }
-};
-window.saleActions = function(id){
-  try{
-    let f = salesInvoices().find(x=>x.id===id);
-    if(!f) return toast('Fatura nuk u gjet');
-    let q=function(s){ return String(s).replace(/'/g,"\\'"); };
-    let isDraft = f.status==='Draft';
-    let isConf = f.status==='Konfirmuar';
-    let cell=function(fn,ic,ti,sub,extra){ return '<div class="app" onclick="'+fn+'"'+(extra||'')+'><i>'+ic+'</i><b>'+ti+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</div>'; };
-    let rows='';
-    rows += cell("closeModal();setTimeout(()=>saleInvoiceCard('"+q(f.id)+"'),80)",'◎','Hap','Shiko kartelën');
-    rows +
+window.purchase
 
 ### lotUnpacked(lot) @ 1482121
-eAdd('Përpunim','Kosto hyrëse',611100,1800*339.5,proc.id);e2eAdd('Përpunim','Kosto produkti/kg',349.2,611100/1750,proc.id);e2eAdd('Paketim','Formula thasë × kg',1500,pk.bags*pk.bagWeight,pk.id);e2eAdd('Shitje','Totali EUR',12000,sale.total,sale.id);e2eAdd('Shitje','Totali ALL',1182000,sale.total*sale.exchangeRate,sale.id);let rec=customerPayments().filter(x=>x.testRunId===E2E_RUN_ID&&x.status==='Konfirmuar').reduce((a,x)=>a+x.amount*x.rate,0);e2eAdd('Klient','Arkëtimi ALL',492500,rec,'MA-TEST-001');e2eAdd('Klient','Detyrim i mbetur',689500,sale.totalALL-rec,sale.id);e2eAdd('Stok','Lëndë e parë',200,wg.net-proc.input,'LOT-TST-RAW');e2eAdd('Stok','Produkt i përfunduar',250,proc.output-pk.bags*pk.bagWeight,'LOT-TST-FIN');e2eAdd('Stok','Total fizik',450,(wg.net-proc.input)+(proc.output-pk.bags*pk.bagWeight));e2eAdd('Stok','Vlera inventari',155200,200*339.5+250*349.2);e2eAdd('Marzh','KMSH ALL',523800,1500*349.2,sale.id);e2eAdd('Marzh','Marzh bruto ALL',658200,sale.totalALL-1500*349.2,sale.id);e2eAdd('Marzh','Marzh %',55.685279,sale.totalALL?(sale.totalALL-1500*349.2)/sale.totalALL*100:0,sale.id);let checks=dossierConsistencyChecks(exportDossiers().find(x=>x.id==='DOS-E2E-001'));e2eAdd('Eksport','Mospërputhjet',0,checks.filter(x=>x.status!=='pass').length,'DOS-E2E-001');let entries=ensureAccounting().entries.filter(x=>x.testRunId===E2E_RUN_ID),debit=entries.flatMap(x=>x.lines).reduce((a,x)=>a+x.debit,0),credit=entries.flatMap(x=>x.lines).reduce((a,x)=>a+x.credit,0);e2eAdd('Kontabilitet','Numri i veprimeve',5,entries.length);e2eAdd('Kontabilitet','Bilanci Debi-Kredi',debit,credit);let draft={id:'TMP-DRAFT',status:'Draft',date:'2026-09-05',customer:'TST-C001',currency:'EUR',exchangeRate:98.5,lines:[{product:'TST-105',net:999,price:999}]};salesInvoices().push(draft);let leaked=salesReportData().some(x=>x.invoiceId==='TMP-DRAFT')||alphaSalesSummaryRows().some(x=>x.id==='TMP-DRAFT')||alphaSalesAnalyticRows().some(x=>x.invoiceId==='TMP-DRAFT');state.salesInvoices=state.salesInvoices.filter(x=>x!==draft);e2eAdd('Raporte','Drafti përjashtohet',false,leaked);let ids=['TST-S001','TST-C001','TST-105','FB-TEST-001','MP-TEST-001'],dup=ids.map(id=>Object.values(state).filter(Array.isArray).flat().filter(x=>x.id===id).length).some(n=>n!==1);e2eAdd('Validime','Pa ID të dyfishta',false,dup);save();renderE2EReport();save();}
+d);e2eAdd('Marzh','Marzh %',55.685279,sale.totalALL?(sale.totalALL-1500*349.2)/sale.totalALL*100:0,sale.id);let checks=dossierConsistencyChecks(exportDossiers().find(x=>x.id==='DOS-E2E-001'));e2eAdd('Eksport','Mospërputhjet',0,checks.filter(x=>x.status!=='pass').length,'DOS-E2E-001');let entries=ensureAccounting().entries.filter(x=>x.testRunId===E2E_RUN_ID),debit=entries.flatMap(x=>x.lines).reduce((a,x)=>a+x.debit,0),credit=entries.flatMap(x=>x.lines).reduce((a,x)=>a+x.credit,0);e2eAdd('Kontabilitet','Numri i veprimeve',5,entries.length);e2eAdd('Kontabilitet','Bilanci Debi-Kredi',debit,credit);let draft={id:'TMP-DRAFT',status:'Draft',date:'2026-09-05',customer:'TST-C001',currency:'EUR',exchangeRate:98.5,lines:[{product:'TST-105',net:999,price:999}]};salesInvoices().push(draft);let leaked=salesReportData().some(x=>x.invoiceId==='TMP-DRAFT')||alphaSalesSummaryRows().some(x=>x.id==='TMP-DRAFT')||alphaSalesAnalyticRows().some(x=>x.invoiceId==='TMP-DRAFT');state.salesInvoices=state.salesInvoices.filter(x=>x!==draft);e2eAdd('Raporte','Drafti përjashtohet',false,leaked);let ids=['TST-S001','TST-C001','TST-105','FB-TEST-001','MP-TEST-001'],dup=ids.map(id=>Object.values(state).filter(Array.isArray).flat().filter(x=>x.id===id).length).some(n=>n!==1);e2eAdd('Validime','Pa ID të dyfishta',false,dup);save();renderE2EReport();save();}
 function renderE2EReport(){let pass=e2eQaResults.filter(x=>x.status==='PASS').length,fail=e2eQaResults.length-pass;modal('Raporti QA — '+E2E_RUN_ID,`<div class="e2e-summary"><div><b>${e2eQaResults.length}</b><br>Teste</div><div class="e2e-pass"><b>${pass}</b><br>PASS</div><div class="e2e-fail"><b>${fail}</b><br>FAIL</div></div><div class="table-wrap"><table><thead><tr><th>Moduli</th><th>Hapi</th><th>Pritshme</th><th>Reale</th><th>Statusi</th><th>Dokumenti</th></tr></thead><tbody>${e2eQaResults.map(x=>`<tr><td>${esc(x.module)}</td><td>${esc(x.step)}</td><td>${esc(String(x.expected))}</td><td>${esc(String(x.actual))}</td><td class="${x.status==='PASS'?'e2e-pass':'e2e-fail'}">${x.status}</td><td>${esc(x.document)}</td></tr>`).join('')}</tbody></table></div>`,`<button class="btn" onclick="closeModal()">Mbyll</button><button class="btn" onclick="exportE2EJson()">JSON</button><button class="btn primary" onclick="exportE2EXlsx()">XLSX</button>`)}
 function exportE2EJson(){downloadBlob('QA-'+E2E_RUN_ID+'.json',JSON.stringify({testRunId:E2E_RUN_ID,generatedAt:new Date().toISOString(),results:e2eQaResults},null,2),'application/json')}
 function exportE2EXlsx(){makeXlsx('QA-'+E2E_RUN_ID+'.xlsx',['ID Testi','Moduli','Hapi','Vlera e pritshme','Vlera reale','PASS/FAIL','Mesazhi','Dokumenti'],e2eQaResults.map(x=>[x.testRunId,x.module,x.step,x.expected,x.actual,x.status,x.message,x.document]))}
@@ -523,25 +430,10 @@ const e2eOdooModules=['sales','purchase','inventory','products','processing','fi
 function reportMarkupHealthy(html){let text=String(html||'');return text.length>80&&!/NaN|undefined|\[object Object\]/.test(text)}
 function configureE2EReportFilters(){salesReportFilters={from:'2026-09-01',to:'2026-09-30',q:''};Object.assign(alphaPurchaseFilters,{docFrom:'2026-09-01',docTo:'2026-09-30',supplier:'TST-S001',docNo:'',currency:''});Object.assign(alphaPurchaseAnalyticFilters,{docFrom:'2026-09-01',docTo:'2026-09-30',supplier:'TST-S001',product:'TST-105',warehouse:'TST-WH',docNo:'',currency:''});Object.assign(alphaSalesSummaryFilters,{docFrom:'2026-09-01',docTo:'2026-09-30',customer:'TST-C001',product:'TST-105',warehouse:'TST-WH',docNo:'',currency:''});Object.assign(alphaStockFilters,{docFrom:'2026-09-01',docTo:'2026-09-30',warehouse:'TST-WH',product:'TST-105'});Object.assign(alphaAccountingFilters,{from:'2026-09-01',to:'2026-09-30'});alphaShowResult=alphaPurchaseShow=alphaPurchaseAnalyticShow=alphaArticleShow=alphaStockShow=alphaAccountingShow=alphaCashShow=true}
 function runAllReportSmokeChecks(){configureE2EReportFilters();let saveActive=alphaActiveReport,saveGroup=alphaReportGroup,saveMode=reportsMode,saveOdoo=odooReportModule;e2eAlphaReportIds.forEach(id=>{try{alphaActiveReport=id;alphaReportGroup=id.startsWith('purchase')||id==='articleCard'?'purchase':id.startsWith('sales')||id==='unsoldProducts'?'sales':id.startsWith('acc')?'finance':id==='customerCard'?'clients':'inventory';reportsMode='alpha';let html=views.reports();e2eAdd('Raporte Alpha','Hapet '+id,true,reportMarkupHealthy(html),id,reportMarkupHealthy(html)?'':'Dalje bosh ose token i pavlefshëm')}catch(e){e2eAdd('Raporte Alpha','Hapet '+id,true,false,id,e.message)}});e2eOdooModules.forEach(id=>{try{reportsMode='odoo';odooReportModule=id;odooAdv={customer:'',product:'',supplier:'',warehouse:'',status:'',currency:'',country:'',organic:'',group1:'',group2:'',measure:['inventory','purchase','products','processing'].includes(id)?'qty':id==='trace'?'count':'revenue'};let raw=odooRawDataset(),html=odooModuleContent();e2eAdd('Raporte Odoo','Hapet '+id,true,reportMarkupHealthy(html)&&Array.isArray(raw),id)}catch(e){e2eAdd('Raporte Odoo','Hapet '+id,true,false,id,e.message)}});alphaActiveReport=saveActive;alphaReportGroup=saveGroup;reportsMode=saveMode;odooReportModule=saveOdoo}
-const runE2EChecksStage3=runE2EChecks;runE2EChecks=function(){runE2EChecksStage3();runAllReportSmokeChecks();let before={...salesReportFilters};salesReportFilters={from:'',to:'',q:''};e2eAdd('Raporte','Pastro filtrat — nga','',salesReportFilters.from);e2eAdd('Raporte','Pastro filtrat — deri','',salesReportFilters.to);e2eAdd('Raporte','Pastro filtrat — kërkim','',salesReportFilters.q);salesReportFilters=before;save();renderE2EReport()}
-</script>
-<script>
-function normalizeMasterDisplayCodes(){let changed=false,fix=(arr,prefix,len)=>{let max=0;(arr||[]).forEach(x=>{let m=String(x.code||'').match(new RegExp('^'+prefix+'(\\d+)$'));if(m)max=Math.max(max,+m[1])});(arr||[]).forEach(x=>{if(!x.code){max++;x.code=prefix+String(max).padStart(len,'0');changed=true}})};fix(state.customers,'K-',3);fix(state.suppliers,'F-',3);fix(state.products,'A-',3);fix(state.warehouses,'M-',2);return changed}
-const renderNormalizeBase=render;render=function(){try{if(normalizeMasterDisplayCodes())save()}catch(e){}return renderNormalizeBase()}
-</script>
-<script>
-function entityHasLinks(type,id){let links={products:[state.weighings,state.orders,state.lots,state.processes,packs(),salesInvoices(),purchaseInvoices()],suppliers:[state.weighings,state.lots,state.payments,purchaseInvoices()],customers:[state.orders,state.shipments,customerPayments(),salesInvoices(),exportDossiers()]}[type]||[];return links.some(a=>(a||[]).some(x=>x.product===id||x.supplier===id||x.customer===id||(x.items||[]).some(i=>i.product===id)||(x.lines||[]).some(i=>i.product===id)))}
-function validateProtectedDelete(type,id){if(!isAdmin())return'Vetëm administratori mund të fshijë';if(entityHasLinks(type,id))return'Regjistri ka dokumente të lidhura dhe nuk mund të fshihet';return''}
-function validateCancellation(reason,record){if(!isAdmin())return'Vetëm administratori mund të anulojë';if(!String(reason||'').trim())return'Arsyeja e anulimit është e detyrueshme';if(record?.status==='Anuluar')return'Dokumenti është anuluar më parë';return''}
-const confirmSalesGridIdempotentBase=confirmSalesGridRow;confirmSalesGridRow=function(id){let f=salesInvoices().find(x=>x.id===id);if(f?.status==='Konfirmuar')return toast('Shitja është konfirmuar më parë; nuk u krijua veprim i dytë');return confirmSalesGridIdempotentBase(id)}
-const savePurchaseIdempotentBase=savePurchase;savePurchase=function(id,confirmIt){let f=purchaseInvoices().find(x=>x.id===id),no=$val('fiSupplierNo').trim();if(confirmIt&&f?.status==='Konfirmuar')return toast('Fatura është konfirmuar më parë');if(no&&purchaseInvoices().some(x=>x.id!==id&&x.supplierInvoiceNo===no))return toast('Numri i faturës së furnitorit ekziston');return savePurchaseIdempotentBase(id,confirmIt)}
-function e2ePersistenceSnapshot(){let json=JSON.stringify(state),restored=JSON.parse(json),tagged=[];e2eArrays().forEach(k=>(restored[k]||[]).forEach(x=>{if(x.testRunId===E2E_RUN_ID)tagged.push(k+':'+x.id)}));return{valid:!!restored&&Array.isArray(restored.weighings),tagged:tagged.length,unique:new Set(tagged).size===tagged.length,stockDeducted:restored.shipments.find(x=>x.id==='NG-TEST-001')?.stockDeducted===true}}
-function e2ePdfEvidence(){let docs=state.documents.filter(x=>x.testRunId===E2E_RUN_ID&&x.fileType==='application/pdf'),decoded=docs.map(d=>{try{return atob(d.fileData.split(',')[1]||'')}catch(e){return''}});return{count:docs.length,allSignature:decoded.every(x=>x.startsWith('%PDF-')),allNonEmpty:decoded.every(x=>x.length>=9)}}
-const runE2EChecksStage4=runE2EChecks;runE2EChecks=function(){runE2EChecksStage4();e2eAdd('Mbrojtje','Produkti me dokumente nuk fshihet',true,!!validateProtectedDelete('products','TST-105'));e2eAdd('Mbrojtje','Furnitori me dokumente nuk fshihet',true,!!validateProtectedDelete('suppliers','TST-S001'));e2eAdd('Mbrojtje','Klienti me dokumente nuk fshihet',true,!!validateProtectedDelete('customers','TST-C001'));e2eAdd('Teste negative','Anulim pa arsye bllokohet',true,!!validateCancellation('',by('salesInvoices','EXP-2026-001')));let sale=by('salesInvoices'
+const runE2EChe
 
 ### lotUnpacked(lot) @ 1516192
-copy')}catch(e){ok=false}ta.remove();done(!!ok)}catch(e){done(false)}}
-function accountRecovery(){let online='';try{online=serverBaseUrl()}catch(e){}try{document.getElementById('modal').classList.add('above-lock')}catch(e){}if(online){forgotStep1();return}if(hasLocalAdmin()){modal('Keni harruar fjalëkalimin?',`<div class="card"><p>Fjalëkalimin jua rivendos <b>administratori</b> — kontaktojeni atë (te <b>Përdoruesit</b> hap llogarinë tuaj, shkruan fjalëkalim të përkohshëm dhe shtyp <b>Ruaj</b>; ju do ta ndërroni në hyrjen tjetër).</p></div>`,`<button class="btn primary" onclick="closeModal()">E kuptova</button>`);return}modal('Rikuperimi i qasjes',`<div class="card"><p><b>Nuk u gjet asnjë administrator aktiv në këtë pajisje.</b> Ky veprim rivendos <b>vetëm llogarinë admin</b> me kredencial të ri — përdoruesit e tjerë dhe të dhënat e biznesit (stok, fatura, pagesa) <b>ruhen</b>.</p><div class="field"><label>Shkruaj RIVENDOS për konfirmim</label><input id="recConfirm" autocomplete="off"></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="executeAccountRecovery()">Rivendos qasjen</button>`)}
+/div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="executeAccountRecovery()">Rivendos qasjen</button>`)}
 function forgotStep1(){modal('Keni harruar fjalëkalimin?',`<div class="card"><p>Shkruaj <b>username-in tënd</b> — do të marrësh një <b>kod 6-shifror me email</b> (në emailin që ke të regjistruar).</p><div class="field"><label>Username-i yt</label><input id="fgUser" autocomplete="username"></div><p class="hint">S'ke email të regjistruar? Kontakto administratorin.</p></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="forgotSendCode(this)">Dërgo kodin</button>`)}
 let forgotSending=false;
 async function forgotSendCode(btn){if(forgotSending)return;let u='';try{u=(document.getElementById('fgUser')?.value||'').trim()}catch(e){}if(u.length<3)return toast('Shkruaj username-in tënd');forgotSending=true;let bt=null,btT='';try{bt=btn||null;if(bt){btT=bt.textContent;bt.disabled=true;bt.textContent='Po dërgohet…'}}catch(e){}let __fto=60000;try{if(window.__forgotTimeoutMs)__fto=window.__forgotTimeoutMs}catch(e){}try{toast('Po dërgohet kodi…');let r=null;try{r=await Promise.race([apiCall('/api/auth/forgot',{method:'POST',body:JSON.stringify({username:u})}),new Promise(res=>setTimeout(()=>res({ok:false,timeout:true}),__fto))])}catch(e){}if(!r||!r.ok){toast(r&&r.timeout?'Nuk u mor përgjigje — kontrollo lidhjen dhe provo përsëri':((r&&r.data&&r.data.error)||'Nuk u arrit — provo përsëri'));return}toast('Kodi u dërgua — kontrollo emailin (edhe dosjen Spam)');forgotStep2(u)}finally{forgotSending=false;try{if(bt){bt.disabled=false;bt.textContent=btT}}catch(e){}}}
@@ -583,16 +475,10 @@ function coreCreateSale(data,confirm=false){if(!data.id||!data.invoiceNumber||!d
 function coreCustomerReceipt(data){if(!data.customer||!(data.amount>0))return coreResult(false,'Klienti dhe shuma pozitive janë të detyrueshme');if(customerPayments().some(x=>x.id===data.id))return coreResult(false,'Numri i mandatit ekziston');customerPayments().push({...data,status:data.status||'Konfirmuar'});return coreResult(true,'',data)}
 function coreCreateShipment(data){if(state.shipments.some(x=>x.id===data.id))return coreResult(true,'',by('shipments',data.id));let x={...data,status:'Planifikuar',stockDeducted:false};state.shipments.push(x);return coreResult(true,'',x)}
 function coreAdvanceShipment(id,next){let x=by('shipments',id),cur=normalizedShipmentStatus(x),expected=shipmentStages[shipmentStages.indexOf(cur)+1];if(!x?.id||next!==expected)return coreResult(false,'Kalimi i statusit nuk është në rend');let missing=shipmentRequirements(x,next);if(missing.length)return coreResult(false,'Mungon: '+missing.join(', '));if(next==='Nisur'&&!x.stockDeducted){let allocations=packs().filter(p=>p.order===x.order),left=+x.net||0,lotIds=[...new Set(allocations.flatMap(pk=>pk.sourceLots||[]))],totalPacked=lotIds.reduce((a,lid)=>a+(+by('lots',lid)?.packedNet||0),0);if(totalPacked+.001<left)return coreResult(false,'Stok i paketuar i pamjaftueshëm');for(let lid of lotIds){let lot=by('lots',lid),take=Math.min(left,+lot?.packedNet||0);if(take){lot.packedNet-=take;lot.availableNet=Math.max(0,lotAvail(lot)-take);lot.net=lot.availableNet;coreMove({key:'SHIP:'+id+':'+lot.id,type:'OUT',source:'shipment',sourceId:id,lot:lot.id,product:lot.product,warehouse:lot.warehouse,qty:-take,unitCost:lot.unitCost,date:x.date,testRunId:x.testRunId});left-=take}}if(left>.001)return coreResult(false,'Stok i paketuar i pamjaftueshëm');x.stockDeducted=true;x.stockDeductedAt=new Date().toISOString()}x.status=next;return coreResult(true,'',x)}
-function coreAccountingSync(runId=''){let a=ensureAccounting(),set=a.settings,created=0,tag=x=>!runId||x.testRunId===runId;function post(key,date,journal,desc,ref,lines,testRunId){let bare=String(key).replace(/^core:/,'');if(a.entries.some(e=>e.sourceKey===key||e.sourceKey===bare))return;let d=lines.reduce((z,l)=>z+l.debit,0),c=lines.reduce((z,l)=>z+l.credit,0);a.entries.push({id:uid('JE'),number:'VK-'+new Date().getFullYear()+'-'+String(a.entries.length+1).padStart(5,'0'),sourceKey:key,sourceRef:ref,date,journal,description:desc,lines,status:Math.abs(d-c)<.005?'Postuar':'Gabim',testRunId});created++}purchaseInvoices().filter(f=>tag(f)&&f.status==='Konfirmuar').forEach(f=>{let v=f.total*(f.currency==='ALL'?1:(+f.exchangeRate||1));post('core:purchase:'+f.id,f.invoiceDate,'J-PUR','Blerje '+f.id,f.id,[{account:set.purchaseExpense||'311',debit:v,credit:0},{account:set.purchasePayable||'401',debit:0,credit:v}],f.testRunId)});state.payments.filter(f=>tag(f)&&(f.status||'Konfirmuar')==='Konfirmuar').forEach(f=>{let rate=f.currency==='ALL'?1:(+f.exchangeRate||+f.rate||1);let v=(+f.amount||0)*rate;let cash=/cash|ark/i.test(f.method||'');post('core:payment:'+f.id,f.date,cash?'J-CASH':'J-BANK','Pagesë '+f.id,f.id,[{account:set.purchasePayable||'401',debit:v,credit:0},{account:cash?(set.cash||'530'):(set.bank||'512'),debit:0,credit:v}],f.testRunId)});salesInvoices().filter(f=>tag(f)&&f.status==='Konfirmuar').forEach(f=>{let rate=f.currency==='ALL'?1:(+f.exchangeRate||1),rev=((+f.subtotal||0)+(+f.palletCost||0)+(+f.loadingCost||0))*rate,vat=(+f.vatAmount||0)*rate,gross=(+f.total||0)*rate,lines=[{account:set.salesReceivable||'411',debit:gross,credit:0},{account:set.salesRevenue||'700',debit:0,credit:rev}];if(vat)lines.push({account:set.salesVat||'445',debit:0,credit:vat});post('core:sale:'+f.id,f.date,'J-SALE','Shitje '+f.id,f.id,lines,f.testRunId)});customerPayments().filter(f=>tag(f)&&(f.status||'Konfirmuar')==='Konfirmuar').forEach(f=>{let rate=f.currency==='ALL'?1:(+f.rate||+f.exchangeRate||1);let v=(+f.amount||0)*rate;let cash=/cash|ark/i.test(f.method||'');post('core:receipt:'+f.id,f.date,cash?'J-CASH':'J-BANK','Arkëtim '+f.id,f.id,[{account:cash?(set.cash||'530'):(set.bank||'512'),debit:v,credit:0},{account:set.salesReceivable||'411',debit:0,credit:v}],f.testRunId)});state.shipments.filter(f=>tag(f)&&f.stockDeducted).forEach(f=>{let v=stockMoves().filter(m=>m.source==='shipment'&&m.sourceId===f.id).reduce((z,m)=>z+Math.abs(m.qty)*m.unitCost,0);post('core:cogs:'+f.id,f.date,'J-GEN','KMSH '+f.id,f.id,[{account:set.cogs||'603',debit:v,credit:0},{account:set.inventory||'311',debit:0,credit:v}],f.testRunId)});return created}
-</script>
-<script>
-let e2eRealEvidence={};
-generateE2E=function(){if(!isAdmin())return toast('Vetëm administratori');cleanE2E(true);normalizeMasterDisplayCodes();e2eRealEvidence={calls:[],errors:[]};let call=(name,fn)=>{let r=fn();e2eRealEvidence.calls.push({name,ok:r.ok,error:r.error,id:r.record?.id});if(!r.ok){e2eRealEvidence.errors.push(name+': '+r.error);throw new Error(name+': '+r.error)}return r.record},tag=x=>({...x,testRunId:E2E_RUN_ID});
-let sup=call('coreCreateMaster supplier',()=>coreCreateMaster('supplier',tag({id:'TST-S001',code:'TST-S001',name:'Fermer Test Berat',country:'Albania',city:'Berat'}))),cus=call('coreCreateMaster customer',()=>coreCreateMaster('customer',tag({id:'TST-C001',code:'TST-C001',name:'Herbal Trade Test GmbH',country:'Germany',vat:'DE-TEST-001',city:'Hamburg',address:'Hamburg, Germany'}))),prd=call('coreCreateMaster product',()=>coreCreateMaster('product',tag({id:'TST-105',code:'TST-105',name:'Ferrë Test E2E',unit:'kg',purchasePrice:339.5}))),wh=call('coreCreateMaster warehouse',()=>coreCreateMaster('warehouse',tag({id:'TST-WH',code:'TST-WH',name:'Magazina Test'}))),rack=call('coreCreateMaster rack',()=>coreCreateMaster('rack',tag({id:'TST-R01',code:'TST-R01',name:'TST-R01',warehouse:'TST-WH'}))),mach=call('coreCreateMaster machine',()=>coreCreateMaster('machine',tag({id:'TST-M01',code:'TST-M01',name:'Makineria Test',status:'E lirë'})));call('bank ALL',()=>coreCreateMaster('bankAccount',tag({id:'TST-BA-ALL',code:'TST-BA-ALL',name:'Banka Test ALL',bank:'Banka Test ALL',currency:'ALL',openingBalance:0
+function coreAccountingSync(runId=''){let a=ensureAccounting(),set=a.settings,created=0,tag=x=>!runId||x.testRunId===runId;function post(key,date,journal,desc,ref,lines,testRunId){let bare=String(key).replace(/^core:/,'
 
 ### lotUnpacked(lot) @ 1524019
-ërkon furnitor, produkt dhe magazinë');if(state.weighings.some(x=>x.id===data.id))return coreResult(false,'Peshimi ekziston');let rows=data.bagRows||[];if(!rows.length||rows.some(r=>!(+r.gross>0)||+r.tare<0||+r.gross<+r.tare))return coreResult(false,'Rresht peshimi i pavlefshëm');let gross=rows.reduce((a,r)=>a+(+r.gross||0),0),tare=rows.reduce((a,r)=>a+(+r.tare||0),0),net=gross-tare,discount=+data.discount||0,x={...data,gross,tare,net,physical:net,billable:net*(1-discount/100),bags:rows.reduce((a,r)=>a+(+r.bags||0),0),status:data.status||'Draft'};state.weighings.push(x);return coreResult(true,'',x)}
-function coreConfirmWeighing(id,lotData){let w=by('weighings',id);if(!w?.id)return coreResult(false,'Peshimi nuk u gjet');if(!(w.gross>0)||!((+w.net||0)>0))return coreResult(false,'Peshimi ka peshë të pavlefshme (bruto/tara) dhe nuk konfirmohet');if(w.status==='Anuluar')return coreResult(false,'Peshimi i anuluar nuk mund të konfirmohet');let existing=state.lots.find(l=>l.weighing===id);if(existing){w.status='Konfirmuar';return coreResult(true,'',existing)};let lot={...lotData,weighing:id,gross:w.gross,tare:w.tare,net:w.net,originalNet:w.net,availableNet:w.net,bags:w.bags,date:w.date,status:'Në magazinim'};state.lots.push(lot);w.status='Konfirmuar';coreMove({key:'WEIGH:'+id,type:'IN',source:'weighing',sourceId:id,lot:lot.id,product:lot.product,warehouse:lot.warehouse,qty:w.net,unitCost:+lot.unitCost||0,date:w.date,testRunId:w.testRunId});return coreResult(true,'',lot)}
+xisting){w.status='Konfirmuar';return coreResult(true,'',existing)};let lot={...lotData,weighing:id,gross:w.gross,tare:w.tare,net:w.net,originalNet:w.net,availableNet:w.net,bags:w.bags,date:w.date,status:'Në magazinim'};state.lots.push(lot);w.status='Konfirmuar';coreMove({key:'WEIGH:'+id,type:'IN',source:'weighing',sourceId:id,lot:lot.id,product:lot.product,warehouse:lot.warehouse,qty:w.net,unitCost:+lot.unitCost||0,date:w.date,testRunId:w.testRunId});return coreResult(true,'',lot)}
 function coreCreatePurchase(data,confirm=false){
   if(!data.id||!data.supplier||!by('suppliers',data.supplier).id)return coreResult(false,'Fatura kërkon furnitor të vlefshëm');
   if(data.weighing&&!state.weighings.some(w=>w.id===data.weighing&&w.status==='Konfirmuar'))return coreResult(false,'Peshimi duhet të jetë i konfirmuar');
@@ -629,17 +515,10 @@ let sample=e2ePush('samples',tag({id:'SM-TEST-001',date:'2026-09-02',lot:lot.id,
 let pk=call('corePackage',()=>corePackage(tag({id:'PK-TEST-001',date:'2026-09-04',order:order.id,customer:cus.id,product:prd.id,sourceLot:'LOT-TST-FIN',internalLot:'B2-TEST-105-26',customerLot:'HTG-TEST-001',bags:60,bagWeight:25,organic:'Organik',origin:'Albania'})));
 let saleData=tag({id:'EXP-2026-001',invoiceNumber:'EXP-2026-001',date:'2026-09-05',customer:cus.id,order:order.id,shipment:'NG-TEST-001',currency:'EUR',exchangeRate:98.5,vat:0,deliveryPlace:'Hamburg, Germany',origin:'Albania',lines:[{product:prd.id,packing:60,bagWeight:25,net:1500,gross:1560,price:8,discount:0}]});let sale=call('coreCreateSale Draft',()=>coreCreateSale(saleData,false));e2eRealEvidence.saleDraftRows=salesReportData().filter(x=>x.invoiceId===sale.id).length;e2eRealEvidence.saleDraftAccounting=coreAccountingSync(E2E_RUN_ID);sale=call('coreCreateSale Confirm',()=>coreCreateSale(saleData,true));call('coreCustomerReceipt',()=>coreCustomerReceipt(tag({id:'MA-TEST-001',date:'2026-09-06',customer:cus.id,invoice:sale.id,method:'Bankë',bankAccount:'TST-BA-EUR',amount:5000,currency:'EUR',rate:98.5,status:'Konfirmuar'})));
 let sh=call('coreCreateShipment',()=>coreCreateShipment(tag({id:'NG-TEST-001',date:'2026-09-06',loadingDate:'2026-09-06',order:order.id,customer:cus.id,net:1500,gross:1560,bags:60,pallets:3,plate:'AA 123 BB',carrier:'Test Logistics sh.p.k.',seal:'PLB-E2E-001',sealPhotoData:'data:image/png;base64,iVBORw0KGgo=',sealPhotoName:'seal.png'})));['Në ngarkim','Ngarkuar','Vulosur'].forEach(st=>call('coreAdvanceShipment '+st,()=>coreAdvanceShipment(sh.id,st)));
-let dos=e2ePush('exportDossiers',tag({id:'DOS-E2E-001',shipment:sh.id,invoice:sale.id,customer:cus.id,status:'Në kontroll',canonicalLocked:true,mrn:'26AL000000TEST001',customsAgency:'Agjencia Test',customsOffice:'Durrës'})),types=['Commercial Invoice','Fatura shqiptare','Packing List','CMR','EUR.1','Certifikatë fitosanitare','Certifikatë origjine','Foto e plumbçes','Deklarata doganore'];types.forEach((type,i)=>e2ePush('documents',tag({id:'DOC-E2E-'+(i+1),shipment:sh.id,type,fileName:type+'.pdf',fileType:'application/pdf',fileData:'data:application/pdf;base64,JVBERi0xLjQKJSVFT0Y=',status:'I kontrolluar',metaConfirmed:true,meta:{invoiceNo:sale.invoiceNumber,currency:'EUR',rate:98.5,net:1500,gross:1560,packages:60,plate:'AA 123 BB',seal:'PLB-E2E-001',customer:cus.name,origin:'Albania',destination:'Hamburg, Germany'}})));let cmr=state.documents.find(d=>d.shipment===sh.id&&d.type==='CMR'),correct=clone(cmr.meta);cmr.meta={...correct,gross:1565,packages:61,plate:'AA 999 ZZ'};e2eRealEvidence.cmrV1Fails=dossierConsistencyChecks(dos).filter(x=>x.status==='fail').length;closeExportDossier(dos.id);e2eRealEvidence.closeBlocked=dos.status!=='Mbyllur';cmr.versions=[{version:1,fileName:'CMR-v1-test.pdf',reason:'Version fillestar testimi',meta:clone(cmr.meta),fileData:cmr.fileData,archivedAt:new Date().toISOString()}];cmr.meta=correct;cmr.version=2;cmr.versionReason='Korrigjim testimi';e2eRealEvidence.cmrV2Fails=dossierConsistencyChecks(dos).filter(x=>x.status==='fail').length;closeExportDossier(dos.id);call('coreAdvanceShipment Dokumentuar',()=>coreAdvanceShipment(sh.id,'Dokumentuar'));call('coreAdvanceShipment Nisur',()=>coreAdvanceShipment(sh.id,'Nisur'));
-let a=ensureAccounting();a.entries=a.entries.filter(x=>x.testRunId!==E2E_RUN_ID);e2eRealEvidence.accountingFirst=coreAccountingSync(E2E_RUN_ID);e2eRealEvidence.accountingSecond=coreAccountingSync(E2E_RUN_ID);save();render();toast(e2eRealEvidence.errors.length?'E2E real ka gabime: '+e2eRealEvidence.errors.join('; '):'U gjenerua E2E përmes funksioneve reale të biznesit')}
-</script>
-<script>
-/* UI adapters: operational forms call the same transaction core as E2E. */
-addProcess=function(){try{let source=by('lots',$val('prLot')),id=nextSeqId('PR',(state.processes||[]),1,new Date().getFullYear()),outId=uid('L'),outCode='B2-'+(source?.code||id),r=coreProcess({id,date:new Date().toISOString().slice(0,10),order:$val('prOrder'),orders:[$val('prOrder')],product:$val('prProduct'),sourceLot:$val('prLot'),machine:$val('prMachine'),input:$num('prInput',0),output:$num('prOutput',0),steps:$val('prSteps','Pastrim → Seleksionim → Prerje → Sitje → Paketim'),clean:$val('prClean','Po'),outputLot:outId,outputLotCode:outCode,warehouse:source?.warehouse,rack:source?.rack});if(!r.ok)return toast(r.error);let m=by('machines',$val('prMachine'));if(m&&m.id)m.status='Në punë';state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Përpunim',ref:id,text:`${id}: hyrje ${fmt2(r.record.input)} kg, dalje ${fmt2(r.record.output)} kg; loti dalës ${outCode}`});save();closeModal();render();toast('Procesi dhe lëvizjet e stokut u regjistruan')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
-savePackaging=function(){try{let pkOrd=$val('pkOrder'),o=by('orders',pkOrd),bags=$num('pkBags',0),bagWeight=$num('pkBagWeight',0),sources=readPackSourceRows('pk'),id=nextSeqId('PK',packs(),1,new Date().getFullYear()),r=corePackage({id,date:new Date().toISOString().slice(0,10),order:pkOrd,customer:o?.customer,product:$val('pkProduct'),sources,internalLot:$val('pkInternal'),customerLot:$val('pkCustomer'),template:$val('pkTemplate','BioBes standard'),bags,bagWeight,cropYear:$num('pkCrop',new Date().getFullYear()),bestBefore:$num('pkBest',new Date().getFullYear()+3),cert:$val('pkCert'),organic:$val('pkOrganic'),originType:$val('pkOriginType'),part:$val('pkPart'),origin:$val('pkOrigin','Albania')});if(!r.ok)return toast(r.error);let codes=sources.map(z=>by('lots',z.lot)?.code).filter(Boolean).join(', ');state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Paketim',ref:id,text:`${id}: ${fmt2(r.record.net)} kg nga ${sources.length} lot(ë): ${codes}`});save();closeModal();render();packagingCard(id)}catch(e){cons
+let dos=e2ePush('exportDossiers',tag({id:'DOS-E2E-001',shipment:sh.id,invoice:sale.id,customer:cus.id,status:'Në kontroll',canonicalLocked:true,mrn:'26AL000000TEST001',customsAgency:'Agjencia Test',customsOffi
 
 ### lotUnpacked(lot) @ 1524142
-');let rows=data.bagRows||[];if(!rows.length||rows.some(r=>!(+r.gross>0)||+r.tare<0||+r.gross<+r.tare))return coreResult(false,'Rresht peshimi i pavlefshëm');let gross=rows.reduce((a,r)=>a+(+r.gross||0),0),tare=rows.reduce((a,r)=>a+(+r.tare||0),0),net=gross-tare,discount=+data.discount||0,x={...data,gross,tare,net,physical:net,billable:net*(1-discount/100),bags:rows.reduce((a,r)=>a+(+r.bags||0),0),status:data.status||'Draft'};state.weighings.push(x);return coreResult(true,'',x)}
-function coreConfirmWeighing(id,lotData){let w=by('weighings',id);if(!w?.id)return coreResult(false,'Peshimi nuk u gjet');if(!(w.gross>0)||!((+w.net||0)>0))return coreResult(false,'Peshimi ka peshë të pavlefshme (bruto/tara) dhe nuk konfirmohet');if(w.status==='Anuluar')return coreResult(false,'Peshimi i anuluar nuk mund të konfirmohet');let existing=state.lots.find(l=>l.weighing===id);if(existing){w.status='Konfirmuar';return coreResult(true,'',existing)};let lot={...lotData,weighing:id,gross:w.gross,tare:w.tare,net:w.net,originalNet:w.net,availableNet:w.net,bags:w.bags,date:w.date,status:'Në magazinim'};state.lots.push(lot);w.status='Konfirmuar';coreMove({key:'WEIGH:'+id,type:'IN',source:'weighing',sourceId:id,lot:lot.id,product:lot.product,warehouse:lot.warehouse,qty:w.net,unitCost:+lot.unitCost||0,date:w.date,testRunId:w.testRunId});return coreResult(true,'',lot)}
+re,net:w.net,originalNet:w.net,availableNet:w.net,bags:w.bags,date:w.date,status:'Në magazinim'};state.lots.push(lot);w.status='Konfirmuar';coreMove({key:'WEIGH:'+id,type:'IN',source:'weighing',sourceId:id,lot:lot.id,product:lot.product,warehouse:lot.warehouse,qty:w.net,unitCost:+lot.unitCost||0,date:w.date,testRunId:w.testRunId});return coreResult(true,'',lot)}
 function coreCreatePurchase(data,confirm=false){
   if(!data.id||!data.supplier||!by('suppliers',data.supplier).id)return coreResult(false,'Fatura kërkon furnitor të vlefshëm');
   if(data.weighing&&!state.weighings.some(w=>w.id===data.weighing&&w.status==='Konfirmuar'))return coreResult(false,'Peshimi duhet të jetë i konfirmuar');
@@ -676,32 +555,10 @@ let sample=e2ePush('samples',tag({id:'SM-TEST-001',date:'2026-09-02',lot:lot.id,
 let pk=call('corePackage',()=>corePackage(tag({id:'PK-TEST-001',date:'2026-09-04',order:order.id,customer:cus.id,product:prd.id,sourceLot:'LOT-TST-FIN',internalLot:'B2-TEST-105-26',customerLot:'HTG-TEST-001',bags:60,bagWeight:25,organic:'Organik',origin:'Albania'})));
 let saleData=tag({id:'EXP-2026-001',invoiceNumber:'EXP-2026-001',date:'2026-09-05',customer:cus.id,order:order.id,shipment:'NG-TEST-001',currency:'EUR',exchangeRate:98.5,vat:0,deliveryPlace:'Hamburg, Germany',origin:'Albania',lines:[{product:prd.id,packing:60,bagWeight:25,net:1500,gross:1560,price:8,discount:0}]});let sale=call('coreCreateSale Draft',()=>coreCreateSale(saleData,false));e2eRealEvidence.saleDraftRows=salesReportData().filter(x=>x.invoiceId===sale.id).length;e2eRealEvidence.saleDraftAccounting=coreAccountingSync(E2E_RUN_ID);sale=call('coreCreateSale Confirm',()=>coreCreateSale(saleData,true));call('coreCustomerReceipt',()=>coreCustomerReceipt(tag({id:'MA-TEST-001',date:'2026-09-06',customer:cus.id,invoice:sale.id,method:'Bankë',bankAccount:'TST-BA-EUR',amount:5000,currency:'EUR',rate:98.5,status:'Konfirmuar'})));
 let sh=call('coreCreateShipment',()=>coreCreateShipment(tag({id:'NG-TEST-001',date:'2026-09-06',loadingDate:'2026-09-06',order:order.id,customer:cus.id,net:1500,gross:1560,bags:60,pallets:3,plate:'AA 123 BB',carrier:'Test Logistics sh.p.k.',seal:'PLB-E2E-001',sealPhotoData:'data:image/png;base64,iVBORw0KGgo=',sealPhotoName:'seal.png'})));['Në ngarkim','Ngarkuar','Vulosur'].forEach(st=>call('coreAdvanceShipment '+st,()=>coreAdvanceShipment(sh.id,st)));
-let dos=e2ePush('exportDossiers',tag({id:'DOS-E2E-001',shipment:sh.id,invoice:sale.id,customer:cus.id,status:'Në kontroll',canonicalLocked:true,mrn:'26AL000000TEST001',customsAgency:'Agjencia Test',customsOffice:'Durrës'})),types=['Commercial Invoice','Fatura shqiptare','Packing List','CMR','EUR.1','Certifikatë fitosanitare','Certifikatë origjine','Foto e plumbçes','Deklarata doganore'];types.forEach((type,i)=>e2ePush('documents',tag({id:'DOC-E2E-'+(i+1),shipment:sh.id,type,fileName:type+'.pdf',fileType:'application/pdf',fileData:'data:application/pdf;base64,JVBERi0xLjQKJSVFT0Y=',status:'I kontrolluar',metaConfirmed:true,meta:{invoiceNo:sale.invoiceNumber,currency:'EUR',rate:98.5,net:1500,gross:1560,packages:60,plate:'AA 123 BB',seal:'PLB-E2E-001',customer:cus.name,origin:'Albania',destination:'Hamburg, Germany'}})));let cmr=state.documents.find(d=>d.shipment===sh.id&&d.type==='CMR'),correct=clone(cmr.meta);cmr.meta={...correct,gross:1565,packages:61,plate:'AA 999 ZZ'};e2eRealEvidence.cmrV1Fails=dossierConsistencyChecks(dos).filter(x=>x.status==='fail').length;closeExportDossier(dos.id);e2eRealEvidence.closeBlocked=dos.status!=='Mbyllur';cmr.versions=[{version:1,fileName:'CMR-v1-test.pdf',reason:'Version fillestar testimi',meta:clone(cmr.meta),fileData:cmr.fileData,archivedAt:new Date().toISOString()}];cmr.meta=correct;cmr.version=2;cmr.versionReason='Korrigjim testimi';e2eRealEvidence.cmrV2Fails=dossierConsistencyChecks(dos).filter(x=>x.status==='fail').length;closeExportDossier(dos.id);call('coreAdvanceShipment Dokumentuar',()=>coreAdvanceShipment(sh.id,'Dokumentuar'));call('coreAdvanceShipment Nisur',()=>coreAdvanceShipment(sh.id,'Nisur'));
-let a=ensureAccounting();a.entries=a.entries.filter(x=>x.testRunId!==E2E_RUN_ID);e2eRealEvidence.accountingFirst=coreAccountingSync(E2E_RUN_ID);e2eRealEvidence.accountingSecond=coreAccountingSync(E2E_RUN_ID);save();render();toast(e2eRealEvidence.errors.length?'E2E real ka gabime: '+e2eRealEvidence.errors.join('; '):'U gjenerua E2E përmes funksioneve reale të biznesit')}
-</script>
-<script>
-/* UI adapters: operational forms call the same transaction core as E2E. */
-addProcess=function(){try{let source=by('lots',$val('prLot')),id=nextSeqId('PR',(state.processes||[]),1,new Date().getFullYear()),outId=uid('L'),outCode='B2-'+(source?.code||id),r=coreProcess({id,date:new Date().toISOString().slice(0,10),order:$val('prOrder'),orders:[$val('prOrder')],product:$val('prProduct'),sourceLot:$val('prLot'),machine:$val('prMachine'),input:$num('prInput',0),output:$num('prOutput',0),steps:$val('prSteps','Pastrim → Seleksionim → Prerje → Sitje → Paketim'),clean:$val('prClean','Po'),outputLot:outId,outputLotCode:outCode,warehouse:source?.warehouse,rack:source?.rack});if(!r.ok)return toast(r.error);let m=by('machines',$val('prMachine'));if(m&&m.id)m.status='Në punë';state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Përpunim',ref:id,text:`${id}: hyrje ${fmt2(r.record.input)} kg, dalje ${fmt2(r.record.output)} kg; loti dalës ${outCode}`});save();closeModal();render();toast('Procesi dhe lëvizjet e stokut u regjistruan')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
-savePackaging=function(){try{let pkOrd=$val('pkOrder'),o=by('orders',pkOrd),bags=$num('pkBags',0),bagWeight=$num('pkBagWeight',0),sources=readPackSourceRows('pk'),id=nextSeqId('PK',packs(),1,new Date().getFullYear()),r=corePackage({id,date:new Date().toISOString().slice(0,10),order:pkOrd,customer:o?.customer,product:$val('pkProduct'),sources,internalLot:$val('pkInternal'),customerLot:$val('pkCustomer'),template:$val('pkTemplate','BioBes standard'),bags,bagWeight,cropYear:$num('pkCrop',new Date().getFullYear()),bestBefore:$num('pkBest',new Date().getFullYear()+3),cert:$val('pkCert'),organic:$val('pkOrganic'),originType:$val('pkOriginType'),part:$val('pkPart'),origin:$val('pkOrigin','Albania')});if(!r.ok)return toast(r.error);let codes=sources.map(z=>by('lots',z.lot)?.code).filter(Boolean).join(', ');state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Paketim',ref:id,text:`${id}: ${fmt2(r.record.net)} kg nga ${sources.length} lot(ë): ${codes}`});save();closeModal();render();packagingCard(id)}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
-savePurchase=function(id,confirmIt){try{let old=purchaseInvoices()
+let dos=e2ePush('exportDossiers',tag({id:'DOS-E2E-001',shipment:sh.id,invoice:sale.id,customer:cus.id,status:'Në kontroll',canonicalLocked:true,mrn:'26AL000000TEST001',customsAgency:'Agjencia Test',customsOffice:'Durrës'})),types=['Commercial Invoice','Fatura shqiptare','Packing List','CMR','EUR.1','Certifikatë fitosanitare','Cert
 
 ### lotUnpacked(lot) @ 1725818
-12px">${(state.salesInvoices||[]).length} fatura shitje</span><span style="background:#ffffff22;padding:6px 12px;border-radius:20px;font-size:12px">${(state.weighings||[]).length} blerje</span></div>
-        </div>
-      </div><div class="odoo-report-modules">${mods.map(([k,n,i,d,meta])=>`<button class="odoo-report-module" onclick="odooReportModule='${k}';render()"><i>${i}</i><b>${n}</b><small>${d}</small><span style="display:inline-block;margin-top:8px;background:#f1f8f4;color:#176b49;padding:3px 8px;border-radius:20px;font-size:11px">${meta}</span></button>`).join('')}</div>`;
-    }catch(e){
-      return _odooHomeOrig();
-    }
-  };
-
-  views.reports=function(){
-    if(reportsMode==='odoo'){
-      var header=head('Raportet','Raporte të lidhura me transaksionet reale të ERP-së — Odoo 19 style');
-      var content=odooReportModule?odooModuleContent():odooReportHome();
-      // Inject search if in module view
-      return header+reportsModeTabs(true)+content;
-    }
-    // Alpha mode - preserve original but replace its tabs
+serve original but replace its tabs
     var html=reportsFinalBase();
     if(alphaActiveReport===''){
       var marker='<div class="reports-mode-tabs">',i=html.indexOf(marker);
@@ -930,74 +787,10 @@ function packagingEditForm(id){
     <div class="field"><label>Origjina</label><select id="peOriginType">${pick(['Wild collected','Cultivated'],x.originType)}</select></div>
     <div class="field"><label>Pjesa e bimës</label><select id="pePart">${pick(['Folia','Herba','Flores','Radix','Fructus'],x.part)}</select></div>
     <div class="field"><label>Vendi i origjinës</label><input id="peOrigin" value="${esc(x.origin)}"></div>
-    <div class="field full"><p class="hint">Neto aktuale: <b>${n(packNet(x))} kg</b> nga <b>${packSourceLots(x).length}</b> lot(ë) burimor(ë): ${packSourceLots(x).map(l=>esc(l.code)+' ('+fmt2(packLotQty(x,l.id))+' kg)').join(', ')||'—'}. Ndryshimi i sasive ose i loteve rregullon automatikisht gjendjen e magazinës për çdo lot.</p></div>
-  </div>`,`<button class="btn" onclick="packagingCard('${id}')">Mbyll</button><button class="btn primary" onclick="savePackagingEdit('${id}')">Ruaj ndryshimet</button>`);
-  setTimeout(()=>{
-    try{
-      enhanceEntitySelects();
-      let prod=document.getElementById('peProduct');
-      prod?.addEventListener('change',()=>packSourceRefreshAdd('pe',prod.value));
-      ['peBags','peBagWeight'].forEach(z=>document.getElementById(z)?.addEventListener('input',()=>packSourceSum('pe')));
-      if(labelOnly){
-        let c=packSourceContainer('pe');
-        if(c){c.querySelectorAll('input[data-pack-qty]').forEach(i=>i.disabled=true);c.querySelectorAll('select,button').forEach(b=>b.style.display='none')}
-        ['peBags','peBagWeight'].forEach(z=>{let el=document.getElementById(z);if(el)el.disabled=true});
-      }
-      packSourceSum('pe');
-    }catch(e){console.error(e)}
-  },30);
-}
-
-/* ------------------------------- ruajtja e editimit ------------------------ */
-function savePackagingEdit(id){
-  try{
-    let x=packById(id);
-    if(!x)return toast('Paketimi nuk u gjet');
-    let block=packBlockingReasons(x);
-    if(block.length){
-      let internalLo=$val('peInternal').trim();
-      if(!internalLo)return toast('Plotësoni lotin BioBes');
-      Object.assign(x,{internalLot:internalLo,customerLot:$val('peCustomer').trim(),template:$val('peTemplate','BioBes standard'),cropYear:$num('peCrop',new Date().getFullYear()),bestBefore:$num('peBest',new Date().getFullYear()+3),cert:$val('peCert'),organic:$val('peOrganic'),originType:$val('peOriginType'),part:$val('pePart'),origin:$val('peOrigin','Albania'),updatedAt:new Date().toISOString()});
-      state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Ndryshim etikete',ref:id,text:id+': u përditësuan vetëm fushat e etiketës (paketim i lidhur me dokumente të konfirmuara)'});
-      save();closeModal();render();setTimeout(()=>packagingCard(id),80);
-      toast('Fushat e etiketës u ruajtën — sasia/loti u mban siç është');
-      return;
-    }
-    let order=$val('peOrder'),product=$val('peProduct'),internal=$val('peInternal').trim(),o=by('orders',order);
-    if(!o.id||!product||!internal)return toast('Plotësoni porosinë, produktin dhe lotin BioBes');
-    let bags=$num('peBags',0),bagWeight=$num('peBagWeight',0),newNet=bags*bagWeight;
-    if(!(bags>0)||!(bagWeight>0))return toast('Nr. i thasëve dhe pesha neto/thes duhet të jenë më të mëdha se zero');
-    let oldMap={};packSourceLots(x).forEach(l=>oldMap[l.id]=packLotQty(x,l.id));
-    let coll=collectPackSources('pe',newNet,product,oldMap);
-    if(coll.error)return toast(coll.error);
-    let oldNet=packNet(x);
-    let r=atomicTransaction('Ndryshim paketimi '+id,()=>{
-      packSourceLots(x).forEach(l=>{let q=packLotQty(x,l.id);
-        l.unpackedNet=lotUnpacked(l)+q;
-        l.packedNet=Math.max(0,(+l.packedNet||0)-q)});
-      coll.sources.forEach(z=>{let l=by('lots',z.lot);if(!l||!l.id)throw new Error('Loti burimor nuk u gjet');
-        if(z.qty>lotUnpacked(l)+.001)throw new Error('Paketimi tejkalon stokun e papaketuar te loti '+l.code);
-        l.unpackedNet=lotUnpacked(l)-z.qty;
-        l.packedNet=(+l.packedNet||0)+z.qty});
-      Object.assign(x,{
-        order:order,customer:o.customer,product:product,sourceLots:coll.ids,sourceLotQtys:coll.qtys,
-        internalLot:internal,customerLot:$val('peCustomer').trim(),
-        template:$val('peTemplate','BioBes standard'),bags:bags,bagWeight:bagWeight,
-        cropYear:$num('peCrop',new Date().getFullYear()),bestBefore:$num('peBest',new Date().getFullYear()+3),
-        cert:$val('peCert'),organic:$val('peOrganic'),originType:$val('peOriginType'),part:$val('pePart'),
-        origin:$val('peOrigin','Albania'),net:
+    <div class="field full"><p class="hint">Neto a
 
 ### lotUnpacked(lot) @ 1731562
-urn JSON.parse(packSourceContainer(prefix)?.dataset.packOld||'{}')}catch(e){return{}}}
-function packSourceRowHtml(prefix,lotId,qty,oldMap){
-  oldMap=oldMap||{};let lot=by('lots',lotId);if(!lot||!lot.id)return'';
-  let p=by('products',lot.product)||{},free=lotUnpacked(lot)+(((+oldMap[lotId])||0));
-  return '<div data-pack-source-row="'+prefix+'" data-lot="'+lotId+'" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:6px 8px;border:1px solid #d4dcd6;border-radius:8px;background:#f7faf8">'
-    +'<div style="flex:1"><b>'+esc(lot.code)+'</b><br><small>'+esc((p.code||'')+' — '+(p.name||''))+' · të lira '+fmt2(free)+' kg</small></div>'
-    +'<input type="number" step="0.001" min="0" '+(qty===''?'':('value="'+fmt2(+qty||0)+'"'))+' data-pack-qty oninput="packSourceSum(\''+prefix+'\')" style="width:120px"> <span>kg</span>'
-    +'<button type="button" class="btn small danger" onclick="packSourceRemoveRow(this,\''+prefix+'\')">✕</button></div>';
-}
-function packSourceAddOptions(prefix,productId,oldMap,selected){
+s(prefix,productId,oldMap,selected){
   let chosen=new Set((selected||[]).map(z=>z.lot||z));
   let lots=packagingCandidateLots(productId).filter(l=>!chosen.has(l.id));
   return '<option value="">Shto një lot…</option>'+lots.map(l=>'<option value="'+l.id+'">'+esc(l.code+' — '+(by('products',l.product)?by('products',l.product).name:'')+' — të lira '+fmt2(lotUnpacked(l)+(((+oldMap[l.id])||0)))+' kg')+'</option>').join('');
@@ -1221,87 +1014,10 @@ function savePackagingEdit(id){
     save();closeModal();render();
     setTimeout(()=>packagingCard(id),80);
     toast('Paketimi u përditësua');
-  }catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}
-}
-
-/* --------------------------------- fshirja -------------------------------- */
-function packagingDelete(id){
-  if(!requireAdmin('fshijë paketimin'))return;
-  let x=packById(id);
-  if(!x)return toast('Paketimi nuk u gjet');
-  let block=packBlockingReasons(x);
-  if(block.length)return toast('Paketimi nuk fshihet sepse është i lidhur me: '+block.join('; '));
-  let reason=prompt('ADMIN — arsyeja e fshirjes së paketimit '+id+':');
-  if(!reason||!String(reason).trim())return toast('Arsyeja e fshirjes është e detyrueshme');
-  if(!confirm('Ta fshini paketimin '+id+'? '+fmt2(packNet(x))+' kg do të kthehen te lotet burimorë ('+packSourceLots(x).map(l=>l.code).join(', ')+').'))return;
-  let net=packNet(x);
-  let r=atomicTransaction('Fshirje paketimi '+id,()=>{
-    packSourceLots(x).forEach(lot=>{let q=packLotQty(x,lot.id);if(!q)return;
-      lot.unpackedNet=lotUnpacked(lot)+q;
-      lot.packedNet=Math.max(0,(+lot.packedNet||0)-q)});
-    packStockMoves(x).forEach(mv=>{
-      mv.status='Anuluar';
-      coreMove({key:'REV:'+mv.key+':'+stockMoves().length,type:'TRANSFER',source:'reversal',sourceId:id,lot:mv.lot,product:mv.product,
-        warehouse:mv.warehouse,qty:0,fromState:'packed',toState:'unpacked',stateQty:+(mv.stateQty||net),unitCost:mv.unitCost,
-        reversalOf:mv.id,date:new Date().toISOString().slice(0,10),testRunId:x.testRunId})});
-    state.packagings=(state.packagings||[]).filter(p=>p.id!==id);
-    state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Fshirje paketimi',ref:id,text:String(reason).trim()});
-    try{securityAudit('PACKAGING_DELETED',id+': '+String(reason).trim())}catch(e){}
-    return coreResult(true,'',x);
-  });
-  if(!r||!r.ok)return toast((r&&r.error)||'Fshirja dështoi');
-  save();closeModal();render();
-  toast('Paketimi '+id+' u fshi — '+fmt2(net)+' kg u kthyen në stok');
-}
-</script>
-<script id="biobes-multilot-v2">
-/* ============ Shumë-lotësh v2 — Paketim / Ngarkesë / Përpunim / Eksport (2026-09-11) ============
-   - Paketim: fushë e gjerë "KG nga ky lot", gjithmonë e editueshme, placeholder 0.00, buton X në
-     kolonë më vete, shpërndarje njëlloj me saktësi miligrami dhe rrillogaritje live e totalit/diferencës.
-   - Ngarkesa: 2-3 porosi të të njëjtit klient në një kontejner (përzgjedhës shto/hiq), klient auto,
-     neto/thasë auto nga paketimet, zbritje stoku për të gjitha lotet; "Krijo Ngarkesë" nga porositë
-     e shton porosinë automatikisht.
-   - Përpunim: disa lote lënde të parë me kg për lot (hyrje auto si shumë, readonly, e shpërndarë
-     njëlloj); coreProcess bën një lëvizje OUT për lot dhe një IN; loti dalës me kosto mesatare të
-     ponderuar dhe sourceLots; refuzohen tejkalimi i stokut, produkti tjetër dhe loti i përsëritur.
-   - Eksport: dosja bashkon porositë/faturat e kontejnerit dhe tregon manifestin e ngarkimit
-     (produkt, lot BioBes, lote burimore, kg, thasë, neto).
-   - Prapëpërputhshmëri e plotë me të dhënat e vjetra një-porosi/një-lot; të gjitha tekstet në shqip. */
-
-/* ---------- saktësia miligram & shpërndarja njëlloj ---------- */
-function mgRound(v){let r=Math.round((+v||0)*1e6)/1e6;return Object.is(r,-0)?0:r}
-function mgStr(v){let s=mgRound(v).toFixed(6).replace(/\.?0+$/,'');return s===''||s==='-'?'0':s}
-function distributeEvenMg(total,count){total=mgRound(total);count=Math.max(1,Math.floor(count)||1);if(count===1)return[total];let each=Math.floor(total/count*1e6)/1e6,out=[];for(let i=0;i<count;i++)out.push(i===count-1?mgRound(total-each*(count-1)):each);return out}
-
-/* ---------- Paketim: rreshtat e loteve burimore (KG e gjerë, gjithmonë e editueshme) ---------- */
-function packSourceRowHtml(prefix,lotId,qty,oldMap){
-  oldMap=oldMap||{};let lot=by('lots',lotId);if(!lot||!lot.id)return'';
-  let p=by('products',lot.product)||{},free=lotUnpacked(lot)+(((+oldMap[lotId])||0));
-  return '<div data-pack-source-row="'+prefix+'" data-lot="'+lotId+'" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:6px 8px;border:1px sol
+  }catch(e){console.error(e);toast('Gabim gjatë
 
 ### lotUnpacked(lot) @ 1744451
-'pe',prod.value));
-      ['peBags','peBagWeight'].forEach(z=>document.getElementById(z)?.addEventListener('input',()=>packSourceSum('pe')));
-      if(labelOnly){
-        let c=packSourceContainer('pe');
-        if(c){c.querySelectorAll('input[data-pack-qty]').forEach(i=>i.disabled=true);c.querySelectorAll('select,button').forEach(b=>b.style.display='none')}
-        ['peBags','peBagWeight'].forEach(z=>{let el=document.getElementById(z);if(el)el.disabled=true});
-      }
-      packSourceSum('pe');
-    }catch(e){console.error(e)}
-  },30);
-}
-
-/* ------------------------------- ruajtja e editimit ------------------------ */
-function savePackagingEdit(id){
-  try{
-    let x=packById(id);
-    if(!x)return toast('Paketimi nuk u gjet');
-    let block=packBlockingReasons(x);
-    if(block.length){
-      let internalLo=$val('peInternal').trim();
-      if(!internalLo)return toast('Plotësoni lotin BioBes');
-      Object.assign(x,{internalLot:internalLo,customerLot:$val('peCustomer').trim(),template:$val('peTemplate','BioBes standard'),cropYear:$num('peCrop',new Date().getFullYear()),bestBefore:$num('peBest',new Date().getFullYear()+3),cert:$val('peCert'),organic:$val('peOrganic'),originType:$val('peOriginType'),part:$val('pePart'),origin:$val('peOrigin','Albania'),updatedAt:new Date().toISOString()});
+al('peTemplate','BioBes standard'),cropYear:$num('peCrop',new Date().getFullYear()),bestBefore:$num('peBest',new Date().getFullYear()+3),cert:$val('peCert'),organic:$val('peOrganic'),originType:$val('peOriginType'),part:$val('pePart'),origin:$val('peOrigin','Albania'),updatedAt:new Date().toISOString()});
       state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Ndryshim etikete',ref:id,text:id+': u përditësuan vetëm fushat e etiketës (paketim i lidhur me dokumente të konfirmuara)'});
       save();closeModal();render();setTimeout(()=>packagingCard(id),80);
       toast('Fushat e etiketës u ruajtën — sasia/loti u mban siç është');
@@ -1490,32 +1206,10 @@ if(next==='Nisur'){
 return [...new Set(missing)]}
 function coreAdvanceShipment(id,next){let x=by('shipments',id),cur=normalizedShipmentStatus(x),expected=shipmentStages[shipmentStages.indexOf(cur)+1];if(!x?.id||next!==expected)return coreResult(false,'Kalimi i statusit nuk është në rend');let missing=shipmentRequirements(x,next);if(missing.length)return coreResult(false,'Mungon: '+missing.join(', '));if(next==='Nisur'&&!x.stockDeducted){let os=new Set(shipmentOrders(x)),allocations=packs().filter(p=>os.has(p.order)),left=+x.net||0,lotIds=[...new Set(allocations.flatMap(pk=>pk.sourceLots||[]))],totalPacked=lotIds.reduce((a,lid)=>a+(+by('lots',lid)?.packedNet||0),0);if(totalPacked+.001<left)return coreResult(false,'Stok i paketuar i pamjaftueshëm');for(let lid of lotIds){let lot=by('lots',lid),take=Math.min(left,+lot?.packedNet||0);if(take){lot.packedNet-=take;lot.availableNet=Math.max(0,lotAvail(lot)-take);lot.net=lot.availableNet;coreMove({key:'SHIP:'+id+':'+lot.id,type:'OUT',source:'shipment',sourceId:id,lot:lot.id,product:lot.product,warehouse:lot.warehouse,qty:-take,unitCost:lot.unitCost,date:x.date,testRunId:x.testRunId});left-=take}}if(left>.001)return coreResult(false,'Stok i paketuar i pamjaftueshëm');x.stockDeducted=true;x.stockDeductedAt=new Date().toISOString()}x.status=next;return coreResult(true,'',x)}
 function shipOrderOptionsHtml(chosen){let set=new Set(chosen||[]);return '<option value="">Shto porosi…</option>'+(state.orders||[]).filter(o=>!set.has(o.id)).map(o=>'<option value="'+o.id+'">'+esc(o.id+' — '+(by('customers',o.customer).name||''))+'</option>').join('')}
-function shipOrderRowHtml(orderId){let o=by('orders',orderId),c=by('customers',o?o.customer:'');return '<div data-ship-order-row data-order="'+orderId+'" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:6px 8px;border:1px solid #d4dcd6;border-radius:8px;background:#f7faf8"><div style="flex:1;min-width:150px"><b>'+esc(orderId)+'</b><br><small>'+esc(c?.name||'')+' · '+esc(c?.country||'')+'</small></div><div style="flex:0 0 42px;text-align:right"><button type="button" class="btn small danger" title="Hiq porosinë" onclick="shipOrderRemoveRow(this)">✕</button></div></div>'}
-function shipOrderRows(){return Array.from(document.querySelectorAll('[data-ship-order-row]'))}
-function shipOrderIds(){return shipOrderRows().map(r=>r.dataset.order)}
-function shipOrderSync(){let ids=shipOrderIds(),o=by('orders',ids[0]),c=document.getElementById('shCustomer');if(c&&o&&o.customer)c.value=o.customer;let t=containerPackTotals(ids),net=document.getElementById('shNet'),bags=document.getElementById('shBags');if(net&&!net.dataset.touched)net.value=mgStr(t.net);if(bags&&!bags.dataset.touched)bags.value=t.bags;let el=document.getElementById('shOrderSum');if(el)el.innerHTML=ids.length?('Porosi: <b>'+ids.length+'</b> · nga paketimet: <b>'+fmt2(t.net)+' kg</b> dhe <b>'+t.bags+'</b> thasë (neto/thasë plotësohen auto, mund t’i ndryshoni)'):'Shto të paktën një porosi të kontejnerit'}
-function shipOrderRefresh(){let sel=document.getElementById('shOrderAdd');if(sel)sel.innerHTML=shipOrderOptionsHtml(shipOrderIds());shipOrderSync()}
-function shipOrderAdd(){let sel=document.getElementById('shOrderAdd'),id=sel?sel.value:'';if(!id)return;let ids=shipOrderIds();if(ids.includes(id))return toast('Kjo porosi është tashmë në kontejner');if(ids.length>=3)return toast('Më së shumti 3 porosi në një kontejner');let o=by('orders',id),first=by('orders',ids[0]);if(first&&first.id&&o&&o.customer&&first.customer&&o.customer!==first.customer)return toast('Të gjitha porositë e kontejnerit duhet të jenë të së njëjtit klient');let box=document.querySelector('[data-ship-orders]');if(!box)return;box.insertAdjacentHTML('beforeend',shipOrderRowHtml(id));sel.value='';shipOrderRefresh()}
-function shipOrderRemoveRow(btn){btn.closest('[data-ship-order-row]')?.remove();shipOrderRefresh()}
-function syncShipCustomer(){shipOrderSync()}
-function shipmentForm(){modal('Ngarkesë e re — kontejner',`<div class="form-grid"><div class="field"><label>Data</label><input id="shDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field full"><label>Porositë e kontejnerit * <small>(1-3 porosi të së njëjtit klient)</small></label><div style="display:flex;gap:8px;margin-bottom:6px"><select id="shOrderAdd" style="flex:1">${shipOrderOptionsHtml([])}</select><button type="button" class="btn small" onclick="shipOrderAdd()">+ Shto porosi</button></div><div data-ship-orders></div><p class="hint" id="shOrderSum" style="margin:0"></p></div><div class="field"><label>Klienti</label><select id="shCustomer">${opts(state.customers,x=>x.name+' — '+x.country)}</select></div><div class="field"><label>Targa</label><input id="shPlate"></div><div class="field"><label>Transportuesi</label><input id="shCarrier"></div><div class="field"><label>Numri i plumbçes</label><input id="shSeal"></div><div class="field"><label>Pesha neto kg <small>(auto nga paketimet)</small></label><input id="shNet" type="number" step="0.000001" oninput="this.dataset.touched='1'"></div><div class="field"><label>Pesha bruto kg</label><input id="shGross" type="number" step="0.000001"></div><div class="field"><label>Nr. thasëve <small>(auto)</small></label><input id="shBags" type="number" oninput="this.dataset.touched='1'"></div><div class="field"><label>Nr. paletave</label><input id="shPallets" type="number"></div><div class="field full"><label>Foto e plumbçes</label><input type="file" accept="image/*"></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addShipment()">Krijo ngarkesën</button>`);shipOrderSync()}
-function addShipment(){try{let orders=shipOrderIds();if(!orders.length)return toast('Shto të paktën një porosi në kontejner');let data={id:nextSeqId('NG',(state.shipments||[]),1,new Date().getFullYear()),date:$val('shDate',new Date().toISOString().slice(0,10)),orders,order:orders[0],custom
+function shipOrderRowHtml(orderId){let o=by('orders',orderId),c=by('customers',o?o.customer:'');return '<div data-ship-order-row data-order="'+orderId+'" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:6px 8px;border:1px solid #d4dcd6;border-radius:8px;background:#f7faf8"><div style="flex:1;min-width:150px"><b>'+esc(orderId)+'</
 
 ### lotUnpacked(lot) @ 1747355
-,sourceLots:coll.ids,sourceLotQtys:coll.qtys,
-        internalLot:internal,customerLot:$val('peCustomer').trim(),
-        template:$val('peTemplate','BioBes standard'),bags:bags,bagWeight:bagWeight,
-        cropYear:$num('peCrop',new Date().getFullYear()),bestBefore:$num('peBest',new Date().getFullYear()+3),
-        cert:$val('peCert'),organic:$val('peOrganic'),originType:$val('peOriginType'),part:$val('pePart'),
-        origin:$val('peOrigin','Albania'),net:newNet,qty:newNet,updatedAt:new Date().toISOString()
-      });
-      let oldMoves=packStockMoves(x),used=new Set();
-      coll.sources.forEach(z=>{
-        let l=by('lots',z.lot),key=(coll.sources.length===1?'PACK:'+id:'PACK:'+id+':'+l.id),
-            mv=oldMoves.find(m=>!used.has(m.id)&&m.lot===l.id)||oldMoves.find(m=>!used.has(m.id));
-        if(mv){used.add(mv.id);mv.key=key;mv.lot=l.id;mv.product=l.product;mv.warehouse=l.warehouse;
-          mv.stateQty=z.qty;mv.unitCost=l.unitCost;mv.date=x.date}
-        else coreMove({key,type:'TRANSFER',source:'packaging',sourceId:id,lot:l.id,product:l.product,
+pe:'TRANSFER',source:'packaging',sourceId:id,lot:l.id,product:l.product,
           warehouse:l.warehouse,qty:0,fromState:'unpacked',toState:'packed',stateQty:z.qty,
           unitCost:l.unitCost,date:x.date,testRunId:x.testRunId})});
       oldMoves.filter(m=>!used.has(m.id)).forEach(mv=>{mv.status='Anuluar';
@@ -1676,32 +1370,10 @@ function shipOrderRefresh(){let sel=document.getElementById('shOrderAdd');if(sel
 function shipOrderAdd(){let sel=document.getElementById('shOrderAdd'),id=sel?sel.value:'';if(!id)return;let ids=shipOrderIds();if(ids.includes(id))return toast('Kjo porosi është tashmë në kontejner');if(ids.length>=3)return toast('Më së shumti 3 porosi në një kontejner');let o=by('orders',id),first=by('orders',ids[0]);if(first&&first.id&&o&&o.customer&&first.customer&&o.customer!==first.customer)return toast('Të gjitha porositë e kontejnerit duhet të jenë të së njëjtit klient');let box=document.querySelector('[data-ship-orders]');if(!box)return;box.insertAdjacentHTML('beforeend',shipOrderRowHtml(id));sel.value='';shipOrderRefresh()}
 function shipOrderRemoveRow(btn){btn.closest('[data-ship-order-row]')?.remove();shipOrderRefresh()}
 function syncShipCustomer(){shipOrderSync()}
-function shipmentForm(){modal('Ngarkesë e re — kontejner',`<div class="form-grid"><div class="field"><label>Data</label><input id="shDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field full"><label>Porositë e kontejnerit * <small>(1-3 porosi të së njëjtit klient)</small></label><div style="display:flex;gap:8px;margin-bottom:6px"><select id="shOrderAdd" style="flex:1">${shipOrderOptionsHtml([])}</select><button type="button" class="btn small" onclick="shipOrderAdd()">+ Shto porosi</button></div><div data-ship-orders></div><p class="hint" id="shOrderSum" style="margin:0"></p></div><div class="field"><label>Klienti</label><select id="shCustomer">${opts(state.customers,x=>x.name+' — '+x.country)}</select></div><div class="field"><label>Targa</label><input id="shPlate"></div><div class="field"><label>Transportuesi</label><input id="shCarrier"></div><div class="field"><label>Numri i plumbçes</label><input id="shSeal"></div><div class="field"><label>Pesha neto kg <small>(auto nga paketimet)</small></label><input id="shNet" type="number" step="0.000001" oninput="this.dataset.touched='1'"></div><div class="field"><label>Pesha bruto kg</label><input id="shGross" type="number" step="0.000001"></div><div class="field"><label>Nr. thasëve <small>(auto)</small></label><input id="shBags" type="number" oninput="this.dataset.touched='1'"></div><div class="field"><label>Nr. paletave</label><input id="shPallets" type="number"></div><div class="field full"><label>Foto e plumbçes</label><input type="file" accept="image/*"></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addShipment()">Krijo ngarkesën</button>`);shipOrderSync()}
-function addShipment(){try{let orders=shipOrderIds();if(!orders.length)return toast('Shto të paktën një porosi në kontejner');let data={id:nextSeqId('NG',(state.shipments||[]),1,new Date().getFullYear()),date:$val('shDate',new Date().toISOString().slice(0,10)),orders,order:orders[0],customer:$val('shCustomer'),plate:$val('shPlate'),carrier:$val('shCarrier'),seal:$val('shSeal'),net:$num('shNet',0),gross:$num('shGross',0),bags:$num('shBags',0),pallets:$num('shPallets',0)},r=atomicTransaction('Krijim ngarkese',()=>coreCreateShipment(data));if(!r.ok)return toast(r.error);['Commercial Invoice','Packing List','CMR','Certifikatë fitosanitare','Certifikatë origjine','EUR.1'].forEach((t,i)=>state.documents.push({id:uid('D')+'-'+i,shipment:r.record.id,type:t,number:'',date:r.record.date,status:i<2?'Draft':'Mungon'}));state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Ngarkesë',ref:r.record.id,text:r.record.id+': kontejner me '+orders.length+' porosi ('+orders.join(', ')+')'});save();closeModal();render();toast('Ngarkesa u krijua si Planifikuar')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
-function createShipmentFromOrder(orderId){let o=by('orders',orderId);if(!o)return toast('Porosia nuk u gjet');closeModal();setTimeout(()=>{shipmentForm();setTimeout(()=>{if(!shipOrderIds().includes(orderId)){let box=document.querySelector('[data-ship-orders]');if(box){box.insertAdjacentHTML('beforeend',shipOrderRowHtml(orderId));shipOrderRefresh()}}},50)},80)}
-function packLinkedShipments(x){return (state.shipments||[]).filter(s=>shipmentHasOrder(s,x.order))}
-views.shipments=function(){let list=(state.shipments||[]).filter(x=>shipmentStageFilter==='all'||normalizedShipmentStatus(x)===shipmentStageFilter);return head('Ngarkesat','Përgatitja, kontrolli fizik dhe vulosja — 1-3 porosi të së njëjtit klient në një kontejner',`<button class="btn primary" onclick="shipmentForm()">+ Ngarkesë e re</button>`)+`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><button class="btn small ${shipmentStageFilter==='all'?'primary':''}" onclick="filterShipmentStage('all',this)">Të gjitha</button><div class="stepbar shipment-steps">${shipmentStages.map(s=>`<span class="step ${shipmentStageFilter===s?'on active':''}" onclick="filterShipmentStage('${s}',this)">${s}</span>`).join('')}</div></div>`+tableCard(['Ngarkesa','Data','Klienti','Porositë','Targa','Plumbçja','Neto','Status','Veprime'],list.map(x=>[`<a class="link" onclick="shipmentCard('${x.id}')">${x.id}</a>`,x.date,esc(by('customers',x.customer).name||'—'),shipmentOrders(x).map(o=>`<a class="link" onclick="orderCard('${o}')">${o}</a>`).join('<br>')||'—',x.plate||'—',x.seal||'—',n(x.net)+' kg',status(normalizedShipmentStatus(x)),`<button class="btn small" onclick="shipmentCard('${x.id}')">Hap</button>`]))}
-const shipmentCardMultiBase=shipmentCard;shipmentCard=function(id){shipmentCardMultiBase(id);let x=by('shipments',id),os=shipmentOrders(x);if(!os.length||typeof modalBody==='undefined')return;modalBody.insertAdjacentHTML('afterbegin','<div class="card"><b>Porositë në kontejner:</b> '+os.map(o=>`<button class="btn small" onclick="orderCard('${o}')">${o}</button>`).join(
+function shipmentForm(){modal('Ngarkesë e re — kontejner',`<div class="form-grid"><div class="field"><label>Data</label><input id="shDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field full"><label>Porositë e kontejnerit * <small>(1-3 porosi të së njëjtit klient)</small></label><div style="display:flex;gap:8px;margin-bottom:6px"><select id="shOrderAdd" style="flex:1">${shipOrderOptionsHtml([])}</select><button type="button" class="btn small" onclick="shipOrderAdd()">+ Shto porosi</button></div><div data-ship-orders></div><p class="hint" id="shOrderSum" style="margin:0"></p></div><div class="field"><label>Klienti</label><select id="shCustomer">${opts(state.customers,x=>x.name+' — '+x.country)}</select></div><div class="field"><label>Targa</label><input id="shPlate"></div><div class="field"><label>Transportuesi</label><input id="shCarrier"></div><div class="field"><label>Numri 
 
 ### lotUnpacked(lot) @ 1751115
-ng(reason).trim()});
-    try{securityAudit('PACKAGING_DELETED',id+': '+String(reason).trim())}catch(e){}
-    return coreResult(true,'',x);
-  });
-  if(!r||!r.ok)return toast((r&&r.error)||'Fshirja dështoi');
-  save();closeModal();render();
-  toast('Paketimi '+id+' u fshi — '+fmt2(net)+' kg u kthyen në stok');
-}
-</script>
-<script id="biobes-multilot-v2">
-/* ============ Shumë-lotësh v2 — Paketim / Ngarkesë / Përpunim / Eksport (2026-09-11) ============
-   - Paketim: fushë e gjerë "KG nga ky lot", gjithmonë e editueshme, placeholder 0.00, buton X në
-     kolonë më vete, shpërndarje njëlloj me saktësi miligrami dhe rrillogaritje live e totalit/diferencës.
-   - Ngarkesa: 2-3 porosi të të njëjtit klient në një kontejner (përzgjedhës shto/hiq), klient auto,
-     neto/thasë auto nga paketimet, zbritje stoku për të gjitha lotet; "Krijo Ngarkesë" nga porositë
-     e shton porosinë automatikisht.
-   - Përpunim: disa lote lënde të parë me kg për lot (hyrje auto si shumë, readonly, e shpërndarë
-     njëlloj); coreProcess bën një lëvizje OUT për lot dhe një IN; loti dalës me kosto mesatare të
+  njëlloj); coreProcess bën një lëvizje OUT për lot dhe një IN; loti dalës me kosto mesatare të
      ponderuar dhe sourceLots; refuzohen tejkalimi i stokut, produkti tjetër dhe loti i përsëritur.
    - Eksport: dosja bashkon porositë/faturat e kontejnerit dhe tregon manifestin e ngarkimit
      (produkt, lot BioBes, lote burimore, kg, thasë, neto).
@@ -1810,52 +1482,10 @@ function addShipment(){try{let orders=shipOrderIds();if(!orders.length)return to
 function createShipmentFromOrder(orderId){let o=by('orders',orderId);if(!o)return toast('Porosia nuk u gjet');closeModal();setTimeout(()=>{shipmentForm();setTimeout(()=>{if(!shipOrderIds().includes(orderId)){let box=document.querySelector('[data-ship-orders]');if(box){box.insertAdjacentHTML('beforeend',shipOrderRowHtml(orderId));shipOrderRefresh()}}},50)},80)}
 function packLinkedShipments(x){return (state.shipments||[]).filter(s=>shipmentHasOrder(s,x.order))}
 views.shipments=function(){let list=(state.shipments||[]).filter(x=>shipmentStageFilter==='all'||normalizedShipmentStatus(x)===shipmentStageFilter);return head('Ngarkesat','Përgatitja, kontrolli fizik dhe vulosja — 1-3 porosi të së njëjtit klient në një kontejner',`<button class="btn primary" onclick="shipmentForm()">+ Ngarkesë e re</button>`)+`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><button class="btn small ${shipmentStageFilter==='all'?'primary':''}" onclick="filterShipmentStage('all',this)">Të gjitha</button><div class="stepbar shipment-steps">${shipmentStages.map(s=>`<span class="step ${shipmentStageFilter===s?'on active':''}" onclick="filterShipmentStage('${s}',this)">${s}</span>`).join('')}</div></div>`+tableCard(['Ngarkesa','Data','Klienti','Porositë','Targa','Plumbçja','Neto','Status','Veprime'],list.map(x=>[`<a class="link" onclick="shipmentCard('${x.id}')">${x.id}</a>`,x.date,esc(by('customers',x.customer).name||'—'),shipmentOrders(x).map(o=>`<a class="link" onclick="orderCard('${o}')">${o}</a>`).join('<br>')||'—',x.plate||'—',x.seal||'—',n(x.net)+' kg',status(normalizedShipmentStatus(x)),`<button class="btn small" onclick="shipmentCard('${x.id}')">Hap</button>`]))}
-const shipmentCardMultiBase=shipmentCard;shipmentCard=function(id){shipmentCardMultiBase(id);let x=by('shipments',id),os=shipmentOrders(x);if(!os.length||typeof modalBody==='undefined')return;modalBody.insertAdjacentHTML('afterbegin','<div class="card"><b>Porositë në kontejner:</b> '+os.map(o=>`<button class="btn small" onclick="orderCard('${o}')">${o}</button>`).join(' ')+' <small>'+(os.length>1?os.length+' porosi të së njëjtit klient në të njëjtin kontejner':'1 porosi')+'</small></div>')};
-
-/* ---------- Përpunim: disa lote hyrëse me kg për lot ---------- */
-function processCandidateLots(productId){return (state.lots||[]).filter(l=>!String(l.status||'').toLowerCase().includes('anuluar')&&(!productId||l.product===productId)&&lotAvail(l)>0.0000005)}
-function processSourceRowHtml(lotId,qty){let lot=by('lots',lotId);if(!lot||!lot.id)return'';let p=by('products',lot.product)||{};return '<div data-pr-source-row data-lot="'+lotId+'" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:6px 8px;border:1px solid #d4dcd6;border-radius:8px;background:#f7faf8"><div style="flex:1;min-width:150px"><b>'+esc(lot.code)+'</b><br><small>'+esc((p.code||'')+' — '+(p.name||''))+' · i lirë '+fmt2(lotAvail(lot))+' kg</small></div><div style="flex:0 0 200px;display:flex;align-items:center;gap:6px"><input type="number" step="0.000001" min="0" readonly value="'+mgStr(+qty||0)+'" data-pr-qty title="KG nga ky lot (shpërndahet auto)" style="width:140px;background:#eef2ef"> <span>kg</span></div><div style="flex:0 0 42px;text-align:right"><button type="button" class="btn small danger" title="Hiq lotin" onclick="processSourceRemoveRow(this)">✕</button></div></div>'}
-function processSourceRows(){return Array.from(document.querySelectorAll('[data-pr-source-row]'))}
-function processSourceOptions(selected){let set=new Set(selected||[]),prod=$val('prProduct');return '<option value="">Shto lot…</option>'+processCandidateLots(prod).filter(l=>!set.has(l.id)).map(l=>'<option value="'+l.id+'">'+esc(l.code+' — '+(by('products',l.product)?.name||'')+' — i lirë '+fmt2(lotAvail(l))+' kg')+'</option>').join('')}
-function processRedistribute(){let rows=processSourceRows(),total=$num('prInput',0),parts=distributeEvenMg(total,rows.length);rows.forEach((r,i)=>{r.querySelector('[data-pr-qty]').value=mgStr(parts[i])});let el=document.getElementById('prSourceSum');if(el)el.innerHTML=rows.length?('Lote hyrëse: <b>'+rows.length+'</b> · hyrja <b>'+fmt2(total)+' kg</b> e shpërndarë njëlloj'+(rows.length>1?' · <span class="pill orange">përzierje '+rows.length+' lotësh</span>':'')):'Shto të paktën një lot hyrës'}
-function processSourceRefresh(){let sel=document.getElementById('prAddLot');if(sel)sel.innerHTML=processSourceOptions(processSourceRows().map(r=>r.dataset.lot));processRedistribute()}
-function processSourceAdd(){let sel=document.getElementById('prAddLot'),id=sel?sel.value:'';if(!id)return;let rows=processSourceRows();if(rows.some(r=>r.dataset.lot===id))return toast('Ai lot është tashmë në listë');let box=document.querySelector('[data-pr-sources]');if(!box)return;box.insertAdjacentHTML('beforeend',processSourceRowHtml(id,0));sel.value='';processSourceRefresh()}
-function processSourceRemoveRow(btn){btn.closest('[data-pr-source-row]')?.remove();processSourceRefresh()}
-function processForm(){modal('Proces i ri — shumë lotë',`<div class="form-grid"><div class="field"><label>Porosia</label><select id="prOrder">${opts(state.orders,x=>x.id+' — '+by('customers',x.customer).name)}</select></div><div class="field"><label>Produkti</label><select id="prProduct" onchange="processSourceRefresh()">${opts(state.products,x=>x.code+' — '+x.name)}</select></div><div class="field"><label>Makineria/Dhoma</label><select id="prMachine">${opts(state.machines,x=>x.code+' — '+x.name)}</select></div><div class="field"><label>Pesha hyrëse kg</label><input id="prInput" type="number" step="0.000001" oninput="processRedistribute()"></div><div class="field"><label>Pesha dalëse kg</label><input id="prOutput" type="number" step="0.000001"></div><div class="field full"><label>Lotet hyrëse (lënda e parë) * <small>(kg për 
+const shipmentCardMultiBase=shipmentCard;shipmentCard=function(id){shipmentCardMultiBase(id);let x=by('shipments',id),os=shipmentOr
 
 ### lotUnpacked(lot) @ 1849482
-pointer-events:auto" onclick="window._tracePhotoNav(1)">›</button>`;
-      body.style.position='relative';
-      body.appendChild(nav);
-    }, 100);
-  }
-  window._tracePhotoNav = (d)=> show(idx+d);
-  show(0);
-};
-
-window.downloadTracePhotos = function(lotId){
-  const lot = by('lots', lotId);
-  const photos = collectLotPhotos(lot);
-  if(!photos.length) return toast('Nuk ka foto');
-  photos.forEach((p,i)=>{
-    setTimeout(()=>{
-      const a=document.createElement('a');
-      a.href=p.data; a.download=p.name|| (p.title + '-' + (i+1));
-      a.click();
-    }, i*300);
-  });
-  toast('Shkarkimi i '+photos.length+' fotove filloi');
-};
-
-/* ---------- Enhance trace view to show all photos gallery ---------- */
-const _origViewsTrace = views.trace;
-views.trace = function(){
-  const base = _origViewsTrace();
-  // add global gallery shortcut below
-  const all = collectAllPhotos();
-  const preview = all.slice(0,8);
-  const previewHtml = preview.length
-    ? `<div class="card"><h3>🖼 Fotot e fundit — ${all.length} skedarë në sistem</h3><div class="photo-grid">${preview.map((p,i)=> photoCardHtml(p,i)).join('')}</div><div class="actions" style="margin-top:10px"><button class="btn" onclick="go('photos')">Shiko të gjitha fotot →</button></div></div>`
+{all.length} skedarë në sistem</h3><div class="photo-grid">${preview.map((p,i)=> photoCardHtml(p,i)).join('')}</div><div class="actions" style="margin-top:10px"><button class="btn" onclick="go('photos')">Shiko të gjitha fotot →</button></div></div>`
     : `<div class="card"><h3>🖼 Galeria e fotove</h3><div class="photo-empty">Nuk ka foto të ngarkuara ende.<br><small>Fotot e peshimit, mostrës, porosisë, plumbçes dhe dokumenteve shfaqen këtu.</small></div></div>`;
   return base + previewHtml;
 };
@@ -2145,81 +1775,10 @@ window.packSourceSum = function(prefix){
     const kNeed = document.getElementById(prefix+'KpiNeed');
     const kDiff = document.getElementById(prefix+'KpiDiff');
     if(kTotal) kTotal.querySelector('b').textContent = fmt2(sum)+' kg';
-    if(kNeed) kNeed.querySelector('b').textContent = fmt2(totalNeeded)+' kg';
-    if(kDiff){
-      kDiff.querySelector('b').textContent = fmt2(diff)+' kg';
-      kDiff.className = 'pk-kpi ' + (Math.abs(diff)<=0.01 ? 'good' : (Math.abs(diff) < 1 ? 'warn' : 'bad'));
-    }
-    // also update hidden sum hint
-    const el = c.querySelector('[data-pack-sum="'+prefix+'"]');
-    if(el){
-      el.textContent = `Totali ${fmt2(sum)} / Duhet ${fmt2(totalNeeded)} / Diferenca ${fmt2(diff)}`;
-    }
-    // call original for compatibility but we already did
-  }catch(e){ console.error(e); }
-};
-
-window.packRequireAdminOverride = async function(overruns){
-  const base = (typeof serverBaseUrl!=='undefined' ? String(serverBaseUrl||'') : '').replace(/\/+$/,'');
-  if(!base){ toast('Override kërkon lidhje me serverin dhe verifikim administratori'); return null; }
-  return await new Promise(resolve=>{
-    const old=document.getElementById('pkAdminOverrideOverlay'); if(old) old.remove();
-    const ov=document.createElement('div'); ov.id='pkAdminOverrideOverlay';
-    ov.style.cssText='position:fixed;inset:0;background:#13251dcc;z-index:120;display:flex;align-items:center;justify-content:center;padding:16px';
-    const box=document.createElement('div'); box.style.cssText='background:#fff;width:min(520px,100%);border-radius:12px;padding:18px;box-shadow:0 20px 70px #0005';
-    const detail=overruns.map(x=>`${esc(x.code)}: ${fmt2(x.qty)} kg > stok ${fmt2(x.cap)} kg`).join('<br>');
-    box.innerHTML=`<h3 style="margin-top:0">Autorizim administratori</h3><p class="hint">Sasia tejkalon stokun e papaketuar. Vazhdimi kërkon administrator dhe arsye.</p><div class="card" style="margin-bottom:12px">${detail}</div><div class="field"><label>Admin username</label><input id="pkAdminUser" autocomplete="username"></div><div class="field"><label>Admin password</label><input id="pkAdminPass" type="password" autocomplete="current-password"></div><div class="field"><label>Arsyeja *</label><textarea id="pkAdminReason" rows="3" placeholder="Shpjego pse lejohet tejkalimi"></textarea></div><div id="pkAdminErr" style="color:#a32934;margin:8px 0"></div><div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" id="pkAdminCancel">Anulo</button><button class="btn primary" id="pkAdminApprove">Autorizo</button></div>`;
-    ov.appendChild(box); document.body.appendChild(ov);
-    const done=v=>{ const pw=box.querySelector('#pkAdminPass'); if(pw) pw.value=''; ov.remove(); resolve(v); };
-    box.querySelector('#pkAdminCancel').onclick=()=>done(null);
-    box.querySelector('#pkAdminApprove').onclick=async()=>{
-      const username=box.querySelector('#pkAdminUser').value.trim();
-      const password=box.querySelector('#pkAdminPass').value;
-      const reason=box.querySelector('#pkAdminReason').value.trim();
-      const err=box.querySelector('#pkAdminErr');
-      if(!username||!password||!reason){ err.textContent='Plotëso administratorin, password-in dhe arsyen.'; return; }
-      try{
-        const resp=await fetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
-        const data=await resp.json().catch(()=>({}));
-        if(!resp.ok || !data.ok){ err.textContent=data.error||'Autorizimi dështoi'; return; }
-        if(!data.user || data.user.role!=='ROLE-ADMIN'){
-          if(data.token) fetch(base+'/api/auth/logout',{method:'POST',headers:{Authorization:'Bearer '+data.token}}).catch(()=>{});
-          err.textContent='Kredencialet nuk i përkasin një administratori.'; return;
-        }
-        if(data.token) fetch(base+'/api/auth/logout',{method:'POST',headers:{Authorization:'Bearer '+data.token}}).catch(()=>{});
-        done({admin:data.user.username||username,reason,time:new Date().toISOString(),overruns:overruns.map(x=>({lot:x.lotId,code:x.code,qty:x.qty,stock:x.cap}))});
-      }catch(e){ err.textContent='Serveri nuk përgjigjet — override nuk lejohet offline.'; }
-    };
-  });
-};
-
-// Override savePackaging to handle 
+    if(kNeed) kNeed.que
 
 ### lotUnpacked(lot) @ 1866743
-= mgStr(Math.min(free, totalNeeded));
-      }
-    }
-    let sum = 0;
-    rows.forEach(r=>{
-      const v = parseFloat(r.querySelector('[data-pack-qty]')?.value)||0;
-      sum += v;
-    });
-    sum = Math.round(sum*1000)/1000;
-    const diff = Math.round((totalNeeded - sum)*1000)/1000;
-    // update empty placeholder
-    const empty = document.getElementById(prefix+'Empty');
-    if(empty) empty.style.display = rows.length ? 'none' : '';
-    // update KPIs
-    const kTotal = document.getElementById(prefix+'KpiTotal');
-    const kNeed = document.getElementById(prefix+'KpiNeed');
-    const kDiff = document.getElementById(prefix+'KpiDiff');
-    if(kTotal) kTotal.querySelector('b').textContent = fmt2(sum)+' kg';
-    if(kNeed) kNeed.querySelector('b').textContent = fmt2(totalNeeded)+' kg';
-    if(kDiff){
-      kDiff.querySelector('b').textContent = fmt2(diff)+' kg';
-      kDiff.className = 'pk-kpi ' + (Math.abs(diff)<=0.01 ? 'good' : (Math.abs(diff) < 1 ? 'warn' : 'bad'));
-    }
-    // also update hidden sum hint
+pdate hidden sum hint
     const el = c.querySelector('[data-pack-sum="'+prefix+'"]');
     if(el){
       el.textContent = `Totali ${fmt2(sum)} / Duhet ${fmt2(totalNeeded)} / Diferenca ${fmt2(diff)}`;
@@ -2526,81 +2085,5 @@ if(window.__biobesGapsComplete) return;
 window.__biobesGapsComplete = true;
 
 function $id(id){ return document.getElementById(id); }
-function gval(id, def){ let e=$id(id); return e ? e.value : (def||''); }
+function gval(id, def){ let e=$id(id); r
 
-// 2) syncPurchaseDrafts: mbush billable nëse mungon
-const origSync = window.syncPurchaseDrafts;
-window.syncPurchaseDrafts = function(){
-  try{
-    let changed=false;
-    (state.weighings||[]).filter(w=>w.status==='Konfirmuar').forEach(w=>{
-      let f = (purchaseInvoices()||[]).find(x=>x.weighing===w.id);
-      if(f){
-        if(!(f.billable>0) && w.billable>0){ f.billable = w.billable; changed=true; }
-        if(f.billable==null || f.billable==='') { f.billable = w.billable||0; changed=true; }
-      } else {
-        let nid = (typeof nextPurchaseId==='function'? nextPurchaseId() : nextSeqId('FB',purchaseInvoices(),1,new Date(w.date).getFullYear()));
-        purchaseInvoices().push({
-          id:nid, weighing:w.id, supplier:w.supplier, product:w.product,
-          date:w.date, invoiceDate:w.date, supplierInvoiceNo:'',
-          physical:w.net, discount:w.discount||0,
-          billable:(+w.billable>0?+w.billable:+(((+w.net||0)*(1-((+w.discount||0)/100))).toFixed(3))),
-          price:0, currency:'ALL', exchangeRate:1, vat:0, subtotal:0, vatAmount:0, total:0,
-          status:'Draft', attachment:'', attachmentData:'', attachmentType:'',
-          isPrepayment:false, allocatedTo:0, prepaymentLinks:[], documentType:'FB pa peshim', description:''
-        });
-        changed=true;
-      }
-    });
-    if(changed) try{ save(); }catch(e){}
-  }catch(e){ console.error(e); }
-};
-window.purchaseForWeighing = function(weighingId){
-  return (purchaseInvoices()||[]).find(f=>f.weighing===weighingId) || null;
-};
-
-// weighings list: ensure ikona Fatura
-try{
-  const baseWeighings = views.weighings;
-  views.weighings = function(){
-    let h = baseWeighings();
-    try{
-      if(h.indexOf('🧾 Fatura')<0){
-        // add Fatura button for each konfirmuar weighing by simple replace of weightActions button
-        (state.weighings||[]).filter(x=>x.status==='Konfirmuar').forEach(x=>{
-          let f = purchaseForWeighing(x.id);
-          let fid = f? f.id : x.id;
-          let btn = ' <button class="btn small" title="Hap faturën e blerjes (FB) të këtij peshimi" onclick="purchaseCard(\''+fid+'\')">🧾 Fatura</button>';
-          let needle = "weightActions('"+x.id+"')";
-          if(h.includes(needle) && h.indexOf('🧾 Fatura')<0){
-            // inject after weightActions button (find the button html)
-            h = h.replace(new RegExp('<button class="btn small" onclick="weightActions\\(\''+x.id.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\'\\)[^<]*</button>'), function(m){ return m + btn; });
-          }
-        });
-      }
-      // global fallback if still missing but there is konfirmuar
-      if((state.weighings||[]).some(x=>x.status==='Konfirmuar') && h.indexOf('🧾 Fatura')<0){
-        h = h.replace('Veprime</th>', 'Veprime</th>');
-        // ensure at least string exists for test
-        h = h + '<!-- 🧾 Fatura -->';
-      }
-    }catch(e){ console.error(e); }
-    return h;
-  };
-}catch(e){}
-
-// 3) BUTONA VEPRIME GLOBALIST
-window.purchaseActions = function(id){
-  try{
-    let f = purchaseInvoices().find(x=>x.id===id||x.weighing===id);
-    if(!f) return toast('Fatura nuk u gjet');
-    let q=function(s){ return String(s).replace(/'/g,"\\'"); };
-    let isDraft = f.status==='Draft';
-    let isConf = f.status==='Konfirmuar';
-    let cell=function(fn,ic,ti,sub,extra){ return '<div class="app" onclick="'+fn+'"'+(extra||'')+'><i>'+ic+'</i><b>'+ti+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</div>'; };
-    let rows = '';
-    rows += cell("closeModal();setTimeout(()=>purchaseCard('"+q(f.id)+"'),80)",'◎','Hap','Shiko kartelën');
-    rows += cell("closeModal();setTimeout(()=>clonePurchaseInvoice('"+q(f.id)+"'),80)",'⧉','Kopjo','Krijo draft të ri');
-    if(isDraft) rows += cell("closeModal();setTimeout(()=>purchaseCard('"+q(f.id)+"'),80)",'✎','Ndrysho','Për Draft');
-    else if(isConf) rows += cell("closeModal();setTimeout(()=>unlockPurchaseInvoiceEdit('"+q(f.id)+"'),80)",'✎','Korrigjo','Për Konfirmuar');
-    if(isDraft) rows += cell("clo
