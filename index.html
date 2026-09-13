@@ -6456,6 +6456,7 @@ console.log('BioBes Fatura Blerje + Peshime v1 u ngarkua');
       }
     });
     groups.recovery.push(bootGuardSectionHTML());
+    try{if(typeof qrOriginSectionHTML==='function')groups.recovery.push(qrOriginSectionHTML())}catch(e){}
     // Remove duplicate shortcuts introduced by earlier settings wrappers.
     let user=document.createElement('template');user.innerHTML=groups.users.join('');let seen=new Set();
     user.content.querySelectorAll('button[onclick]').forEach(b=>{let key=b.getAttribute('onclick');if(seen.has(key))b.remove();else seen.add(key)});
@@ -6789,7 +6790,12 @@ console.log('BioBes Fatura Blerje + Peshime v1 u ngarkua');
  let last=null;
 
  function appBase(){try{const u=new URL(location.href);return u.origin+u.pathname}catch(e){return 'index.html'}}
- function deepLinkOrigin(){let v='';try{v=String(localStorage.getItem('biobesDeepLinkOrigin')||'').trim()}catch(e){}if(v){v=v.replace(/[?#].*$/,'').replace(/\/+$/,'');if(!/^https?:\/\//i.test(v))v='https://'+v;return v}return appBase().replace(/\/index\.html$/i,'/')}
+ const PUBLIC_APP_URL='https://biobes-erp.onrender.com/';
+ function normalizeOrigin(v){v=String(v==null?'':v).trim();if(!v)return '';v=v.replace(/[?#].*$/,'').replace(/\/index\.html$/i,'/');if(!/^https?:\/\//i.test(v))v='https://'+v;return v.replace(/\/+$/,'')+'/'}
+ function isPublicOrigin(u){try{const x=new URL(u);return x.protocol==='https:'&&!/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|0\.0\.0\.0|\[::1\])/.test(x.hostname)&&x.hostname.includes('.')}catch(e){return false}}
+ /** Adresa PUBLIKE qe kodojne etiketat: e njejta kudo (telefon, PC, printim lokal), qe skanimi te hape
+     app-in live nga cdo pajisje. Kurre localhost / IP lokale / file:// ne nje etikete fizike. */
+ function deepLinkOrigin(){let v='';try{v=String(localStorage.getItem('biobesDeepLinkOrigin')||'').trim()}catch(e){}if(v)return normalizeOrigin(v);const here=normalizeOrigin(appBase());if(isPublicOrigin(here))return here;return PUBLIC_APP_URL}
  function traceBase(){return deepLinkOrigin()+'?lot='}
  /** Nyja qe kodon etiketa fizike e lotit (ETIKETE MAGAZINE): origin-i LIVE i app-it + ?lot=KOD.
      Zevendeson URL-ne e vjeter https://erp.biobes-al.com/trace/lot/… (domain qe nuk ekziston). */
@@ -6799,8 +6805,7 @@ console.log('BioBes Fatura Blerje + Peshime v1 u ngarkua');
  function biobesQrPayload(kind,id){
   const k=String(kind||'').toLowerCase(),v=String(id==null?'':id).trim();
   if(!KINDS[k]||!v)throw new Error('biobesQrPayload: kind ose id i pavlefshem');
-  if(k==='lot')return deepLinkOrigin()+'?lot='+encodeURIComponent(v);
-  return appBase()+'?'+k+'='+encodeURIComponent(v);
+  return deepLinkOrigin()+'?'+k+'='+encodeURIComponent(v);
  }
 
  /** Lexon nje URL / query / hash dhe kthen {kind,id,source} — pa gjysme-perputhje. */
@@ -6908,6 +6913,40 @@ console.log('BioBes Fatura Blerje + Peshime v1 u ngarkua');
 
  window.biobesQrPayload=biobesQrPayload;
  window.biobesLabelQrPayload=biobesLabelQrPayload;
+ window.biobesQrOrigin=function(){return deepLinkOrigin()};
+ window.biobesSetQrOrigin=function(v){const n=normalizeOrigin(v);try{if(n)localStorage.setItem('biobesDeepLinkOrigin',n);else localStorage.removeItem('biobesDeepLinkOrigin')}catch(e){}return deepLinkOrigin()};
+ window.biobesQrOriginIsPublic=function(){return isPublicOrigin(deepLinkOrigin())};
+ /* Kartela te Konfigurime → Mbrojtje/Rikuperim: adresa publike qe kodojne etiketat QR. */
+ window.qrOriginSectionHTML=function(){
+  let saved='';try{saved=String(localStorage.getItem('biobesDeepLinkOrigin')||'')}catch(e){}
+  const cur=deepLinkOrigin(),pub=isPublicOrigin(cur),here=normalizeOrigin(appBase());
+  const sample=cur+'?lot=B1S01%2F1-105-26';
+  return '<div class="card" id="qrOriginCard"><h3>🔗 Adresa publike e etiketave QR</h3>'+
+   '<p class="hint">Cdo etikete e lotit kodon <code>ADRESA/?lot=KODI</code>. Adresa duhet te jete ajo publike e app-it (Render), qe skanimi ta hape lotin nga <b>cdo</b> telefon — edhe kur etiketa printohet nga nje PC lokal.</p>'+
+   '<p><b>Aktive tani:</b> <code>'+esc(cur)+'</code> '+(pub?'<span class="pill green">publike ✓</span>':'<span class="pill red">JO publike — telefoni nuk do ta arrije</span>')+
+   (saved?' <span class="hint">(e vendosur manualisht)</span>':' <span class="hint">('+(isPublicOrigin(here)?'adresa nga e cila eshte hapur app-i':'default i prodhimit — app-i eshte hapur nga '+esc(here))+')</span>')+'</p>'+
+   '<div class="field"><label>Adresa publike (https://…)</label><input id="qrOriginInput" value="'+esc(saved||cur)+'" placeholder="https://biobes-erp.onrender.com/"></div>'+
+   '<div class="actions"><button class="btn primary" type="button" onclick="qrOriginSave()">Ruaj adresen</button>'+
+   '<button class="btn" type="button" onclick="qrOriginReset()">Kthe default-in</button>'+
+   '<button class="btn" type="button" onclick="qrOriginTest()">Testo: hap nje nyje shembull</button></div>'+
+   '<p class="hint" style="margin-top:8px">Shembull i asaj qe kodon etiketa: <code id="qrOriginSample">'+esc(sample)+'</code></p>'+
+   '<p class="hint">Etiketat e printuara me adresen e vjeter <code>erp.biobes-al.com</code> nuk skanohen (domain-i nuk ekziston) — riprintojini nga kartela e lotit.</p></div>';
+ };
+ window.qrOriginSave=function(){
+  const el=document.getElementById('qrOriginInput'),v=el?el.value:'';const n=normalizeOrigin(v);
+  if(!n){try{toast('Shkruani nje adrese https://…')}catch(e){}return}
+  if(!isPublicOrigin(n)){try{toast('Kjo adrese nuk eshte publike (localhost/IP lokale) — telefoni nuk do ta hape. U ruajt gjithsesi.')}catch(e){}}
+  window.biobesSetQrOrigin(n);try{toast('Adresa e QR-se u ruajt: '+deepLinkOrigin())}catch(e){}
+  try{render()}catch(e){}
+ };
+ window.qrOriginReset=function(){window.biobesSetQrOrigin('');try{toast('Adresa e QR-se u kthye ne default: '+deepLinkOrigin())}catch(e){}try{render()}catch(e){}};
+ window.qrOriginTest=function(){
+  const lots=(typeof state!=='undefined'&&state&&Array.isArray(state.lots))?state.lots:[];const l=lots.find(x=>x&&(x.code||x.id));
+  if(!l){try{toast('Nuk ka asnje lot per test — konfirmoni nje peshim me pare')}catch(e){}return}
+  const url=biobesQrPayload('lot',l.code||l.id);
+  try{window.open(url,'_blank','noopener')}catch(e){}
+  try{toast('U hap ne nje dritare te re: '+url)}catch(e){}
+ };
  window.parseBiobesDeepLink=parseBiobesDeepLink;
  window.biobesOpenDeepLink=biobesOpenDeepLink;
  window.biobesClearDeepLink=biobesClearDeepLink;
