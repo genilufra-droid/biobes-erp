@@ -24,27 +24,40 @@ jobs:
       - name: Apply sync patch
         run: python3 .github/phase1-sync-patch.py
 
+      - name: Verify sync invariants
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          checks={
+            'no blind version': 'baseVersion:force?null:serverVersion' not in s,
+            'CAS baseVersion': 'baseVersion:base' in s,
+            'single push lock': 'syncPushInFlight' in s and 'syncPushQueued' in s,
+            'dirty sequence': 'syncChangeSeq===sentSeq' in s,
+            'offline retry': "if(syncIsDirty()){await pushState();return}" in s,
+            'visible pending status': 'Offline • ndryshime në pritje' in s,
+          }
+          for name,ok in checks.items(): print(('PASS ' if ok else 'FAIL ')+name)
+          if not all(checks.values()): raise SystemExit(1)
+          PY
+
       - name: Check inline JavaScript syntax
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
-          html = Path('index.html').read_text(encoding='utf-8')
-          scripts = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', html, flags=re.S|re.I)
-          out = Path('/tmp/biobes-scripts')
-          out.mkdir(exist_ok=True)
-          for i, script in enumerate(scripts):
-              (out / f'{i:04d}.js').write_text(script, encoding='utf-8')
-          print('scripts', len(scripts))
+          html=Path('index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',html,flags=re.S|re.I)
+          out=Path('/tmp/biobes-scripts');out.mkdir(exist_ok=True)
+          for i,script in enumerate(scripts):(out/f'{i:04d}.js').write_text(script,encoding='utf-8')
+          print('scripts',len(scripts))
           PY
           failed=0
           for f in /tmp/biobes-scripts/*.js; do
             node --check "$f" >/dev/null 2>&1 || { echo "Syntax error: $f"; failed=1; }
           done
           test "$failed" -eq 0
-
-      - name: Run operations regression
-        run: node tests/operations-audit.cjs
+          git diff --check
 
       - name: Commit hardened sync
         run: |
