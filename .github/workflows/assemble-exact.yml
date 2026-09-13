@@ -1,48 +1,42 @@
-name: Apply BioBes packaging core override
+name: Assemble exact delivered build
 on:
   push:
-    branches:
-      - chatgpt/fix-paketim-kg
+    branches: [chatgpt/package-lot-picker]
     paths:
-      - '.github/patch_packaging_core_override.py'
+      - '.github/insert-fragment.html'
       - '.github/workflows/assemble-exact.yml'
 permissions:
   contents: write
 jobs:
-  patch:
+  assemble:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply core override patch
+      - name: Insert exact fragment and commit
         shell: bash
         run: |
           set -euo pipefail
-          python3 .github/patch_packaging_core_override.py
           python3 - <<'PY'
           from pathlib import Path
-          s=Path('index.html').read_text(encoding='utf-8')
-          checks={
-            'autofill_remaining':'suggestedQty = rest>0 ? Math.min(freeForQty, rest) : freeForQty',
-            'editable_not_overwritten':"if(inp && !String(inp.value||'').trim())",
-            'server_admin_role':"data.user.role!=='ROLE-ADMIN'",
-            'reason_required':"const reason=box.querySelector('#pkAdminReason').value.trim()",
-            'core_permit':'window.__pkStockOverrideLots',
-            'permit_cleanup':'delete window.__pkStockOverrideLots',
-            'audit':'Tejkalim stoku në paketim. Admin:',
-          }
-          missing=[k for k,v in checks.items() if v not in s]
-          if missing: raise SystemExit('Missing packaging invariants: '+','.join(missing))
-          if 'password:password' in s and 'JSON.stringify({username,password})' not in s:
-              raise SystemExit('Unexpected password persistence marker')
-          print('Packaging invariants PASS:', ', '.join(checks))
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          frag=Path('.github/insert-fragment.html').read_text(encoding='utf-8').strip()
+          marker='<script id="biobes-paketim-v4">'
+          if marker in s:
+            print('already assembled')
+            raise SystemExit(0)
+          idx=s.find('</body>')
+          if idx<0:
+            raise SystemExit('missing </body>')
+          s=s[:idx]+frag+'\n'+s[idx:]
+          p.write_text(s,encoding='utf-8')
           PY
           git diff --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add index.html
           if git diff --cached --quiet; then
-            echo 'index.html already patched'
             exit 0
           fi
-          git commit -m 'fix: allow audited admin packaging stock override'
+          git commit -m 'Assemble exact delivered package lot picker build'
           git push
