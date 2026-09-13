@@ -1,31 +1,39 @@
-name: Apply BioBes packaging KG fix
+name: Inspect BioBes core packaging
 on:
   push:
     branches:
       - chatgpt/fix-paketim-kg
     paths:
-      - '.github/PACKAGING-RUN.txt'
-      - '.github/patch_packaging_kg.py'
       - '.github/workflows/assemble-exact.yml'
 permissions:
   contents: write
 jobs:
-  patch:
+  inspect:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply packaging patch
+      - name: Extract corePackage source
         shell: bash
         run: |
           set -euo pipefail
-          python3 .github/patch_packaging_kg.py
-          git diff --check
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          terms=['function corePackage','corePackage =','corePackage(data)','lotUnpacked(lot)']
+          blocks=[]
+          for term in terms:
+              pos=0
+              for _ in range(20):
+                  i=s.find(term,pos)
+                  if i<0: break
+                  blocks.append('### '+term+' @ '+str(i)+'\n'+s[max(0,i-6000):min(len(s),i+16000)])
+                  pos=i+len(term)
+          if not blocks:
+              raise SystemExit('corePackage context not found')
+          Path('COREPACKAGE.txt').write_text('\n\n'.join(blocks),encoding='utf-8')
+          PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html
-          if git diff --cached --quiet; then
-            echo 'index.html already patched'
-            exit 0
-          fi
-          git commit -m 'fix: packaging KG autofill and admin stock override'
+          git add COREPACKAGE.txt
+          git commit -m 'chore: inspect core package source' || exit 0
           git push
