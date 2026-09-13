@@ -1,0 +1,49 @@
+name: Phase 1 frontend sync tests
+on:
+  push:
+    branches: [chatgpt/faza1-cloud-sync]
+    paths: [.github/workflows/phase1-frontend-tests.yml]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/faza1-cloud-sync
+      - name: Extract and syntax-check inline JavaScript
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',s,re.S|re.I)
+          Path('/tmp/scripts').mkdir(exist_ok=True)
+          n=0
+          for i,x in enumerate(scripts):
+            if x.strip():
+              Path(f'/tmp/scripts/{i}.js').write_text(x,encoding='utf-8'); n+=1
+          print('scripts',n)
+          PY
+          for f in /tmp/scripts/*.js; do node --check "$f"; done
+      - name: Verify Phase 1 sync invariants
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          checks={
+            'server auth authoritative': 'serverResponded' in s,
+            'single-flight push': 'pushInFlight' in s,
+            'queued save': 'pushQueued' in s,
+            'dirty generation': 'dirtyGeneration' in s,
+            'version conflict 409': '409' in s and 'showSyncConflict' in s,
+            'offline pending status': 'ndryshime në pritje' in s,
+            'syncing status': 'Po sinkronizohet' in s,
+            'reconnect push before pull': 'if(isDirty())' in s and 'pushState' in s,
+            'no null baseVersion push': 'baseVersion:null' not in s,
+          }
+          bad=[]
+          for k,v in checks.items():
+            print(('PASS' if v else 'FAIL'), k)
+            if not v: bad.append(k)
+          if bad: raise SystemExit('FAILED: '+', '.join(bad))
+          PY

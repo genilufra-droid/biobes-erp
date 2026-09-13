@@ -1,0 +1,32 @@
+name: Phase 1 three-way sync patch
+on:
+  push:
+    branches: [chatgpt/faza1-cloud-sync]
+    paths:
+      - .github/workflows/phase1-threeway-sync.yml
+      - .github/phase1-threeway-sync.py
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/faza1-cloud-sync
+      - name: Apply safe three-way merge patch
+        run: python3 .github/phase1-threeway-sync.py
+      - name: Check inline JavaScript syntax
+        run: node tests/check-syntax.cjs
+      - name: Verify merge invariants
+        run: |
+          grep -F "syncThreeWayMerge" index.html
+          grep -F "sentState=syncClone(state)" index.html
+          grep -F "merged:true" index.html
+      - name: Commit sync fix
+        run: |
+          git config user.name 'ChatGPT Phase 1'
+          git config user.email 'actions@users.noreply.github.com'
+          git add index.html
+          git commit -m 'fix(cloud): preserve offline changes with three-way CAS merge'
+          git push origin HEAD:chatgpt/faza1-cloud-sync

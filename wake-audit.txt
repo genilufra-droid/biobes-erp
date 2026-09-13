@@ -1,0 +1,239 @@
+e=false})}catch(_){}
+    try{securityAudit('ADMIN_PASSWORD_RESET','Fjalëkalimi i adminit u rivendos',adm.id)}catch(_){}
+    save();closeModal();
+    try{sessionStorage.removeItem('biobesSession')}catch(_){}
+    render();toast('Fjalëkalimi i adminit u rivendos — të gjitha sesionet mbyllen');
+    try{showLogin()}catch(_){}
+  }catch(e){console.error(e);try{toast('Gabim: '+(e&&e.message||e))}catch(_){}}
+}
+const settingsGridBase=views.settings;
+views.settings=function(){
+  let h=settingsGridBase();
+  try{
+    let btn='<button class="btn" data-admin-only onclick="quickResetAdminPassword()">🔑 Rivendos passwordin e adminit</button>';
+    let iSig=h.indexOf('<div class="card"><h3>Siguria</h3>');
+    if(iSig>=0){
+      let anchor='Rolet, të drejtat dhe backup-i i sigurt — vetëm për ADMIN.</p>';
+      if(h.indexOf(anchor)>=0)h=h.replace(anchor,anchor+'<div class="actions" style="margin-top:8px">'+btn+'</div>');
+      else{let jSig=h.indexOf('</h3>',iSig);if(jSig>=0)h=h.slice(0,jSig+5)+'<div class="actions" style="margin-top:8px">'+btn+'</div>'+h.slice(jSig+5)}
+    }else if(h.indexOf('quickResetAdminPassword')<0){
+      h+='<div class="card" data-admin-only><h3>🔑 Fjalëkalimi i adminit</h3>'
+        +'<p class="hint">Përdoret kur administratori nuk e mban mend fjalëkalimin. Kërkon sesion ADMIN aktiv dhe fjalëkalimin e tanishëm; të gjitha sesionet mbyllen dhe ktheheni te login.</p>'
+        +'<div class="actions">'+btn+'</div></div>';
+    }
+    let i=h.indexOf('<div class="card"');
+    if(i>0&&h.indexOf('class="settings-grid"')<0)h=h.slice(0,i)+'<div class="settings-grid">'+h.slice(i)+'</div>';
+  }catch(e){}
+  return h;
+};
+</script>
+<script id="biobes-coldstart-v3">
+// BioBes ERP — Render Free cold-start recovery v3.
+(function(){
+  if(window.__biobesColdStartV3)return;
+  window.__biobesColdStartV3=true;
+  document.title='BioBes ERP';
+
+  window.__loginRetryDelays=[0,2500,5000,8000,12000,15000];
+  window.__loginRetryTimeout=12000;
+
+  const nativeUpdateSyncUI=updateSyncUI;
+  const nativePullState=pullState;
+  const nativePushState=pushState;
+  const nativeAfterLocalLogin=afterLocalLogin;
+  let wakeBusy=false;
+  let wakeCooldownUntil=0;
+
+  const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
+
+  function setSyncStatus(text){
+    try{
+      const el=document.getElementById('syncStatus');
+      if(el)el.textContent=text;
+    }catch(e){}
+  }
+
+  async function healthCheck(timeoutMs=12000){
+    const base=serverBaseUrl();
+    if(!base)return false;
+    const ctl=new AbortController();
+    const timer=setTimeout(()=>ctl.abort(),timeoutMs);
+    try{
+      const r=await fetch(base+'/api/health',{cache:'no-store',signal:ctl.signal});
+      if(!r.ok)return false;
+      let j={};
+      try{j=await r.json()}catch(e){}
+      return !!(j&&j.ok===true&&j.db!==false);
+    }catch(e){
+      return false;
+    }finally{
+      clearTimeout(timer);
+    }
+  }
+
+  function canWake(){
+    try{return !!serverBaseUrl()&&!!serverToken&&!serverOnline}catch(e){return false}
+  }
+
+  async function wakeServerAndSync(){
+    if(wakeBusy||!canWake()||Date.now()<wakeCooldownUntil)return false;
+    wakeBusy=true;
+    const waits=[0,2500,5000,8000,12000,15000,15000];
+    try{
+      for(let i=0;i<waits.length;i++){
+        if(waits[i])await sleep(waits[i]);
+        if(!canWake())return false;
+        setSyncStatus('🟡 Duke u lidhur me serverin…'+(i?(' tentativa '+(i+1)+'/'+waits.length):''));
+        if(await healthCheck()){
+          let r={ok:false,offline:true};
+          try{r=await nativePullState()}catch(e){}
+          if((r&&r.ok)||serverOnline){
+            wakeCooldownUntil=0;
+            try{nativeUpdateSyncUI()}catch(e){}
+            try{toast('Lidhja me serverin u rikthye')}catch(e){}
+            return true;
+          }
+        }
+      }
+      wakeCooldownUntil=Date.now()+30000;
+      try{nativeUpdateSyncUI()}catch(e){}
+      return false;
+    }finally{
+      wakeBusy=false;
+    }
+  }
+
+  updateSyncUI=function(){
+    try{
+      if(canWake()&&Date.now()>=wakeCooldownUntil){
+        setSyncStatus('🟡 Duke u lidhur me serverin…');
+        if(!wakeBusy)setTimeout(()=>wakeServerAndSync(),0);
+        return;
+      }
+    }catch(e){}
+    return nativeUpdateSyncUI();
+  };
+
+  pullState=async function(){
+    if(canWake())setSyncStatus('🟡 Duke u lidhur me serverin…');
+    const r=await nativePullState();
+    if(r&&r.offline&&canWake()&&!wakeBusy)setTimeout(()=>wakeServerAndSync(),0);
+    return r;
+  };
+
+  pushState=async function(force){
+    const r=await nativePushState(force);
+    if(canWake()&&!wakeBusy)setTimeout(()=>wakeServerAndSync(),0);
+    return r;
+  };
+
+  afterLocalLogin=function(){
+    try{normalizeState()}catch(e){}
+    serverOnline=false;
+    if(serverBaseUrl()){
+      syncSetDirty(true);
+      setSyncStatus('🟡 Serveri po zgjohet — puna po ruhet lokalisht');
+      try{toast('Serveri po zgjohet — ndryshimet ruhen lokalisht derisa të rilidhet')}catch(e){}
+      if(serverToken&&!wakeBusy)setTimeout(()=>wakeServerAndSync(),0);
+      return;
+    }
+    return nativeAfterLocalLogin();
+  };
+
+  window.addEventListener('online',()=>{
+    wakeCooldownUntil=0;
+    if(canWake()&&!wakeBusy)wakeServerAndSync();
+  });
+
+  setInterval(()=>{
+    if(canWake()&&!wakeBusy&&Date.now()>=wakeCooldownUntil)wakeServerAndSync();
+  },30000);
+})();
+</script>
+<script id="biobes-prepay-v1">
+/* ============================================================================
+   RREGULLIME URGJENTE + PARAPAGIME (2026-09-12)
+   ----------------------------------------------------------------------------
+   1) Faturë blerjeje PA PESHIM + PARAPAGIME (FB):
+      • butoni i vetëm "+ Faturë blerjeje" në Blerje dhe në kartelën e furnitorit
+      • purchaseInvoiceForm(): Data, Furnitori, (Produkt), Numër faturë,
+        (Sasi, Çmim/njësi) ose Shuma e parapagimit, Monedha, Kurs, TVSH, Përshkrim
+      • checkbox "Parapagim (pa artikuj)" — fshin Produkti/Sasia/Çmimi
+      • createPurchaseInvoiceFromForm(): prepay → isPrepayment:true, sasi=0,
+        çmim=0, total=amt, status:Draft; jo prepay → faturë pa peshim
+      • supplierBalance: debit = FB të konfirmuar jo-parapagime;
+        credit = pagesat + parapagimet
+      • allocatePrepaymentsAgainstInvoice(): kur konfirmohet FB e rregullt,
+        ulet automatikisht nga parapagimet e konfirmuara (FIFO)
+      • nextPurchaseId(): maksimumi ekzistues FB-YYYY-NNNN për vitin aktual
+   2) Kartela e furnitorit e ridizajnuar: kreu kod-emer-qytet-shtet-website,
+      4 KPI, histori Data/Veprimi/Përshkrimi/Debi/Kredi/Status, Printo A4
+   3) Veprime globale: saleActions / quickConfirmPurchase / quickConfirmSale
+      / editWeightById / kolona Veprime në Blerje dhe Shitje
+   4) quickResetAdminPassword (alias → resetAdminPasswordForm)
+   ========================================================================== */
+
+/* ---------------- 1a) ID e rradhës FB (maksimumi ekzistues për vitin) ------------ */
+function nextPurchaseId(){
+  try{
+    let y=new Date().getFullYear(),re=new RegExp('^FB-'+y+'-(\\d+)$'),max=0;
+    (purchaseInvoices()||[]).forEach(f=>{let m=String(f.id||'').match(re);if(m)max=Math.max(max,+m[1])});
+    return 'FB-'+y+'-'+String(max+1).padStart(4,'0');
+  }catch(e){return 'FB-'+Date.now()}
+}
+
+/* ---------------- 1b) Parapagimet: alokimet dhe mbetja e përdorur --------------- */
+function prepayAllocations(prepayId){
+  try{let p=purchaseInvoices().find(f=>f.id===prepayId);return (p&&p.prepayAllocations)||[]}catch(e){return[]}
+}
+function prepayUnused(id){
+  try{
+    let p=purchaseInvoices().find(f=>f.id===id);
+    if(!p||!p.isPrepayment)return 0;
+    let total=toALL(p.total,p.currency,p.exchangeRate),used=prepayAllocations(id).reduce((a,l)=>a+(+l.amount||0),0);
+    return Math.max(0,total-used);
+  }catch(e){return 0}
+}
+function allocatePrepaymentsAgainstInvoice(invoiceId){
+  try{
+    let inv=purchaseInvoices().find(f=>f.id===invoiceId);
+    if(!inv||inv.isPrepayment||inv.status!=='Konfirmuar')return;
+    let remaining=toALL(inv.total,inv.currency,inv.exchangeRate);
+    if(remaining<=.001)return;
+    let preps=purchaseInvoices().filter(f=>f.supplier===inv.supplier&&f.isPrepayment&&f.status==='Konfirmuar')
+      .sort((a,b)=>String(a.invoiceDate||a.date).localeCompare(String(b.invoiceDate||b.date)));
+    let applied=0;
+    preps.forEach(p=>{
+      if(remaining<=.001)return;
+      let free=prepayUnused(p.id);
+      if(free<=.001)return;
+      let take=Math.min(free,remaining);
+      p.prepayAllocations=(p.prepayAllocations||[]).concat([{prepayId:p.id,invoiceId:inv.id,amount:Math.round(take*100)/100,date:new Date().toISOString().slice(0,10)}]);
+      remaining-=take;applied+=take;
+    });
+    if(applied>.001){
+      state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Alokim parapagimi',ref:inv.id,text:inv.id+': u ul automatikisht '+fmt2(applied)+' ALL nga parapagimet e konfirmuara (FIFO)'});
+      save();
+    }
+  }catch(e){console.error('allocatePrepaymentsAgainstInvoice',e)}
+}
+
+/* Ruajtja e faturës: pas konfirmimit të një FB të rregullt, ulet nga parapagimet */
+const savePurchasePrepayBase=savePurchase;
+savePurchase=function(id,confirmIt){
+  try{
+    savePurchasePrepayBase(id,confirmIt);
+    try{
+      let f=purchaseInvoices().find(x=>x.id===id);
+      if(f&&f.status==='Konfirmuar'&&!f.isPrepayment)allocatePrepaymentsAgainstInvoice(f.id);
+    }catch(e){}
+  }catch(e){console.error(e);try{toast('Gabim gjatë ruajtjes: '+(e&&e.message))}catch(_){}}
+};
+
+/* ---------------- 1c) Formulari i faturës së blerjes pa peshim ------------------ */
+function purchaseInvoiceForm(supplierId){
+  try{
+    let cur=supplierId||'';
+    modal('Faturë blerjeje e re (pa peshim)',
+      '<div class="field full" style="margin-bottom:10px;background:#f2f9f4;border:1px solid #b7dbc8;border-radius:8px;padding:10px">'
+      +'<label style="font-weight:700;cursor:pointer"><input type="checkbox" id="fifPrepay" onchange="let pp=document.getElementById(\'pPrepay\');if(pp)pp.checked=this.checked;fifTogglePrepay()" style="width:auto;vertical-align:middle"> Parapagim (pa artikuj)</label><i

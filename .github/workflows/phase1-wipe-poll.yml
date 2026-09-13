@@ -1,0 +1,29 @@
+name: Phase 1 wipe epoch polling
+on:
+  push:
+    branches: [chatgpt/faza1-cloud-sync]
+    paths:
+      - .github/workflows/phase1-wipe-poll.yml
+      - .github/phase1-wipe-poll.py
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/faza1-cloud-sync
+      - name: Apply wipe polling patch
+        run: python3 .github/phase1-wipe-poll.py
+      - name: Syntax
+        run: node tests/check-syntax.cjs
+      - name: Verify wipe poll invariant
+        run: grep -F "r.data.wipedAt&&wipeAckGet()!==r.data.wipedAt" index.html
+      - name: Commit frontend fix
+        run: |
+          git config user.name 'ChatGPT Phase 1'
+          git config user.email 'actions@users.noreply.github.com'
+          git add index.html
+          git commit -m 'fix(cloud): detect wipe epoch during version polling'
+          git push origin HEAD:chatgpt/faza1-cloud-sync

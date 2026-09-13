@@ -1,0 +1,33 @@
+name: Phase 1 fix reconnect ordering
+
+on:
+  push:
+    branches:
+      - chatgpt/faza1-cloud-sync
+    paths:
+      - .github/workflows/phase1-fix-reconnect.yml
+      - .github/phase1-fix-reconnect.py
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/faza1-cloud-sync
+      - name: Apply reconnect patch
+        run: python3 .github/phase1-fix-reconnect.py
+      - name: Verify target marker
+        run: grep -F "if(syncIsDirty())r=await nativePushState();" index.html
+      - name: Check inline JavaScript syntax
+        run: node tests/check-syntax.cjs
+      - name: Commit reconnect fix
+        run: |
+          git config user.name 'ChatGPT Phase 1'
+          git config user.email 'actions@users.noreply.github.com'
+          git add index.html
+          git commit -m 'fix(cloud): push dirty offline state before reconnect pull'
+          git push origin HEAD:chatgpt/faza1-cloud-sync

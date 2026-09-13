@@ -1,0 +1,42 @@
+name: Phase 1 reconnect handler audit
+on:
+  push:
+    branches: [chatgpt/faza1-cloud-sync]
+    paths: [.github/workflows/phase1-online-audit.yml]
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/faza1-cloud-sync
+      - name: Extract reconnect handlers
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8',errors='replace')
+          keys=['addEventListener(\'online\'','addEventListener("online"','online=>','navigator.onLine','pullState()','pollServerVersion()']
+          out=[]
+          seen=[]
+          for k in keys:
+            start=0
+            while True:
+              i=s.find(k,start)
+              if i<0: break
+              a=max(0,i-1200);b=min(len(s),i+2400)
+              if all(abs(i-x)>500 for x in seen):
+                seen.append(i);out.append(f'===== {k} @ {i} =====\n'+s[a:b])
+              start=i+1
+          Path('reconnect-audit.txt').write_text('\n\n'.join(out),encoding='utf-8')
+          print('matches',len(out))
+          PY
+      - name: Commit snippet
+        run: |
+          git config user.name 'ChatGPT Phase 1'
+          git config user.email 'actions@users.noreply.github.com'
+          git add reconnect-audit.txt
+          git commit -m 'chore(test): reconnect handler snippet' || exit 0
+          git push origin HEAD:chatgpt/faza1-cloud-sync

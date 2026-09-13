@@ -1,0 +1,24 @@
+name: Phase 1 inspect online sync
+on:
+  push:
+    branches: [chatgpt/faza1-cloud-sync]
+    paths: [.github/workflows/phase1-inspect-online.yml]
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/faza1-cloud-sync
+      - run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          for pat in ['async function wakeServerAndSync','function wakeServerAndSync','const nativePushState','const nativePullState','const nativeAfterServerLogin']:
+            print('\n###',pat)
+            start=0
+            while True:
+              i=s.find(pat,start)
+              if i<0: break
+              print('AT',i); print(s[max(0,i-1500):i+7000]); start=i+1
+          PY
