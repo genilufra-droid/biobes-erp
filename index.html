@@ -6762,4 +6762,155 @@ console.log('BioBes Fatura Blerje + Peshime v1 u ngarkua');
   };
 })();
 </script>
+<script id="biobes-qr-deeplink-v1">
+/* ==========================================================================
+   biobes-qr-deeplink-v1 — QR + nyje e thellë (deep-link) + Pastro
+   --------------------------------------------------------------------------
+   Etiketat e magazinës kodojnë tashmë `biobesTraceUrl + kod i lotit`, por
+   aplikacioni nuk e dëgjonte kurrë anën tjetër: një nyje e skanuar nga
+   kamera e telefonit nuk hapte as kartelën e lotit dhe as peshimin, dhe
+   filtri i Magazinës mbetej i bllokuar pas skanimit.
+
+   Ky bllok SHTON vetëm (0 deletions, asnje funksion ekzistues nuk rishkruhet):
+   - parseBiobesDeepLink / biobesQrPayload: e njëjta gjuhë për QR-në dhe URL-në
+     (`?lot=`, `#/peshim/`, `#/lot/`, `?fb=`, dhe forma e vjeter /trace/lot/KOD);
+   - biobesOpenDeepLink: hap kartelen per desktop dhe telefon pas boot-it dhe
+     ne çdo `hashchange` (ri-skanim pa rifreskim);
+   - biobesClearDeepLink (butoni **Pastro**): heq search+hash nga adresa, mbyll
+     modalen dhe kthen filtrin e raftit ne "Të gjitha magazinat";
+   - gjendja e lexohet vetem: asnje `save()`, asnje mutate, asnje dokument i ri.
+     Dokumenti real PS-2026-002 nuk prekser kurre (guard ne tests/qr-deeplink-audit.cjs).
+   ========================================================================== */
+(function(){
+ 'use strict';
+ const VERSION='biobes-qr-deeplink-v1';
+ const KINDS={lot:'lots',peshim:'weighings',fb:'purchaseInvoices',furnitor:'suppliers',produkt:'products',klient:'customers'};
+ const PAGES={lot:'warehouse',peshim:'weighings',fb:'purchases',furnitor:'suppliers',produkt:'products',klient:'customers'};
+ let last=null;
+
+ function traceBase(){let v='https://erp.biobes-al.com/trace/lot/';try{v=localStorage.getItem('biobesTraceUrl')||v}catch(e){}return v}
+ function appBase(){try{const u=new URL(location.href);return u.origin+u.pathname}catch(e){return 'index.html'}}
+
+ /** Payload-i qe kodon etiketa QR per nje dokument. */
+ function biobesQrPayload(kind,id){
+  const k=String(kind||'').toLowerCase(),v=String(id==null?'':id).trim();
+  if(!KINDS[k]||!v)throw new Error('biobesQrPayload: kind ose id i pavlefshem');
+  if(k==='lot')return traceBase()+encodeURIComponent(v);
+  return appBase()+'?'+k+'='+encodeURIComponent(v);
+ }
+
+ /** Lexon nje URL / query / hash dhe kthen {kind,id,source} — pa gjysme-perputhje. */
+ function parseBiobesDeepLink(href){
+  const s=String(href==null?(location.search||'')+(location.hash||''):href);
+  for(const k in KINDS){const m=new RegExp('[?&#]'+k+'=([^&#]+)').exec(s);if(m)return{kind:k,id:decodeURIComponent(m[1]),source:'query'}}
+  let m=/\/trace\/lot\/([^&#/?]+)/.exec(s);
+  if(m)return{kind:'lot',id:decodeURIComponent(m[1]),source:'trace-path'};
+  m=/[#/](lot|peshim|fb|furnitor|produkt|klient)[/:=]([^&#/?]+)/.exec(s);
+  if(m)return{kind:m[1],id:decodeURIComponent(m[2]),source:'path'};
+  return{kind:null,id:null,source:null};
+ }
+
+ function biobesFindRecord(kind,id){
+  const coll=KINDS[kind];if(!coll||typeof state==='undefined'||!state)return null;
+  const list=Array.isArray(state[coll])?state[coll]:[];
+  const key=String(id);
+  return list.find(x=>x&&String(x.id)===key)||list.find(x=>x&&String(x.code)===key)||null;
+ }
+
+ function deepLinkBarHTML(link,rec){
+  const label=link.kind+':'+(rec?(rec.code||rec.id):link.id);
+  return '<div id="qrDeepLinkBar" class="card" style="margin:10px 0;padding:10px 12px;background:#eff8f3;outline:1px solid #bad0c4">'+
+   '<b> Nje nyje e skanuar eshte aktive:</b> <code>'+esc(label)+'</code> '+
+   '<span class="hint">Regjistrimi nuk eshte ndryshuar.</span> '+
+   '<button class="btn small" type="button" onclick="biobesOpenDeepLink({force:true})">Hap perseri</button> '+
+   '<button class="btn small" type="button" onclick="biobesClearDeepLink()"><i>&#9935;</i> Pastro</button></div>';
+ }
+
+ function renderDeepLinkBar(){
+  const host=document.getElementById('app')||document.body;if(!host)return;
+  let bar=document.getElementById('qrDeepLinkBar');
+  if(!last){if(bar)bar.remove();return}
+  const rec=biobesFindRecord(last.kind,last.id);
+  const html=deepLinkBarHTML(last,rec);
+  if(bar)bar.outerHTML=html;else host.insertAdjacentHTML('afterbegin',html);
+ }
+
+ function resetRackFilter(){
+  const sel=document.querySelector('select[onchange^="filterRacksV2"]');
+  if(sel)sel.value='';
+  if(typeof filterRacksV2==='function')filterRacksV2('');
+ }
+
+ /** Heq search+hash nga adresa, mbyll modalen, qet filtrimin. Pa rifreskim. */
+ function biobesClearDeepLink(){
+  const had=!!last;
+  try{if(history&&typeof history.replaceState==='function')history.replaceState({},document.title||'BioBes',appBase())}catch(e){}
+  last=null;
+  try{if(typeof closeModal==='function'&&!document.getElementById('modalBody')?.hidden&&document.querySelector('.modal-bg.open'))closeModal()}catch(e){}
+  resetRackFilter();
+  renderDeepLinkBar();
+  try{if(typeof render==='function')render()}catch(e){}
+  try{if(typeof toast==='function'&&had)toast('Nyja e skanuar u pastrua — filtrimet u kthyen')}catch(e){}
+  return{ok:true,cleared:had};
+ }
+
+ function openRecord(kind,rec){
+  if(kind==='lot'&&typeof lotCard==='function'){lotCard(rec.id);return'lotCard'}
+  if(kind==='peshim'&&typeof weightCard==='function'){weightCard(rec.id);return'weightCard'}
+  if(kind==='fb'&&typeof purchaseCard==='function'){purchaseCard(rec.id);return'purchaseCard'}
+  if(kind==='furnitor'&&typeof supplierCard==='function'){supplierCard(rec.id);return'supplierCard'}
+  if(kind==='produkt'&&typeof productCard==='function'){productCard(rec.id);return'productCard'}
+  if(kind==='klient'&&typeof customerCard==='function'){customerCard(rec.id);return'customerCard'}
+  if(typeof go==='function'&&typeof $set==='function'&&typeof traceSearch==='function'){go('trace');$set('traceQ',rec.code||rec.id);traceSearch();return'traceSearch'}
+  return null;
+ }
+
+ /** Hap kartelen per nyjen e dhene (ose ate aktive). Lexuesemer. */
+ function biobesOpenDeepLink(opts){
+  const o=opts||{};
+  const link=parseBiobesDeepLink(o.href);
+  if(!link.kind){if(!o.silent)try{if(typeof toast==='function')toast('Nyja nuk permban asnje dokument BioBes')}catch(e){}last=null;renderDeepLinkBar();return{ok:false,reason:'no-link'}}
+  const rec=biobesFindRecord(link.kind,link.id);
+  if(!rec){last=link;renderDeepBarOrBar();try{if(typeof toast==='function')toast('Nuk u gjet '+(KINDS[link.kind]||'')+' '+(link.id||'')+' ne kete pajisje')}catch(e){}return{ok:false,reason:'not-found',link:link}}
+  last=link;renderDeepLinkBar();
+  const page=PAGES[link.kind];
+  if(o.navigate!==false&&page&&typeof go==='function'&&typeof views!=='undefined'&&views&&views[page]){try{go(page)}catch(e){}}
+  const via=openRecord(link.kind,rec);
+  return{ok:true,link:link,record:{id:rec.id,code:rec.code||null},via:via,version:VERSION};
+ }
+ function renderDeepBarOrBar(){try{renderDeepLinkBar()}catch(e){}}
+
+ /* Etiketa e lotit tregon edhe nyjen e thelle + Pastro (pa prekur QR-ne ekzistues). */
+ const __origLotCardForQr=(typeof lotCard==='function')?lotCard:null;
+ if(__origLotCardForQr){
+  lotCard=function(id){
+   __origLotCardForQr(id);
+   setTimeout(function(){
+    try{
+     const l=(typeof by==='function')?by('lots',id):null,foot=document.getElementById('modalFoot');
+     if(!l||!foot||document.getElementById('qrDeepLinkRow'))return;
+     /* Ne kete nderkohe modalen mund te jete mbyllur: mos fut asgje ne nje footer bosh. */
+     if(!document.querySelector('.modal-bg.open')||!(document.getElementById('modalBody')||{}).innerHTML.trim())return;
+     let link='';try{link=biobesQrPayload('lot',l.code||l.id)}catch(e){return}
+     const row=document.createElement('div');row.id='qrDeepLinkRow';row.style.cssText='margin-left:auto;text-align:right';
+     row.innerHTML='<div class="hint" style="font-size:11px">'+esc(link)+'</div>'+
+      '<button class="btn small" type="button" onclick="navigator.clipboard&&navigator.clipboard.writeText('+JSON.stringify(link)+')">Kopjo nyjen</button> '+
+      '<button class="btn small" type="button" onclick="biobesClearDeepLink()"><i>&#9935;</i> Pastro</button>';
+     foot.appendChild(row);
+    }catch(e){console.warn&&console.warn(VERSION,e&&e.message)}
+   },140);
+  };
+ }
+
+ window.biobesQrPayload=biobesQrPayload;
+ window.parseBiobesDeepLink=parseBiobesDeepLink;
+ window.biobesOpenDeepLink=biobesOpenDeepLink;
+ window.biobesClearDeepLink=biobesClearDeepLink;
+ window.biobesDeepLinkState=function(){return last?{kind:last.kind,id:last.id,source:last.source}:null};
+ window.__biobesQrDeepLink={version:VERSION,kinds:Object.keys(KINDS).slice()};
+
+ window.addEventListener('hashchange',function(){try{biobesOpenDeepLink({silent:true})}catch(e){}});
+ document.addEventListener('DOMContentLoaded',function(){setTimeout(function(){try{biobesOpenDeepLink({silent:true,navigate:true})}catch(e){}},1500)});
+})();
+</script>
 </body></html>

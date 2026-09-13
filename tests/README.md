@@ -21,6 +21,7 @@ npm test
 | `test:warehouse` | 12 prova × desktop/telefon për defektin e Magazina Gur: magazinë pa rafte → peshim 8 thasë/216 kg → konfirmim → rafti `R1 — Rafti kryesor` me lotin; rakordimi i loteve pa raft, idempotenca, reload, konfirmimi i përsëritur, magazina e pavlefshme dhe mesazhet shpjeguese. Çdo provë ka guard që dështon nëse preket dokumenti real `PS-2026-002`. |
 | `test:operations` | 7 grupe × desktop/telefon: krijim/modifikim produkti me foto, magazinë/raft/etiketë, mostër, porosi, proces, paketim dhe ngarkesë. |
 | `test:recovery` | Backup automatik, Pastro, Erase dhe Boot-Guard pas dy nisjeve të dështuara. |
+| `test:qr` | 10 prova × desktop/telefon për nyjën QR/deep-link: gjuha e përbashkët `?lot=`, `#/peshim/`, `#/lot/` dhe forma e vjetër `/trace/lot/KOD`; round-trip i payload-it të etiketës; dështim i butë kur regjistrimi mungon; hapja e kartelës pa prekur `state`; **Pastro** (heq search+hash, mbyll modalen, kthen filtrimin e raftit); `hashchange` pa rifreskim; dhe guard që `PS-2026-002` të mos shfaqet kurrë në profilin e testit. |
 | `test:ocr` | 6 grupe × desktop/telefon: PNG real, PDF me tekst, PDF i skanuar, set eksporti/arkiv/shkarkim, PDF i dëmtuar, kartelë A4. |
 
 - Viewport-et: 1440×1000 dhe 390×844 me touch/mobile.
@@ -54,4 +55,14 @@ BIOBES_BROWSER_EXECUTABLE=/tmp/chromium \
 LD_LIBRARY_PATH=$PWD/.audit/libs/lib npm test
 ```
 
+
+> **Hapi shtesë që mungonte:** binarët `libEGL.so`, `libGLESv2.so`, `libvk_swiftshader.so`,
+> `libvulkan.so.1` dhe `vk_swiftshader_icd.json` (të nxjerrë nga `bin/swiftshader.tar.br`) duhet
+> të vendosen **në të njëjtën direktorë me binarin** (p.sh. `/tmp/` kur binari është `/tmp/chromium`),
+> jo vetëm në `.audit/libs`. Ndryshe Chromium del me `Internal Vulkan error (-3)` /
+> `eglInitialize SwANGLE failed` dhe `npm test` raporton `0/0 passed`:
+> ```bash
+> cp .audit/libs/libEGL.so .audit/libs/libGLESv2.so .audit/libs/libvk_swiftshader.so \
+>    .audit/libs/libvulkan.so.1 .audit/libs/vk_swiftshader_icd.json "$(dirname "$BIOBES_BROWSER_EXECUTABLE")/"
+> ```
 Binarët, bibliotekat dhe fixture-t e gjeneruara nuk janë pjesë e Git-it.
