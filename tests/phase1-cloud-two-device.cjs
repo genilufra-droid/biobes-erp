@@ -101,7 +101,7 @@ async function waitHttp(url, timeout=30000){
   await A.page.evaluate(()=>pullState()); await B.page.evaluate(()=>pullState());
   const va=await A.page.evaluate(()=>serverVersion), vb=await B.page.evaluate(()=>serverVersion); assert.equal(va,vb); console.log('PASS same base version',va);
 
-  // Distinct records: stale client must get 409, auto-merge, retry, and preserve both records.
+  // Distinct records: stale client gets 409, auto-merges, retries, and preserves both records.
   B.net.length=0;
   await addCustomer(A,'CAS-A','CAS winner A'); await waitSynced(A);
   await addCustomer(B,'CAS-B','CAS stale B'); await waitSynced(B);
@@ -112,13 +112,18 @@ async function waitHttp(url, timeout=30000){
   assert.ok(await B.page.evaluate(()=>state.customers.some(x=>x.id==='CAS-A')&&state.customers.some(x=>x.id==='CAS-B')),'B did not retain merged records');
   console.log('PASS distinct-record 409 auto-merge preserves A+B');
 
-  // Same record: automatic merge is forbidden; local edit must stay pending and UI must require resolution.
+  // Same record: freeze B offline on the base version so conflict is deterministic.
   await addCustomer(A,'SAME','Base'); await waitSynced(A);
   await B.page.evaluate(()=>pullState());
   assert.equal(await B.page.evaluate(()=>state.customers.find(x=>x.id==='SAME')?.name),'Base');
+  await B.context.setOffline(true);
   await editCustomer(A,'SAME','Edit A'); await waitSynced(A);
   B.net.length=0;
   await editCustomer(B,'SAME','Edit B');
+  await B.page.waitForFunction(()=>syncIsDirty()===true,{timeout:5000});
+  assert.equal(await B.page.evaluate(()=>state.customers.find(x=>x.id==='SAME')?.name),'Edit B');
+  await B.context.setOffline(false);
+  await B.page.evaluate(()=>window.dispatchEvent(new Event('online')));
   await B.page.waitForFunction(()=>document.getElementById('modal') && /Ndryshime më të reja|konflikt/i.test(document.getElementById('modal').innerText),{timeout:20000});
   assert.ok(B.net.some(x=>x.kind==='RES'&&x.status===409),'same-record edit did not hit CAS conflict');
   assert.equal(await B.page.evaluate(()=>state.customers.find(x=>x.id==='SAME')?.name),'Edit B','local same-record edit disappeared');
@@ -128,6 +133,29 @@ async function waitHttp(url, timeout=30000){
   await B.page.evaluate(()=>syncTakeServer());
   await B.page.waitForFunction(()=>state.customers.find(x=>x.id==='SAME')?.name==='Edit A' && !syncIsDirty(),{timeout:10000});
   console.log('PASS explicit server-copy conflict resolution');
+
+  // Single-flight queue: delay the first PUT, mutate again while it is in flight, and verify ordering + final persistence.
+  await A.page.evaluate(()=>pullState());
+  A.net.length=0; let delayed=false;
+  await A.page.route('**/api/state',async route=>{
+    if(route.request().method()==='PUT'&&!delayed){delayed=true;await sleep(1400)}
+    await route.continue();
+  });
+  await addCustomer(A,'QUEUE-1','Queue first');
+  await sleep(950);
+  await addCustomer(A,'QUEUE-2','Queue second');
+  await waitSynced(A); await A.page.unroute('**/api/state'); await sleep(250);
+  const flow=A.net.filter(x=>x.kind==='REQ'||x.kind==='RES');
+  const reqIdx=flow.map((x,i)=>x.kind==='REQ'?i:-1).filter(i=>i>=0);
+  const firstRes=flow.findIndex(x=>x.kind==='RES');
+  assert.ok(reqIdx.length>=2,'expected queued second PUT');
+  assert.ok(reqIdx[1]>firstRes,'parallel PUT detected before first response');
+  const firstReq=flow[reqIdx[0]], secondReq=flow[reqIdx[1]];
+  assert.ok(firstReq.customerIds.includes('QUEUE-1')&&!firstReq.customerIds.includes('QUEUE-2'),'first snapshot was not isolated');
+  assert.ok(secondReq.customerIds.includes('QUEUE-1')&&secondReq.customerIds.includes('QUEUE-2'),'queued snapshot missed second mutation');
+  s=await serverState(A);
+  assert.ok(s.state.customers.some(x=>x.id==='QUEUE-1')&&s.state.customers.some(x=>x.id==='QUEUE-2'),'queued mutations not persisted');
+  console.log('PASS single-flight queue preserves second save');
 
   assert.deepEqual(A.errors,[]); assert.deepEqual(B.errors,[]);
   console.log('ALL PHASE1 CLOUD TESTS PASS');
