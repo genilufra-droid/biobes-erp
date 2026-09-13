@@ -12,6 +12,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Inspect packaging KG source
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          for needle in ['Paketim i ri','Shpërnda njëlloj','KG të marra','Kg të marra','Loti burimor']:
+            print('\n###',needle)
+            start=0
+            found=0
+            while True:
+              i=s.find(needle,start)
+              if i<0: break
+              found+=1
+              print('AT',i)
+              print(s[max(0,i-4500):min(len(s),i+9000)])
+              start=i+1
+            print('COUNT',found)
+          PY
       - name: Inject cold-start recovery directly into index.html
         shell: bash
         run: |
@@ -32,8 +51,6 @@ jobs:
           inline=start+'\n'+helper+'\n</script>'
           pattern=r'<script id="biobes-coldstart-v3">.*?</script>'
 
-          # Remove any previous placement, including an earlier bad insertion
-          # inside a JS template string, then inject only at the final real body end.
           s=re.sub(pattern,'',s,flags=re.S)
           if '</body>' not in s:
               raise SystemExit('ERROR: </body> not found')
@@ -48,10 +65,10 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           s=Path('index.html').read_text(encoding='utf-8')
-          assert s.count('id="biobes-coldstart-v3"')==1, 'cold-start patch must appear exactly once'
-          assert s.rfind('id="biobes-coldstart-v3"') > s.rfind('setTimeout(syncBoot,600)'), 'patch must be after app scripts'
-          assert s.rfind('id="biobes-coldstart-v3"') < s.rfind('</body>'), 'patch must be before final body close'
-          assert s.rstrip().endswith('</html>'), 'document must end with </html>'
+          assert s.count('id="biobes-coldstart-v3"')==1
+          assert s.rfind('id="biobes-coldstart-v3"') > s.rfind('setTimeout(syncBoot,600)')
+          assert s.rfind('id="biobes-coldstart-v3"') < s.rfind('</body>')
+          assert s.rstrip().endswith('</html>')
           PY
           git diff --check
       - name: Commit patched HTML
