@@ -182,6 +182,270 @@ let wg=e2ePush('weighings',{id:'WG-TEST-001',date:'2026-09-01',supplier:sup.id,p
 let lot=e2ePush('lots',{id:'LOT-TST-RAW',code:'B1-TST-105-26',weighing:wg.id,supplier:sup.id,product:prd.id,warehouse:wh.id,rack:rack.id,gross:2100,tare:100,net:2000,originalNet:2000,bags:100,status:'Në magazinim',unitCost:339.5});
 e2ePush('purchaseInvoices',{id:'FB-TEST-001',supplierInvoi
 
+### adminOverride @ 1867129
+'Loti burimor nuk u gjet');
+      if(seen.has(lotId)) return toast('Loti '+lot.code+' është shtuar dy herë');
+      seen.add(lotId);
+      const qty = parseFloat(r.querySelector('[data-pack-qty]').value)||0;
+      if(!(qty>0)) return toast('Sasia për lotin '+lot.code+' duhet të jetë pozitive');
+      const cap = lotUnpacked(lot);
+      if(qty > cap + 0.001) overruns.push({lotId:lotId,code:lot.code,qty:qty,cap:cap});
+      if(lot.product !== product) return toast('Loti '+lot.code+' është i produktit tjetër — përzieni vetëm lotë të së njëjtit produkt');
+      const q = Math.round(qty*1000)/1000;
+      sources.push({lot: lotId, qty: q});
+      sum = Math.round((sum+q)*1000)/1000;
+    }
+    let adminOverride = null;
+    if(overruns.length){
+      adminOverride = await packRequireAdminOverride(overruns);
+      if(!adminOverride) return;
+    }
+    if(Math.abs(sum - total) > 0.01) return toast('Sasia nga lotet ('+fmt2(sum)+' kg) duhet të jetë '+fmt2(total)+' kg (diferenca '+fmt2(total-sum)+' kg)');
+    const data = {
+      id:nextSeqId('PK',packs(),1,new Date().getFullYear()),
+      order: order,
+      customer: o.customer,
+      product: product,
+      internalLot: internal,
+      customerLot: $val('pkCustomer'),
+      template: $val('pkTemplate'),
+      bags: bags,
+      bagWeight: bagWeight,
+      cropYear: $num('pkCrop', new Date().getFullYear()),
+      bestBefore: $num('pkBest', new Date().getFullYear()+3),
+      cert: $val('pkCert'),
+      organic: $val('pkOrganic'),
+      originType: $val('pkOriginType'),
+      part: $val('pkPart'),
+      origin: $val('pkOrigin'),
+      date: new Date().toISOString().slice(0,10),
+      sources: sources,
+      adminOverride: adminOverride
+    };
+    const r = atomicTransaction('Paketim', ()=> corePackage(data));
+    if(!r || !r.ok) return toast((r&&r.error)||'Paketimi dështoi');
+    if(adminOverride){
+      state.events = state.events || [];
+      const od = adminOverride.overruns.map(x=>x.code+': '+fmt2(x.qty)+' kg / stok '+fmt2(x.stock)+' kg').join('; ');
+      state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Admin override',ref:r.record.id,text:'Tejkalim stoku në paketim. Admin: '+adminOverride.admin+'. Arsye: '+adminOverride.reason+'. '+od});
+    }
+    save();
+    closeModal();
+    render();
+    setTimeout(()=> packagingCard(r.record.id), 80);
+    toast('Paketimi u krijua');
+  }catch(e){ console.error(e); 
+
+### adminOverride @ 1867182
+ return toast('Loti '+lot.code+' është shtuar dy herë');
+      seen.add(lotId);
+      const qty = parseFloat(r.querySelector('[data-pack-qty]').value)||0;
+      if(!(qty>0)) return toast('Sasia për lotin '+lot.code+' duhet të jetë pozitive');
+      const cap = lotUnpacked(lot);
+      if(qty > cap + 0.001) overruns.push({lotId:lotId,code:lot.code,qty:qty,cap:cap});
+      if(lot.product !== product) return toast('Loti '+lot.code+' është i produktit tjetër — përzieni vetëm lotë të së njëjtit produkt');
+      const q = Math.round(qty*1000)/1000;
+      sources.push({lot: lotId, qty: q});
+      sum = Math.round((sum+q)*1000)/1000;
+    }
+    let adminOverride = null;
+    if(overruns.length){
+      adminOverride = await packRequireAdminOverride(overruns);
+      if(!adminOverride) return;
+    }
+    if(Math.abs(sum - total) > 0.01) return toast('Sasia nga lotet ('+fmt2(sum)+' kg) duhet të jetë '+fmt2(total)+' kg (diferenca '+fmt2(total-sum)+' kg)');
+    const data = {
+      id:nextSeqId('PK',packs(),1,new Date().getFullYear()),
+      order: order,
+      customer: o.customer,
+      product: product,
+      internalLot: internal,
+      customerLot: $val('pkCustomer'),
+      template: $val('pkTemplate'),
+      bags: bags,
+      bagWeight: bagWeight,
+      cropYear: $num('pkCrop', new Date().getFullYear()),
+      bestBefore: $num('pkBest', new Date().getFullYear()+3),
+      cert: $val('pkCert'),
+      organic: $val('pkOrganic'),
+      originType: $val('pkOriginType'),
+      part: $val('pkPart'),
+      origin: $val('pkOrigin'),
+      date: new Date().toISOString().slice(0,10),
+      sources: sources,
+      adminOverride: adminOverride
+    };
+    const r = atomicTransaction('Paketim', ()=> corePackage(data));
+    if(!r || !r.ok) return toast((r&&r.error)||'Paketimi dështoi');
+    if(adminOverride){
+      state.events = state.events || [];
+      const od = adminOverride.overruns.map(x=>x.code+': '+fmt2(x.qty)+' kg / stok '+fmt2(x.stock)+' kg').join('; ');
+      state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Admin override',ref:r.record.id,text:'Tejkalim stoku në paketim. Admin: '+adminOverride.admin+'. Arsye: '+adminOverride.reason+'. '+od});
+    }
+    save();
+    closeModal();
+    render();
+    setTimeout(()=> packagingCard(r.record.id), 80);
+    toast('Paketimi u krijua');
+  }catch(e){ console.error(e); toast('Gabim gjatë ruajtjes: '+e.message); }
+};
+
+// E
+
+### adminOverride @ 1867250
+add(lotId);
+      const qty = parseFloat(r.querySelector('[data-pack-qty]').value)||0;
+      if(!(qty>0)) return toast('Sasia për lotin '+lot.code+' duhet të jetë pozitive');
+      const cap = lotUnpacked(lot);
+      if(qty > cap + 0.001) overruns.push({lotId:lotId,code:lot.code,qty:qty,cap:cap});
+      if(lot.product !== product) return toast('Loti '+lot.code+' është i produktit tjetër — përzieni vetëm lotë të së njëjtit produkt');
+      const q = Math.round(qty*1000)/1000;
+      sources.push({lot: lotId, qty: q});
+      sum = Math.round((sum+q)*1000)/1000;
+    }
+    let adminOverride = null;
+    if(overruns.length){
+      adminOverride = await packRequireAdminOverride(overruns);
+      if(!adminOverride) return;
+    }
+    if(Math.abs(sum - total) > 0.01) return toast('Sasia nga lotet ('+fmt2(sum)+' kg) duhet të jetë '+fmt2(total)+' kg (diferenca '+fmt2(total-sum)+' kg)');
+    const data = {
+      id:nextSeqId('PK',packs(),1,new Date().getFullYear()),
+      order: order,
+      customer: o.customer,
+      product: product,
+      internalLot: internal,
+      customerLot: $val('pkCustomer'),
+      template: $val('pkTemplate'),
+      bags: bags,
+      bagWeight: bagWeight,
+      cropYear: $num('pkCrop', new Date().getFullYear()),
+      bestBefore: $num('pkBest', new Date().getFullYear()+3),
+      cert: $val('pkCert'),
+      organic: $val('pkOrganic'),
+      originType: $val('pkOriginType'),
+      part: $val('pkPart'),
+      origin: $val('pkOrigin'),
+      date: new Date().toISOString().slice(0,10),
+      sources: sources,
+      adminOverride: adminOverride
+    };
+    const r = atomicTransaction('Paketim', ()=> corePackage(data));
+    if(!r || !r.ok) return toast((r&&r.error)||'Paketimi dështoi');
+    if(adminOverride){
+      state.events = state.events || [];
+      const od = adminOverride.overruns.map(x=>x.code+': '+fmt2(x.qty)+' kg / stok '+fmt2(x.stock)+' kg').join('; ');
+      state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Admin override',ref:r.record.id,text:'Tejkalim stoku në paketim. Admin: '+adminOverride.admin+'. Arsye: '+adminOverride.reason+'. '+od});
+    }
+    save();
+    closeModal();
+    render();
+    setTimeout(()=> packagingCard(r.record.id), 80);
+    toast('Paketimi u krijua');
+  }catch(e){ console.error(e); toast('Gabim gjatë ruajtjes: '+e.message); }
+};
+
+// Ensure packagingForm triggers sum on bag changes
+const origPackagingF
+
+### adminOverride @ 1868100
+iferenca '+fmt2(total-sum)+' kg)');
+    const data = {
+      id:nextSeqId('PK',packs(),1,new Date().getFullYear()),
+      order: order,
+      customer: o.customer,
+      product: product,
+      internalLot: internal,
+      customerLot: $val('pkCustomer'),
+      template: $val('pkTemplate'),
+      bags: bags,
+      bagWeight: bagWeight,
+      cropYear: $num('pkCrop', new Date().getFullYear()),
+      bestBefore: $num('pkBest', new Date().getFullYear()+3),
+      cert: $val('pkCert'),
+      organic: $val('pkOrganic'),
+      originType: $val('pkOriginType'),
+      part: $val('pkPart'),
+      origin: $val('pkOrigin'),
+      date: new Date().toISOString().slice(0,10),
+      sources: sources,
+      adminOverride: adminOverride
+    };
+    const r = atomicTransaction('Paketim', ()=> corePackage(data));
+    if(!r || !r.ok) return toast((r&&r.error)||'Paketimi dështoi');
+    if(adminOverride){
+      state.events = state.events || [];
+      const od = adminOverride.overruns.map(x=>x.code+': '+fmt2(x.qty)+' kg / stok '+fmt2(x.stock)+' kg').join('; ');
+      state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Admin override',ref:r.record.id,text:'Tejkalim stoku në paketim. Admin: '+adminOverride.admin+'. Arsye: '+adminOverride.reason+'. '+od});
+    }
+    save();
+    closeModal();
+    render();
+    setTimeout(()=> packagingCard(r.record.id), 80);
+    toast('Paketimi u krijua');
+  }catch(e){ console.error(e); toast('Gabim gjatë ruajtjes: '+e.message); }
+};
+
+// Ensure packagingForm triggers sum on bag changes
+const origPackagingForm = window.packagingForm;
+window.packagingForm = function(){
+  modal('Paketim i ri',`<div class="form-grid">
+    <div class="field"><label>Porosia</label><select id="pkOrder">${opts(state.orders,x=>x.id+' — '+by('customers',x.customer).name)}</select></div>
+    <div class="field"><label>Magazina burimore</label><select id="pkWarehouse" onchange="packSourceSum('pk')">${opts(state.warehouses,x=>x.name)}</select></div>
+    ${packSourcePickerHtml('pk',[], $val('pkProduct')||'')}
+    <div class="field"><label>Produkti</label><select id="pkProduct" onchange="packSourceRefreshForProduct('pk',this.value)">${opts(state.products,x=>x.code+' — '+x.name)}</select></div>
+    <div class="field"><label>Loti përfundimtar BioBes</label><input id="pkInternal" placeholder="B2W01F/1a-II-115-26"></div>
+    <div class="field"><label>Loti i klientit</label><i
+
+### adminOverride @ 1868115
+(total-sum)+' kg)');
+    const data = {
+      id:nextSeqId('PK',packs(),1,new Date().getFullYear()),
+      order: order,
+      customer: o.customer,
+      product: product,
+      internalLot: internal,
+      customerLot: $val('pkCustomer'),
+      template: $val('pkTemplate'),
+      bags: bags,
+      bagWeight: bagWeight,
+      cropYear: $num('pkCrop', new Date().getFullYear()),
+      bestBefore: $num('pkBest', new Date().getFullYear()+3),
+      cert: $val('pkCert'),
+      organic: $val('pkOrganic'),
+      originType: $val('pkOriginType'),
+      part: $val('pkPart'),
+      origin: $val('pkOrigin'),
+      date: new Date().toISOString().slice(0,10),
+      sources: sources,
+      adminOverride: adminOverride
+    };
+    const r = atomicTransaction('Paketim', ()=> corePackage(data));
+    if(!r || !r.ok) return toast((r&&r.error)||'Paketimi dështoi');
+    if(adminOverride){
+      state.events = state.events || [];
+      const od = adminOverride.overruns.map(x=>x.code+': '+fmt2(x.qty)+' kg / stok '+fmt2(x.stock)+' kg').join('; ');
+      state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Admin override',ref:r.record.id,text:'Tejkalim stoku në paketim. Admin: '+adminOverride.admin+'. Arsye: '+adminOverride.reason+'. '+od});
+    }
+    save();
+    closeModal();
+    render();
+    setTimeout(()=> packagingCard(r.record.id), 80);
+    toast('Paketimi u krijua');
+  }catch(e){ console.error(e); toast('Gabim gjatë ruajtjes: '+e.message); }
+};
+
+// Ensure packagingForm triggers sum on bag changes
+const origPackagingForm = window.packagingForm;
+window.packagingForm = function(){
+  modal('Paketim i ri',`<div class="form-grid">
+    <div class="field"><label>Porosia</label><select id="pkOrder">${opts(state.orders,x=>x.id+' — '+by('customers',x.customer).name)}</select></div>
+    <div class="field"><label>Magazina burimore</label><select id="pkWarehouse" onchange="packSourceSum('pk')">${opts(state.warehouses,x=>x.name)}</select></div>
+    ${packSourcePickerHtml('pk',[], $val('pkProduct')||'')}
+    <div class="field"><label>Produkti</label><select id="pkProduct" onchange="packSourceRefreshForProduct('pk',this.value)">${opts(state.products,x=>x.code+' — '+x.name)}</select></div>
+    <div class="field"><label>Loti përfundimtar BioBes</label><input id="pkInternal" placeholder="B2W01F/1a-II-115-26"></div>
+    <div class="field"><label>Loti i klientit</label><input id="pkCust
+
 ### verifyAdmin @ 191784
 m-grid"><div class="field full"><label>Passwordi i adminit</label><input id="bswPass" type="password" placeholder="Fut passwordin e adminit"></div></div>','<button class="btn" onclick="closeModal()">Anulo</button><button class="btn danger" onclick="confirmBlankSlateWipe()">🗑 Fshi GJITHÇKA + përdoruesit</button>');setTimeout(()=>document.getElementById('bswPass')?.focus(),80)}
 async function confirmBlankSlateWipe(){let pass=document.getElementById('bswPass')?.value||'',adm=resetAdminUser();if(!adm&&!serverAdminMode())return toast('Nuk u gjet përdorues admin');if(adm&&adm.lockedUntil&&new Date(adm.lockedUntil)>new Date())return toast('Llogaria admin është e bllokuar përkohësisht');let v=await verifyAdminPassword(pass);adm=v.adm||adm;if(!v.ok){noteAdminFail(v,'WIPE_FAIL','Password i gabuar për pastrim komplet');let pol={maxAttempts:5};try{pol=securityState().policy||pol}catch(e){}let locked=!!(adm&&adm.lockedUntil&&new Date(adm.lockedUntil)>new Date());return toast(locked?'Password i gabuar — llogaria admin u bllokua përkohësisht':(v.reason||'Password i gabuar')+(v.server||!adm?'':' ('+Math.max(0,pol.maxAttempts-(adm.failedAttempts||0))+' tentativa të mbetura)'))}if(adm){adm.failedAttempts=0;adm.lockedUntil=null;save()}try{securityAudit('WIPE_CONFIRM','Pastrim komplet i konfirmuar')}catch(e){}await executeBlankSlateWipe(pass)}
