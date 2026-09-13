@@ -53,24 +53,20 @@ async function waitHttp(url, timeout=30000){
   }
   const A=await device('A'), B=await device('B');
 
-  // 1) A writes; B sees after polling.
   await addCustomer(A,'TWO-A','Nga pajisja A'); await waitSynced(A);
   let s=await serverState(A); assert.ok(s.state.customers.some(x=>x.id==='TWO-A')); console.log('PASS A -> server');
   await B.page.evaluate(()=>pollServerVersion());
   await B.page.waitForFunction(()=>state.customers?.some(x=>x.id==='TWO-A'),{timeout:15000}); console.log('PASS server -> B');
 
-  // 2) Offline change must remain dirty and upload after reconnect.
   await A.context.setOffline(true); await addCustomer(A,'OFF-A','Offline A');
   await A.page.waitForFunction(()=>syncIsDirty()===true,{timeout:5000}); await sleep(1200);
   assert.ok(await A.page.evaluate(()=>state.customers.some(x=>x.id==='OFF-A'))); console.log('PASS offline local retained');
   await A.context.setOffline(false); await A.page.evaluate(()=>{window.dispatchEvent(new Event('online')); return pollServerVersion()}); await waitSynced(A);
   s=await serverState(A); assert.ok(s.state.customers.some(x=>x.id==='OFF-A')); console.log('PASS reconnect uploaded');
 
-  // Refresh both onto exactly the same server version before conflict test.
   await A.page.evaluate(()=>pullState()); await B.page.evaluate(()=>pullState());
   const va=await A.page.evaluate(()=>serverVersion), vb=await B.page.evaluate(()=>serverVersion); assert.equal(va,vb); console.log('PASS same base version',va);
 
-  // 3) A wins CAS, B stale write must get conflict and must NOT overwrite A.
   await addCustomer(A,'CAS-A','CAS winner A'); await waitSynced(A);
   await addCustomer(B,'CAS-B','CAS stale B');
   await B.page.waitForFunction(()=>document.getElementById('modal') && /konflikt/i.test(document.getElementById('modal').innerText),{timeout:20000});
@@ -82,8 +78,6 @@ async function waitHttp(url, timeout=30000){
   console.log('PASS 409 blocks stale overwrite');
   console.log('CONFLICT_UI_BEGIN\n'+conflictUI.slice(0,1800)+'\nCONFLICT_UI_END');
 
-  // 4) Probe recovery: force/local retry must not silently erase A's accepted mutation.
-  const before=JSON.parse(JSON.stringify(s.state));
   const retry=await B.page.evaluate(()=>pushState(true));
   await sleep(800);
   const after=(await serverState(A)).state;
@@ -95,4 +89,4 @@ async function waitHttp(url, timeout=30000){
   assert.deepEqual(A.errors,[]); assert.deepEqual(B.errors,[]);
   console.log('ALL PHASE1 CLOUD TESTS PASS');
   await A.context.close(); await B.context.close(); await browser.close(); api.kill('SIGTERM'); web.kill('SIGTERM'); await dbSrv.stop();
-})().catch(async e=>{console.error('PHASE1 CLOUD TEST FAIL:',e.stack);process.exitCode=1});
+})().catch(e=>{console.error('PHASE1 CLOUD TEST FAIL:',e.stack);process.exit(1)});
