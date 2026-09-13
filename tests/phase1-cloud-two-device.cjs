@@ -123,8 +123,8 @@ async function waitHttp(url, timeout=30000){
   await B.page.waitForFunction(()=>syncIsDirty()===true,{timeout:5000});
   assert.equal(await B.page.evaluate(()=>state.customers.find(x=>x.id==='SAME')?.name),'Edit B');
   await B.context.setOffline(false);
-  await B.page.evaluate(()=>window.dispatchEvent(new Event('online')));
-  await B.page.waitForFunction(()=>document.getElementById('modal') && /Ndryshime më të reja|konflikt/i.test(document.getElementById('modal').innerText),{timeout:20000});
+  await B.page.evaluate(()=>pushState(false));
+  await B.page.waitForFunction(()=>document.getElementById('modal') && /Ndryshime më të reja|konflikt/i.test(document.getElementById('modal').innerText),{timeout:10000});
   assert.ok(B.net.some(x=>x.kind==='RES'&&x.status===409),'same-record edit did not hit CAS conflict');
   assert.equal(await B.page.evaluate(()=>state.customers.find(x=>x.id==='SAME')?.name),'Edit B','local same-record edit disappeared');
   s=await serverState(A);
