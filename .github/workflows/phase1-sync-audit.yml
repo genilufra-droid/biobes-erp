@@ -1,0 +1,44 @@
+name: Phase 1 sync audit
+on:
+  push:
+    branches: [chatgpt/faza1-cloud-sync]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  audit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/faza1-cloud-sync
+      - name: Extract sync/auth/save contexts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8',errors='replace')
+          pats=['api/state','baseVersion','serverVersion','serverSave','serverSync','sync','offline','pending','409','serverFetch','serverPush','serverLoad','serverLoginRetry','afterServerLogin','function save','async function save']
+          out=[]
+          seen=set()
+          for pat in pats:
+              for m in re.finditer(re.escape(pat),s,re.I):
+                  a=max(0,m.start()-1800); b=min(len(s),m.end()+2600)
+                  # expand to nearby line-ish/script boundaries lightly
+                  key=(a//500,b//500)
+                  if key in seen: continue
+                  seen.add(key)
+                  out.append(f'\n===== MATCH {pat} @ {m.start()} =====\n'+s[a:b])
+                  if len(out)>=40: break
+              if len(out)>=40: break
+          Path('sync-audit-snippet.txt').write_text('\n'.join(out),encoding='utf-8')
+          print('contexts',len(out),'bytes',Path('sync-audit-snippet.txt').stat().st_size)
+          PY
+      - name: Commit audit snippet
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add sync-audit-snippet.txt
+          git commit -m "chore(phase1): sync audit snippet" || exit 0
+          git push origin HEAD:chatgpt/faza1-cloud-sync
