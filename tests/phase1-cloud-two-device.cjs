@@ -37,7 +37,7 @@ async function waitHttp(url, timeout=30000){
     page.on('request',req=>{
       if(req.method()==='PUT' && req.url().includes('/api/state')){
         let body={}; try{body=JSON.parse(req.postData()||'{}')}catch(e){}
-        net.push({kind:'REQ',method:'PUT',baseVersion:body.baseVersion,hasOffA:!!body.state?.customers?.some(x=>x.id==='OFF-A'),customerIds:(body.state?.customers||[]).map(x=>x.id).slice(-12)});
+        net.push({kind:'REQ',method:'PUT',baseVersion:body.baseVersion,hasOffA:!!body.state?.customers?.some(x=>x.id==='OFF-A'),customerIds:(body.state?.customers||[]).map(x=>x.id).slice(-20)});
       }
     });
     page.on('response',async res=>{
@@ -76,44 +76,59 @@ async function waitHttp(url, timeout=30000){
   async function addCustomer(dev,id,name){
     await dev.page.evaluate(({id,name})=>{state.customers=Array.isArray(state.customers)?state.customers:[]; if(!state.customers.some(x=>x.id===id))state.customers.push({id,code:id,name,balance:0}); save();},{id,name});
   }
+  async function editCustomer(dev,id,name){
+    await dev.page.evaluate(({id,name})=>{const x=(state.customers||[]).find(x=>x.id===id); if(!x)throw new Error('missing '+id); x.name=name; save();},{id,name});
+  }
   async function waitSynced(dev){
-    await dev.page.waitForFunction(()=>typeof syncIsDirty==='function' && !syncIsDirty() && serverOnline===true,{timeout:20000});
+    await dev.page.waitForFunction(()=>typeof syncIsDirty==='function' && !syncIsDirty() && serverOnline===true,{timeout:25000});
   }
   const A=await device('A'), B=await device('B');
   await addCustomer(A,'TWO-A','Nga pajisja A'); await waitSynced(A);
   let s=await serverState(A); assert.ok(s.state.customers.some(x=>x.id==='TWO-A')); console.log('PASS A -> server');
   await B.page.evaluate(()=>pollServerVersion());
   await B.page.waitForFunction(()=>state.customers?.some(x=>x.id==='TWO-A'),{timeout:15000}); console.log('PASS server -> B');
+
   await A.context.setOffline(true); await addCustomer(A,'OFF-A','Offline A');
   await A.page.waitForFunction(()=>syncIsDirty()===true,{timeout:5000}); await sleep(1200);
   assert.ok(await A.page.evaluate(()=>state.customers.some(x=>x.id==='OFF-A'))); console.log('PASS offline local retained');
-  await diag(A,'before-reconnect');
-  A.net.length=0;
+  await diag(A,'before-reconnect'); A.net.length=0;
   await A.context.setOffline(false);
   await A.page.evaluate(()=>{window.dispatchEvent(new Event('online')); return pollServerVersion()});
-  await waitSynced(A);
-  await sleep(500);
-  await diag(A,'after-reconnect');
+  await waitSynced(A); await sleep(500); await diag(A,'after-reconnect');
   s=await serverState(A);
-  console.log('DIAG server-after-reconnect',JSON.stringify({version:s.version,hasOffA:!!s.state?.customers?.some(x=>x.id==='OFF-A'),ids:(s.state?.customers||[]).map(x=>x.id).slice(-12)}));
   assert.ok(s.state.customers.some(x=>x.id==='OFF-A')); console.log('PASS reconnect uploaded');
+
   await A.page.evaluate(()=>pullState()); await B.page.evaluate(()=>pullState());
   const va=await A.page.evaluate(()=>serverVersion), vb=await B.page.evaluate(()=>serverVersion); assert.equal(va,vb); console.log('PASS same base version',va);
+
+  // Distinct records: stale client must get 409, auto-merge, retry, and preserve both records.
+  B.net.length=0;
   await addCustomer(A,'CAS-A','CAS winner A'); await waitSynced(A);
-  await addCustomer(B,'CAS-B','CAS stale B');
-  await B.page.waitForFunction(()=>document.getElementById('modal') && /konflikt/i.test(document.getElementById('modal').innerText),{timeout:20000});
-  assert.ok(await B.page.evaluate(()=>state.customers.some(x=>x.id==='CAS-B')),'B local mutation disappeared on 409');
+  await addCustomer(B,'CAS-B','CAS stale B'); await waitSynced(B);
   s=await serverState(A);
-  assert.ok(s.state.customers.some(x=>x.id==='CAS-A'),'server lost winner A');
-  assert.ok(!s.state.customers.some(x=>x.id==='CAS-B'),'stale B silently overwrote server');
-  const conflictUI=await B.page.locator('#modal').innerText();
-  console.log('PASS 409 blocks stale overwrite');
-  console.log('CONFLICT_UI_BEGIN\n'+conflictUI.slice(0,1800)+'\nCONFLICT_UI_END');
-  const retry=await B.page.evaluate(()=>pushState(true));
-  await sleep(800);
-  const after=(await serverState(A)).state;
-  if(after.customers?.some(x=>x.id==='CAS-B') && !after.customers?.some(x=>x.id==='CAS-A'))throw new Error('DATA LOSS: conflict recovery uploaded stale local snapshot and erased CAS-A');
-  console.log('PASS recovery did not erase accepted remote mutation',JSON.stringify(retry));
+  assert.ok(B.net.some(x=>x.kind==='RES'&&x.status===409),'expected B to observe a 409 before safe retry');
+  assert.ok(s.state.customers.some(x=>x.id==='CAS-A'),'server lost accepted A record');
+  assert.ok(s.state.customers.some(x=>x.id==='CAS-B'),'server lost safely merged B record');
+  assert.ok(await B.page.evaluate(()=>state.customers.some(x=>x.id==='CAS-A')&&state.customers.some(x=>x.id==='CAS-B')),'B did not retain merged records');
+  console.log('PASS distinct-record 409 auto-merge preserves A+B');
+
+  // Same record: automatic merge is forbidden; local edit must stay pending and UI must require resolution.
+  await addCustomer(A,'SAME','Base'); await waitSynced(A);
+  await B.page.evaluate(()=>pullState());
+  assert.equal(await B.page.evaluate(()=>state.customers.find(x=>x.id==='SAME')?.name),'Base');
+  await editCustomer(A,'SAME','Edit A'); await waitSynced(A);
+  B.net.length=0;
+  await editCustomer(B,'SAME','Edit B');
+  await B.page.waitForFunction(()=>document.getElementById('modal') && /Ndryshime më të reja|konflikt/i.test(document.getElementById('modal').innerText),{timeout:20000});
+  assert.ok(B.net.some(x=>x.kind==='RES'&&x.status===409),'same-record edit did not hit CAS conflict');
+  assert.equal(await B.page.evaluate(()=>state.customers.find(x=>x.id==='SAME')?.name),'Edit B','local same-record edit disappeared');
+  s=await serverState(A);
+  assert.equal(s.state.customers.find(x=>x.id==='SAME')?.name,'Edit A','stale B overwrote accepted A edit');
+  console.log('PASS same-record conflict blocks silent overwrite');
+  await B.page.evaluate(()=>syncTakeServer());
+  await B.page.waitForFunction(()=>state.customers.find(x=>x.id==='SAME')?.name==='Edit A' && !syncIsDirty(),{timeout:10000});
+  console.log('PASS explicit server-copy conflict resolution');
+
   assert.deepEqual(A.errors,[]); assert.deepEqual(B.errors,[]);
   console.log('ALL PHASE1 CLOUD TESTS PASS');
   await A.context.close(); await B.context.close(); await browser.close(); api.kill('SIGTERM'); web.kill('SIGTERM'); await dbSrv.stop();
