@@ -30,3 +30,4 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run two-device cloud test
         run: node tests/phase1-cloud-two-device.cjs
+      # rerun marker: verify Phase 1 behavior, not variable names
