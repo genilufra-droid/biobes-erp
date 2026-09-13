@@ -1,0 +1,15 @@
+{
+  "name": "biobes-erp-audit",
+  "private": true,
+  "scripts": {
+    "test:syntax": "node tests/check-syntax.cjs",
+    "test:browser": "node tests/browser-audit.cjs",
+    "test": "npm run test:syntax && npm run test:browser && npm run test:operations && npm run test:recovery && npm run test:ocr",
+    "test:operations": "node tests/operations-audit.cjs",
+    "test:recovery": "node tests/recovery-audit.cjs",
+    "test:ocr": "node tests/ocr-audit.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}
