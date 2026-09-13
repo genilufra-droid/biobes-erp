@@ -1,0 +1,22 @@
+name: Phase 1 inspect sync
+on:
+  push:
+    branches: [chatgpt/faza1-cloud-sync]
+    paths: [.github/workflows/phase1-inspect-sync.yml]
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/faza1-cloud-sync
+      - name: Print sync functions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          for pat in ['async function pushState','async function serverStatePut','async function pollServerVersion','function showSyncConflict','async function syncKeepMine','async function syncTakeServer','function queuePush','if(syncIsDirty())r=await nativePushState']:
+            i=s.find(pat)
+            print('\n===== '+pat+' @ '+str(i)+' =====')
+            if i>=0: print(s[max(0,i-800):i+7000])
+          PY
