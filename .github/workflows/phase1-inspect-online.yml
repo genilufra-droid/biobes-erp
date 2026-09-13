@@ -14,11 +14,11 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           s=Path('index.html').read_text(encoding='utf-8')
-          for pat in ["addEventListener('online'",'addEventListener("online"','window.ononline','async function pollServerVersion','function queuePush','syncConflictPending']:
+          for pat in ['async function wakeServerAndSync','function wakeServerAndSync','const nativePushState','const nativePullState','const nativeAfterServerLogin']:
             print('\n###',pat)
             start=0
             while True:
               i=s.find(pat,start)
               if i<0: break
-              print('AT',i); print(s[max(0,i-1000):i+3500]); start=i+1
+              print('AT',i); print(s[max(0,i-1500):i+7000]); start=i+1
           PY
