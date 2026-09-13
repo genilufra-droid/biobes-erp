@@ -1,10 +1,8 @@
-name: Assemble exact delivered build
+name: Assemble exact BioBes frontend
 on:
   push:
-    branches: [chatgpt/package-lot-picker]
     paths:
-      - '.github/insert-fragment.html'
-      - '.github/workflows/assemble-exact.yml'
+      - 'payload2/READY'
 permissions:
   contents: write
 jobs:
@@ -12,31 +10,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Insert exact fragment and commit
+      - name: Rebuild and verify exact frontend
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('index.html')
-          s=p.read_text(encoding='utf-8')
-          frag=Path('.github/insert-fragment.html').read_text(encoding='utf-8').strip()
-          marker='<script id="biobes-paketim-v4">'
-          if marker in s:
-            print('already assembled')
-            raise SystemExit(0)
-          idx=s.find('</body>')
-          if idx<0:
-            raise SystemExit('missing </body>')
-          s=s[:idx]+frag+'\n'+s[idx:]
-          p.write_text(s,encoding='utf-8')
+          import base64, lzma, hashlib
+          parts=sorted(Path('payload2').glob('part-*.b85'))
+          assert len(parts)==24, f'expected 24 parts, got {len(parts)}'
+          encoded=b''.join(p.read_bytes() for p in parts)
+          compressed=base64.b85decode(encoded)
+          data=lzma.decompress(compressed)
+          assert len(data)==1581751, len(data)
+          sha=hashlib.sha256(data).hexdigest()
+          assert sha=='c10706a0c67dd1d0066f28116aad4e6c888eee5479cdb65cee5d7e2243834017', sha
+          Path('index.html').write_bytes(data)
           PY
-          git diff --check
+          rm -rf payload2 chunks frontend.xz
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-          git commit -m 'Assemble exact delivered package lot picker build'
+          git add -A
+          git commit -m 'Deploy exact BioBes ERP frontend'
           git push
