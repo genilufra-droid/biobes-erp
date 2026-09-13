@@ -1,4 +1,4 @@
-name: Inspect packaging block
+name: Inspect packaging core
 on:
   push:
     branches: [chatgpt/fix-paketim-kg]
@@ -9,25 +9,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Extract packaging context
+      - name: Extract corePackage context
         run: |
           python3 - <<'PY'
           from pathlib import Path
           s=Path('index.html').read_text(encoding='utf-8')
-          terms=['KG të marra','Paketim i ri','Shpërnda njëlloj']
+          terms=['function corePackage','corePackage =','corePackage(data)','lotUnpacked(lot)']
           out=[]
           for t in terms:
-              i=s.find(t)
-              out.append(f'### {t} @ {i}\n')
-              if i>=0:
-                  out.append(s[max(0,i-5000):min(len(s),i+8000)])
+              start=0
+              while True:
+                  i=s.find(t,start)
+                  if i<0: break
+                  out.append(f'### {t} @ {i}\n')
+                  out.append(s[max(0,i-5000):min(len(s),i+12000)])
                   out.append('\n\n')
-          Path('PACKAGING-SNIPPET.txt').write_text(''.join(out),encoding='utf-8')
+                  start=i+1
+          Path('COREPACKAGE.txt').write_text(''.join(out),encoding='utf-8')
           PY
       - name: Commit snippet
         run: |
           git config user.name "chatgpt-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add PACKAGING-SNIPPET.txt
-          git commit -m "chore: inspect packaging block" || exit 0
+          git add COREPACKAGE.txt
+          git commit -m "chore: inspect core packaging guard" || exit 0
           git push
