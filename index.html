@@ -585,7 +585,7 @@ lotCard=function(id){let x=by('lots',id),p=by('products',x.product),s=by('suppli
 <style>.warehouse-qr{display:flex;gap:8px;align-items:center;margin:8px 0}#warehouseQr{background:#fff;padding:10px;display:inline-block} .warehouse-qr canvas,.warehouse-qr img{width:30mm!important;height:30mm!important;image-rendering:pixelated}.warehouse-label-head{display:grid;grid-template-columns:1fr 31mm;gap:4mm;align-items:start}</style>
 <script>
 rawWarehouseLabel=function(l){let p=by('products',l.product),w=by('warehouses',l.warehouse),r=by('racks',l.rack);return `<div id="printWarehouseLabel" class="warehouse-label"><div class="warehouse-label-head"><div><h2>BioBes — ETIKETË MAGAZINE</h2><div class="wl-code">${esc(l.code)}</div></div><div id="warehouseQr" data-lot="${esc(l.id)}"></div></div><table><tr><td><b>Kodi produktit</b></td><td>${esc(p.code)}</td></tr><tr><td><b>Produkti</b></td><td>${esc(p.name)}</td></tr><tr><td><b>Kodi furnitorit</b></td><td>${esc(by('suppliers',l.supplier)?.code||'—')}</td></tr><tr><td><b>Pesha fizike</b></td><td>${n(l.net)} kg</td></tr><tr><td><b>Magazina / Rafti</b></td><td>${esc(w?.code||'—')} / ${esc(r?.code||'—')}</td></tr><tr><td><b>Data hyrjes</b></td><td>${esc(l.date)}</td></tr></table><small>Skano QR për gjurmueshmërinë e lotit</small></div>`}
-const lotCardWithWarehouseQr=lotCard;lotCard=function(id){lotCardWithWarehouseQr(id);setTimeout(()=>{let l=by('lots',id),box=document.getElementById('warehouseQr');if(!l||!box)return;let base=localStorage.getItem('biobesTraceUrl')||'https://erp.biobes-al.com/trace/lot/';let payload=base+encodeURIComponent(l.code);box.innerHTML='';new QRCode(box,{text:payload,width:150,height:150,correctLevel:QRCode.CorrectLevel.M});let print=[...document.querySelectorAll('#modalBody button')].find(b=>b.textContent.trim()==='Printo etiketën');if(print){print.removeAttribute('onclick');print.addEventListener('click',()=>printOnly('printWarehouseLabel','Etiketa e magazinës '+l.code))}},80)}
+const lotCardWithWarehouseQr=lotCard;lotCard=function(id){lotCardWithWarehouseQr(id);setTimeout(()=>{let l=by('lots',id),box=document.getElementById('warehouseQr');if(!l||!box)return;let payload=(typeof biobesLabelQrPayload==='function')?biobesLabelQrPayload(l):((()=>{try{let u=new URL(location.href);return u.origin+u.pathname}catch(e){return ''}})()+'?lot='+encodeURIComponent(l.code));box.innerHTML='';box.title=payload;new QRCode(box,{text:payload,width:150,height:150,correctLevel:QRCode.CorrectLevel.M});let print=[...document.querySelectorAll('#modalBody button')].find(b=>b.textContent.trim()==='Printo etiketën');if(print){print.removeAttribute('onclick');print.addEventListener('click',()=>printOnly('printWarehouseLabel','Etiketa e magazinës '+l.code))}},80)}
 </script>
 <style>.warehouse-label-head{grid-template-columns:1fr 36mm!important}#warehouseQr{box-sizing:border-box;padding:8px!important}#warehouseQr canvas,#warehouseQr img{width:30mm!important;height:30mm!important;display:block}</style><style>.machine-tabs{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}.machine-tabs .active{background:var(--green);color:#fff;border-color:var(--green)}.machine-status-search{display:flex;gap:8px;margin:10px 0}.machine-status-search input{flex:1}</style><script>
 let machineStatusFilter='all';
@@ -6789,8 +6789,11 @@ console.log('BioBes Fatura Blerje + Peshime v1 u ngarkua');
  let last=null;
 
  function appBase(){try{const u=new URL(location.href);return u.origin+u.pathname}catch(e){return 'index.html'}}
- function deepLinkOrigin(){let v='';try{v=String(localStorage.getItem('biobesDeepLinkOrigin')||'').trim()}catch(e){}if(v)return v.replace(/[/?#]+$/,'');return appBase()}
- function traceBase(){let v='';try{v=localStorage.getItem('biobesTraceUrl')||''}catch(e){}return v||deepLinkOrigin()+'/trace/lot/'}
+ function deepLinkOrigin(){let v='';try{v=String(localStorage.getItem('biobesDeepLinkOrigin')||'').trim()}catch(e){}if(v){v=v.replace(/[?#].*$/,'').replace(/\/+$/,'');if(!/^https?:\/\//i.test(v))v='https://'+v;return v}return appBase().replace(/\/index\.html$/i,'/')}
+ function traceBase(){return deepLinkOrigin()+'?lot='}
+ /** Nyja qe kodon etiketa fizike e lotit (ETIKETE MAGAZINE): origin-i LIVE i app-it + ?lot=KOD.
+     Zevendeson URL-ne e vjeter https://erp.biobes-al.com/trace/lot/… (domain qe nuk ekziston). */
+ function biobesLabelQrPayload(lot){const code=lot&&typeof lot==='object'?(lot.code||lot.id):lot;return biobesQrPayload('lot',code)}
 
  /** Payload-i qe kodon etiketa QR per nje dokument. */
  function biobesQrPayload(kind,id){
@@ -6904,6 +6907,7 @@ console.log('BioBes Fatura Blerje + Peshime v1 u ngarkua');
  }
 
  window.biobesQrPayload=biobesQrPayload;
+ window.biobesLabelQrPayload=biobesLabelQrPayload;
  window.parseBiobesDeepLink=parseBiobesDeepLink;
  window.biobesOpenDeepLink=biobesOpenDeepLink;
  window.biobesClearDeepLink=biobesClearDeepLink;
@@ -6911,7 +6915,41 @@ console.log('BioBes Fatura Blerje + Peshime v1 u ngarkua');
  window.__biobesQrDeepLink={version:VERSION,kinds:Object.keys(KINDS).slice()};
 
  window.addEventListener('hashchange',function(){try{biobesOpenDeepLink({silent:true})}catch(e){}});
- document.addEventListener('DOMContentLoaded',function(){setTimeout(function(){try{biobesOpenDeepLink({silent:true,navigate:true})}catch(e){}},1500)});
+
+ /* --- Hapja e nyjes se skanuar: PRIT login-in dhe sinkronizimin, pastaj hap kartelen. ---
+    Me pare hapej vetem nje here, 1.5 s pas ngarkimit: ne telefon app-i eshte ende te ekrani i
+    login-it (kartela hapej PAS tij, e padukshme) ose lotet s'kane ardhur ende nga serveri
+    ("nuk u gjet"). Tani nyja mbetet PENDING dhe provohet ne intervale deri 90 s: sapo
+    login-i te jete kryer dhe regjistrimi te ekzistoje ne state, hapet kartela — nje here te vetme. */
+ let pendingDeepLink=null,pendingTries=0,pendingTimer=null;
+ function loginOpen(){return !!document.getElementById('loginLock')}
+ function tryPendingDeepLink(){
+  if(!pendingDeepLink)return;
+  pendingTries++;
+  if(loginOpen()||typeof state==='undefined'||!state){if(pendingTries<180)pendingTimer=setTimeout(tryPendingDeepLink,500);return}
+  const rec=biobesFindRecord(pendingDeepLink.kind,pendingDeepLink.id);
+  if(!rec){
+   /* Pas login-it me server, lotet mund te vijne me vonese (pullState). Prit deri 90 s gjithsej. */
+   if(pendingTries<180){pendingTimer=setTimeout(tryPendingDeepLink,500);return}
+   const l=pendingDeepLink;pendingDeepLink=null;
+   try{biobesOpenDeepLink({silent:false,navigate:true,href:location.href})}catch(e){}
+   return;
+  }
+  pendingDeepLink=null;
+  try{biobesOpenDeepLink({silent:true,navigate:true})}catch(e){}
+ }
+ function armPendingDeepLink(){
+  const link=parseBiobesDeepLink();
+  if(!link.kind)return;
+  pendingDeepLink=link;pendingTries=0;clearTimeout(pendingTimer);
+  try{if(typeof toast==='function'&&loginOpen())toast('Nyja e skanuar do te hapet pas hyrjes: '+link.kind+' '+link.id)}catch(e){}
+  pendingTimer=setTimeout(tryPendingDeepLink,900);
+ }
+ /* Sapo hiqet ekrani i login-it ose ndryshon DOM-i, provo menjehere (pa pritur intervalin). */
+ try{new MutationObserver(function(){if(pendingDeepLink&&!loginOpen()){clearTimeout(pendingTimer);pendingTimer=setTimeout(tryPendingDeepLink,250)}}).observe(document.documentElement,{childList:true,subtree:false})}catch(e){}
+ try{new MutationObserver(function(){if(pendingDeepLink&&!loginOpen()){clearTimeout(pendingTimer);pendingTimer=setTimeout(tryPendingDeepLink,250)}}).observe(document.body,{childList:true,subtree:false})}catch(e){}
+ window.biobesPendingDeepLink=function(){return pendingDeepLink?{kind:pendingDeepLink.kind,id:pendingDeepLink.id,tries:pendingTries}:null};
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',armPendingDeepLink);else armPendingDeepLink();
 })();
 </script>
 <style id="biobes-analytics-o19-vyapar-css">
