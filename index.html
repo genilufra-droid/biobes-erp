@@ -4873,7 +4873,7 @@ window.packSourceRowHtml = function(prefix, lotId, qty, oldMap){
   if(!lot || !lot.id) return '';
   const sup = by('suppliers', lot.supplier);
   const free = pkFree(lot, oldMap);
-  const qtyVal = (qty===''||qty==null) ? '' : mgStr(+qty||0);
+  const qtyVal = (qty===''||qty==null) ? mgStr(free) : mgStr(+qty||0);
   return `<tr data-pack-source-row="${prefix}" data-lot="${lotId}">
     <td><b>${esc(lot.code)}</b><br><small style="color:#6b7d75">${esc(lot.code)}</small></td>
     <td>${esc(sup.code||'—')}<br><small>${esc(sup.name||'')}</small></td>
@@ -5017,7 +5017,10 @@ window.showPackLotModal = function(prefix){
         let rest = Math.round((total - packSourceRows(prefix).reduce((a,r)=> a + (parseFloat(r.querySelector('[data-pack-qty]').value)||0),0))*1000)/1000;
         const tbody = document.querySelector(`[data-pack-rows="${prefix}"]`);
         if(tbody){
-          tbody.insertAdjacentHTML('beforeend', packSourceRowHtml(prefix, lotId, rest>0?rest:'', oldMap));
+          const lotForQty = by('lots', lotId);
+          const freeForQty = lotForQty && lotForQty.id ? pkFree(lotForQty, oldMap) : 0;
+          const suggestedQty = rest>0 ? Math.min(freeForQty, rest) : freeForQty;
+          tbody.insertAdjacentHTML('beforeend', packSourceRowHtml(prefix, lotId, suggestedQty, oldMap));
           const lot = by('lots', lotId);
           const prodSel = document.getElementById(prefix+'Product');
           if(lot && lot.id && prodSel && !prodSel.value){
@@ -5050,7 +5053,11 @@ window.packSourceSum = function(prefix){
     // if single row and needed >0, auto-fill
     if(rows.length===1 && totalNeeded>0){
       const inp = rows[0].querySelector('[data-pack-qty]');
-      if(inp) inp.value = fmt2(totalNeeded);
+      if(inp && !String(inp.value||'').trim()){
+        const lot = by('lots', rows[0].dataset.lot);
+        const free = lot && lot.id ? pkFree(lot, packSourceOldMap(prefix)) : 0;
+        inp.value = mgStr(Math.min(free, totalNeeded));
+      }
     }
     let sum = 0;
     rows.forEach(r=>{
@@ -5081,8 +5088,42 @@ window.packSourceSum = function(prefix){
   }catch(e){ console.error(e); }
 };
 
+window.packRequireAdminOverride = async function(overruns){
+  const base = (typeof serverBaseUrl!=='undefined' ? String(serverBaseUrl||'') : '').replace(/\/+$/,'');
+  if(!base){ toast('Override kërkon lidhje me serverin dhe verifikim administratori'); return null; }
+  return await new Promise(resolve=>{
+    const old=document.getElementById('pkAdminOverrideOverlay'); if(old) old.remove();
+    const ov=document.createElement('div'); ov.id='pkAdminOverrideOverlay';
+    ov.style.cssText='position:fixed;inset:0;background:#13251dcc;z-index:120;display:flex;align-items:center;justify-content:center;padding:16px';
+    const box=document.createElement('div'); box.style.cssText='background:#fff;width:min(520px,100%);border-radius:12px;padding:18px;box-shadow:0 20px 70px #0005';
+    const detail=overruns.map(x=>`${esc(x.code)}: ${fmt2(x.qty)} kg > stok ${fmt2(x.cap)} kg`).join('<br>');
+    box.innerHTML=`<h3 style="margin-top:0">Autorizim administratori</h3><p class="hint">Sasia tejkalon stokun e papaketuar. Vazhdimi kërkon administrator dhe arsye.</p><div class="card" style="margin-bottom:12px">${detail}</div><div class="field"><label>Admin username</label><input id="pkAdminUser" autocomplete="username"></div><div class="field"><label>Admin password</label><input id="pkAdminPass" type="password" autocomplete="current-password"></div><div class="field"><label>Arsyeja *</label><textarea id="pkAdminReason" rows="3" placeholder="Shpjego pse lejohet tejkalimi"></textarea></div><div id="pkAdminErr" style="color:#a32934;margin:8px 0"></div><div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" id="pkAdminCancel">Anulo</button><button class="btn primary" id="pkAdminApprove">Autorizo</button></div>`;
+    ov.appendChild(box); document.body.appendChild(ov);
+    const done=v=>{ const pw=box.querySelector('#pkAdminPass'); if(pw) pw.value=''; ov.remove(); resolve(v); };
+    box.querySelector('#pkAdminCancel').onclick=()=>done(null);
+    box.querySelector('#pkAdminApprove').onclick=async()=>{
+      const username=box.querySelector('#pkAdminUser').value.trim();
+      const password=box.querySelector('#pkAdminPass').value;
+      const reason=box.querySelector('#pkAdminReason').value.trim();
+      const err=box.querySelector('#pkAdminErr');
+      if(!username||!password||!reason){ err.textContent='Plotëso administratorin, password-in dhe arsyen.'; return; }
+      try{
+        const resp=await fetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
+        const data=await resp.json().catch(()=>({}));
+        if(!resp.ok || !data.ok){ err.textContent=data.error||'Autorizimi dështoi'; return; }
+        if(!data.user || data.user.role!=='ROLE-ADMIN'){
+          if(data.token) fetch(base+'/api/auth/logout',{method:'POST',headers:{Authorization:'Bearer '+data.token}}).catch(()=>{});
+          err.textContent='Kredencialet nuk i përkasin një administratori.'; return;
+        }
+        if(data.token) fetch(base+'/api/auth/logout',{method:'POST',headers:{Authorization:'Bearer '+data.token}}).catch(()=>{});
+        done({admin:data.user.username||username,reason,time:new Date().toISOString(),overruns:overruns.map(x=>({lot:x.lotId,code:x.code,qty:x.qty,stock:x.cap}))});
+      }catch(e){ err.textContent='Serveri nuk përgjigjet — override nuk lejohet offline.'; }
+    };
+  });
+};
+
 // Override savePackaging to handle multi-lot with validation and stockMove
-window.savePackaging = function(){
+window.savePackaging = async function(){
   try{
     const order = $val('pkOrder');
     const product = $val('pkProduct');
@@ -5098,6 +5139,7 @@ window.savePackaging = function(){
     // collect sources
     const seen=new Set();
     const sources=[];
+    const overruns=[];
     let sum=0;
     for(let r of rows){
       const lotId = r.dataset.lot;
@@ -5108,11 +5150,16 @@ window.savePackaging = function(){
       const qty = parseFloat(r.querySelector('[data-pack-qty]').value)||0;
       if(!(qty>0)) return toast('Sasia për lotin '+lot.code+' duhet të jetë pozitive');
       const cap = lotUnpacked(lot);
-      if(qty > cap + 0.001) return toast('Paketimi tejkalon stokun e papaketuar të lotit '+lot.code+' (të lira '+fmt2(cap)+' kg)');
+      if(qty > cap + 0.001) overruns.push({lotId:lotId,code:lot.code,qty:qty,cap:cap});
       if(lot.product !== product) return toast('Loti '+lot.code+' është i produktit tjetër — përzieni vetëm lotë të së njëjtit produkt');
       const q = Math.round(qty*1000)/1000;
       sources.push({lot: lotId, qty: q});
       sum = Math.round((sum+q)*1000)/1000;
+    }
+    let adminOverride = null;
+    if(overruns.length){
+      adminOverride = await packRequireAdminOverride(overruns);
+      if(!adminOverride) return;
     }
     if(Math.abs(sum - total) > 0.01) return toast('Sasia nga lotet ('+fmt2(sum)+' kg) duhet të jetë '+fmt2(total)+' kg (diferenca '+fmt2(total-sum)+' kg)');
     const data = {
@@ -5133,10 +5180,16 @@ window.savePackaging = function(){
       part: $val('pkPart'),
       origin: $val('pkOrigin'),
       date: new Date().toISOString().slice(0,10),
-      sources: sources
+      sources: sources,
+      adminOverride: adminOverride
     };
     const r = atomicTransaction('Paketim', ()=> corePackage(data));
     if(!r || !r.ok) return toast((r&&r.error)||'Paketimi dështoi');
+    if(adminOverride){
+      state.events = state.events || [];
+      const od = adminOverride.overruns.map(x=>x.code+': '+fmt2(x.qty)+' kg / stok '+fmt2(x.stock)+' kg').join('; ');
+      state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Admin override',ref:r.record.id,text:'Tejkalim stoku në paketim. Admin: '+adminOverride.admin+'. Arsye: '+adminOverride.reason+'. '+od});
+    }
     save();
     closeModal();
     render();
