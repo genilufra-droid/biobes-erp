@@ -15,8 +15,8 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           s=Path('index.html').read_text(encoding='utf-8')
-          for pat in ['async function pushState','async function serverStatePut','async function pollServerVersion','function showSyncConflict','async function syncKeepMine','async function syncTakeServer','function queuePush','if(syncIsDirty())r=await nativePushState']:
+          for pat in ['async function pullState','async function afterServerLogin','async function pushState','async function pollServerVersion','function showSyncConflict','async function syncKeepMine','async function syncTakeServer','function queuePush']:
             i=s.find(pat)
             print('\n===== '+pat+' @ '+str(i)+' =====')
-            if i>=0: print(s[max(0,i-800):i+7000])
+            if i>=0: print(s[max(0,i-500):i+5000])
           PY
