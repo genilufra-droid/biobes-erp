@@ -6480,4 +6480,286 @@ console.log('BioBes Fatura Blerje + Peshime v1 u ngarkua');
 })();
 
 </script>
+
+<script id="biobes-warehouse-rack-v1">
+/* ==========================================================================
+   Magazina & Raftet — rafte të garantuara për çdo lot (2026-09-13)
+   --------------------------------------------------------------------------
+   Defekti i riprodhuar (rasti real: MG — Magazina Gur, 8 thasë / 216 kg neto):
+   një peshim konfirmohej në një magazinë që nuk kishte asnjë raft në
+   state.racks. Krijimi i lotit vendoste rack:'' dhe faqja Magazina shfaqte
+   filtrin dhe butonat, por #rackGrid mbetej bosh — loti dukej "i humbur",
+   megjithëse stoku dhe draft-fatura e blerjes ishin krijuar saktë.
+
+   Rregullimi, pa prekur asnjë register tjetër:
+   1) ensureWarehouseRack(wid)  — përdor raftin ekzistues të magazinës ose
+      krijon "R1 — Rafti kryesor" në atë magazinë. Kurrë nuk dublon rafte.
+   2) coreConfirmWeighing       — verifikon që magazina ekziston dhe siguron
+      raftin PËRPARA se të krijojë lotin; nuk dublon lotin ekzistues.
+   3) repairWarehouseLotRacks() — gjatë hapjes së faqes Magazina lidh lotet
+      ekzistuese pa raft (ose me raft të fshirë). Ndryshon VETËM fushën
+      lot.rack: nuk prek sasitë, ID-të, statusin, magazinën, dhe nuk krijon
+      lote, lëvizje stoku ose fatura të reja. Është idempotent.
+   4) Mesazh shpjegues kur një magazinë nuk ka rafte.
+   ========================================================================== */
+(function(){
+  const VERSION='biobes-warehouse-rack-v1';
+
+  function rackList(){
+    if(typeof state==='undefined'||!state)return [];
+    if(!Array.isArray(state.racks))state.racks=[];
+    return state.racks;
+  }
+  /* ID-ja e parë e lirë R1..R9999 — e lexueshme dhe pa përplasje. */
+  function nextFreeRackId(list){
+    const used=new Set(list.map(r=>String((r&&r.id)||'')));
+    for(let i=1;i<10000;i++){const id='R'+i;if(!used.has(id))return id}
+    return (typeof uid==='function')?uid('R'):('R-'+Date.now().toString(36));
+  }
+  /* Kodi i parë i lirë; në gjendjen reale (R01..R09) kthehen "R1". */
+  function nextFreeRackCode(list){
+    const taken=new Set(list.map(r=>String((r&&r.code)||'').trim().toLowerCase()));
+    for(let i=1;i<10000;i++){const c='R'+i;if(!taken.has(c.toLowerCase()))return c}
+    return 'R'+(list.length+1);
+  }
+
+  /* ---------------------------------------------------------------------
+     ensureWarehouseRack(wid,{preferRackId})
+     Kthen {ok,rack,created,warehouse,error}. Nuk dublon kurrë një raft:
+     fillimisht nderon raftin e kërkuar, pastaj çdo raft ekzistues të
+     magazinës, dhe vetëm në fund krijon "R1 — Rafti kryesor".
+     --------------------------------------------------------------------- */
+  function ensureWarehouseRack(wid,opts){
+    const o=opts||{};
+    try{
+      if(typeof state==='undefined'||!state||!Array.isArray(state.warehouses))
+        return {ok:false,rack:null,created:false,error:'Regjistri i magazinave nuk është i gatshëm'};
+      const wh=state.warehouses.find(x=>x&&x.id===wid)||state.warehouses.find(x=>x&&x.code===wid);
+      if(!wh||!wh.id)
+        return {ok:false,rack:null,created:false,
+          error:'Magazina "'+String(wid||'')+'" nuk ekziston. Zgjidhni një magazinë të vlefshme përpara konfirmimit, ose shtoni një te Moduli Magazinat.'};
+      const list=rackList();
+      if(o.preferRackId){
+        const pref=list.find(r=>r&&r.id===o.preferRackId);
+        if(pref)return {ok:true,rack:pref,created:false,warehouse:wh};
+      }
+      const existing=list.find(r=>r&&r.id&&r.warehouse===wh.id);
+      if(existing)return {ok:true,rack:existing,created:false,warehouse:wh};
+      const rack={
+        id:nextFreeRackId(list),
+        warehouse:wh.id,
+        code:nextFreeRackCode(list),
+        name:'Rafti kryesor',
+        autoCreated:true,
+        autoCreatedBy:VERSION,
+        createdAt:new Date().toISOString()
+      };
+      list.push(rack);
+      return {ok:true,rack:rack,created:true,warehouse:wh};
+    }catch(e){
+      return {ok:false,rack:null,created:false,error:'Nuk u sigurua rafti: '+(e&&e.message||e)};
+    }
+  }
+
+  /* ---------------------------------------------------------------------
+     repairWarehouseLotRacks(opts)
+     Lidh lotet ekzistuese pa raft me raftin e magazinës së tyre.
+     NDRYSHON VETËM lot.rack. Nuk prek net/gross/tare/bags/availableNet,
+     nuk prek id/code/status/warehouse, nuk krijon lote, lëvizje (coreMove)
+     ose fatura (syncPurchaseDrafts). Idempotent: pas ekzekutimit të parë
+     nuk gjen më lote pa raft, ndaj nuk shton asnjëherë të dhëna të reja.
+     --------------------------------------------------------------------- */
+  let __repairRunning=false;
+  function repairWarehouseLotRacks(opts){
+    const o=opts||{};
+    const out={version:VERSION,repaired:[],racksCreated:[],skipped:[],changed:false,guards:null};
+    if(__repairRunning)return out;
+    __repairRunning=true;
+    try{
+      if(typeof state==='undefined'||!state||!Array.isArray(state.lots))return out;
+      const count=fn=>{try{return fn().length}catch(e){return -1}};
+      const before={
+        lots:state.lots.length,
+        moves:count(()=>stockMoves()),
+        invoices:count(()=>purchaseInvoices()),
+        weighings:count(()=>state.weighings)
+      };
+      const valid=new Set(rackList().map(r=>String((r&&r.id)||'')));
+      const targets=state.lots.filter(l=>l&&typeof l==='object'&&(!l.rack||!valid.has(String(l.rack))));
+      if(!targets.length)return out;
+
+      targets.forEach(l=>{
+        let wid=l.warehouse;
+        if(!wid&&l.weighing){
+          const w=(Array.isArray(state.weighings)?state.weighings:[]).find(x=>x&&x.id===l.weighing);
+          if(w)wid=w.weighingWarehouse||w.warehouse;
+        }
+        if(!wid&&typeof defaultWarehouseId==='function')wid=defaultWarehouseId();
+        const r=ensureWarehouseRack(wid,{preferRackId:l.rack});
+        if(!r||!r.ok||!r.rack){out.skipped.push({lot:l.id,reason:(r&&r.error)||'magazina e panjohur'});return}
+        if(r.created)out.racksCreated.push({id:r.rack.id,code:r.rack.code,name:r.rack.name,warehouse:r.rack.warehouse});
+        const previous=l.rack||'';
+        l.rack=r.rack.id;                                   /* i vetmi ndryshim */
+        out.repaired.push({lot:l.id,code:l.code||'',warehouse:String(wid||''),
+          rack:r.rack.id,rackLabel:r.rack.code+' — '+r.rack.name,previousRack:previous});
+      });
+
+      out.changed=out.repaired.length>0;
+      if(out.changed){
+        const after={
+          lots:state.lots.length,
+          moves:count(()=>stockMoves()),
+          invoices:count(()=>purchaseInvoices()),
+          weighings:count(()=>state.weighings)
+        };
+        /* Verifikim anti-dublikatë: asnjë regjistër biznesi nuk duhet të lëvizë. */
+        out.guards={before:before,after:after,clean:
+          before.lots===after.lots&&before.moves===after.moves&&
+          before.invoices===after.invoices&&before.weighings===after.weighings};
+        if(out.guards.clean&&Array.isArray(state.events)&&!o.noEvent){
+          state.events.push({
+            date:new Date().toLocaleString('sq-AL'),
+            type:'Rregullim rafti',
+            ref:'—',
+            text:'Rakordim automatik ('+VERSION+'): '+out.repaired.length+
+                 ' lot(e) pa raft u lidhën me raftin e magazinës përkatëse '+
+                 '('+out.repaired.map(x=>x.code||x.lot).join(', ')+
+                 '). Sasitë, ID-të, lëvizjet dhe faturat nuk u ndryshuan.'
+          });
+        }
+        if(!o.noSave){try{if(typeof save==='function')save()}catch(e){}}
+      }
+      return out;
+    }catch(e){
+      out.error=(e&&e.message)||String(e);
+      return out;
+    }finally{__repairRunning=false}
+  }
+
+  /* ---------------------------------------------------------------------
+     coreConfirmWeighing — verifikim i magazinës + raft i garantuar.
+     Logjika e mëparshme ruhet e pandryshuar; shtohet vetëm siguria e raftit.
+     --------------------------------------------------------------------- */
+  const __origCoreConfirmWeighing=(typeof coreConfirmWeighing==='function')?coreConfirmWeighing:null;
+  function coreConfirmWeighingV2(id,lotData){
+    const w=(typeof by==='function')?by('weighings',id):((state.weighings||[]).find(x=>x&&x.id===id)||{});
+    if(!w||!w.id)return coreResult(false,'Peshimi nuk u gjet');
+    if(!(w.gross>0)||!((+w.net||0)>0))return coreResult(false,'Peshimi ka peshë të pavlefshme (bruto/tara) dhe nuk konfirmohet');
+    if(w.status==='Anuluar')return coreResult(false,'Peshimi i anuluar nuk mund të konfirmohet');
+    const existing=(Array.isArray(state.lots)?state.lots:[]).find(l=>l&&l.weighing===id);
+    if(existing){w.status='Konfirmuar';return coreResult(true,'',existing)}   /* pa dubluar lotin */
+
+    const data=lotData||{};
+    const wid=data.warehouse||w.weighingWarehouse||
+      (typeof defaultWarehouseId==='function'?defaultWarehouseId():'');
+    const ensured=ensureWarehouseRack(wid,{preferRackId:data.rack});
+    if(!ensured.ok)return coreResult(false,ensured.error);
+
+    const lot={...data,warehouse:ensured.warehouse.id,rack:ensured.rack.id,
+      weighing:id,gross:w.gross,tare:w.tare,net:w.net,originalNet:w.net,
+      availableNet:w.net,bags:w.bags,date:w.date,status:'Në magazinim'};
+    state.lots.push(lot);
+    w.status='Konfirmuar';
+    coreMove({key:'WEIGH:'+id,type:'IN',source:'weighing',sourceId:id,lot:lot.id,
+      product:lot.product,warehouse:lot.warehouse,qty:w.net,
+      unitCost:+lot.unitCost||0,date:w.date,testRunId:w.testRunId});
+    return coreResult(true,'',lot);
+  }
+
+  /* ---------------------------------------------------------------------
+     Faqja Magazina — rakordim në hapje + mesazh shpjegues.
+     Pamja dhe filtri ekzistues ruhen; shtohet vetëm gjendja bosh.
+     --------------------------------------------------------------------- */
+  const __origWarehouseView=(typeof views!=='undefined'&&views)?views.warehouse:null;
+  const __origFilterRacksV2=(typeof filterRacksV2==='function')?filterRacksV2:null;
+
+  function rackEmptyStateHTML(){
+    return '<div class="empty" id="rackGridEmpty" style="grid-column:1/-1;padding:18px;line-height:1.6">'+
+      '<b>Asnjë raft nuk është regjistruar.</b><br>'+
+      'Një lot mund të shfaqet në këtë pamje vetëm pasi të jetë lidhur me një raft. '+
+      'Kur një magazinë nuk ka rafte, lotet e saj nuk duken këtu edhe pse stoku, '+
+      'lëvizjet dhe draft-faturat ekzistojnë.<br>'+
+      'Që nga rregullimi <b>'+VERSION+'</b>: çdo konfirmim peshimi siguron automatikisht '+
+      'raftin <b>R1 — Rafti kryesor</b> në magazinën përkatëse, dhe hapja e kësaj faqeje '+
+      'lidh lotet ekzistuese pa raft (pa ndryshuar sasitë ose ID-të).<br>'+
+      'Për një raft shtesë përdorni butonin <b>+ Raft</b>.'+
+      '</div>';
+  }
+
+  function warehouseViewV2(){
+    /* Rakordimi bëhet përpara vizatimit: nuk krijon lote, lëvizje ose fatura. */
+    try{repairWarehouseLotRacks({noEvent:false})}catch(e){}
+    const racks=(Array.isArray(state.racks)?state.racks:[]).map(r=>{
+      const ls=(state.lots||[]).filter(l=>l.rack===r.id&&!String(l.status).includes('anuluar'));
+      const kg=ls.reduce((a,x)=>a+(+x.net||0),0);
+      const sup=new Set(ls.map(x=>x.supplier)).size;
+      const prod=new Set(ls.map(x=>x.product)).size;
+      const whName=by('warehouses',r.warehouse).name||r.warehouse||'';
+      return '<div class="rack" data-warehouse="'+esc(String(r.warehouse||''))+'" onclick="rackCard(\''+r.id+'\')">'+
+        '<b>'+esc(r.code)+' — '+esc(r.name)+'</b>'+
+        '<small>'+esc(String(whName))+'</small>'+
+        '<div class="bar"><span style="width:'+Math.min(100,kg/30)+'%"></span></div>'+
+        '<div>'+ls.length+' lote · '+n(kg,0)+' kg</div>'+
+        '<div class="rack-stats"><span>'+sup+' furnitorë</span><span>'+prod+' produkte</span></div>'+
+        '</div>';
+    });
+    return head('Magazinat & Raftet','Klikoni një raft për të parë furnitorët, produktet dhe lotet',
+        '<button class="btn" onclick="simpleForm(\'warehouse\')">+ Magazinë</button>'+
+        '<button class="btn primary" onclick="simpleForm(\'rack\')">+ Raft</button>')+
+      '<div class="toolbar"><select onchange="filterRacksV2(this.value)">'+
+        '<option value="">Të gjitha magazinat</option>'+
+        (state.warehouses||[]).map(w=>'<option value="'+w.id+'">'+esc(w.name)+'</option>').join('')+
+      '</select><button class="btn">↔ Transfero lot</button>'+
+      '<button class="btn">✓ Inventar fizik</button></div>'+
+      '<div class="rack-grid" id="rackGrid">'+racks.join('')+'</div>'+
+      '<div class="empty" id="rackEmptyNote" hidden style="padding:14px;line-height:1.6">'+
+        'Kjo magazinë nuk ka rafte të regjistruara, ndaj lotet e saj nuk shfaqen. '+
+        'Zgjidhni <b>Të gjitha magazinat</b> ose shtoni një raft me butonin <b>+ Raft</b>. '+
+        'Rakordimi automatik lidh lotet pa raft sapo hapni këtë faqe.'+
+      '</div>'+
+      (racks.length?'':rackEmptyStateHTML());
+  }
+
+  function filterRacksV2V2(v){
+    const cards=[].slice.call(document.querySelectorAll('#rackGrid .rack'));
+    let visible=0;
+    cards.forEach(e=>{
+      const show=!v||e.dataset.warehouse===v;
+      e.style.display=show?'':'none';
+      if(show)visible++;
+    });
+    const note=document.getElementById('rackEmptyNote');
+    if(note)note.hidden=visible>0||cards.length===0;
+    return visible;
+  }
+
+  /* ---------------------------------------------------------------------
+     Lidhja me aplikacionin — të njëjta funksione, të njëjtat emra globale.
+     --------------------------------------------------------------------- */
+  try{
+    window.ensureWarehouseRack=ensureWarehouseRack;
+    window.repairWarehouseLotRacks=repairWarehouseLotRacks;
+    window.coreConfirmWeighing=coreConfirmWeighingV2;
+    coreConfirmWeighing=coreConfirmWeighingV2;
+  }catch(e){}
+  try{
+    if(typeof views!=='undefined'&&views)views.warehouse=warehouseViewV2;
+    window.filterRacksV2=filterRacksV2V2;
+    filterRacksV2=filterRacksV2V2;
+  }catch(e){}
+  window.__biobesWarehouseRackFix={
+    version:VERSION,
+    ensureWarehouseRack:ensureWarehouseRack,
+    repairWarehouseLotRacks:repairWarehouseLotRacks,
+    coreConfirmWeighing:coreConfirmWeighingV2,
+    warehouseView:warehouseViewV2,
+    filterRacksV2:filterRacksV2V2,
+    previous:{
+      coreConfirmWeighing:__origCoreConfirmWeighing,
+      warehouseView:__origWarehouseView,
+      filterRacksV2:__origFilterRacksV2
+    }
+  };
+})();
+</script>
 </body></html>
