@@ -36,6 +36,10 @@ fs.mkdirSync('.audit',{recursive:true});
    const outputLot=process.outputLot;assert.ok(outputLot);
    await p.locator('#pkLotOverlay [data-add-lot="'+outputLot+'"]').click();
    if(await p.locator('#pkLotClose').count())await p.locator('#pkLotClose').click();
+   // Sasia nuk mbushet automatikisht: fusha shtohet bosh dhe e shkruan përdoruesi
+   assert.equal(await p.locator('[data-pack-qty]').inputValue(),'');
+   await b('Ruaj & krijo etiketën').click();await p.waitForTimeout(200);assert.equal(await p.evaluate(()=>packs().length),0);
+   await p.locator('[data-pack-qty]').fill('50');await p.waitForTimeout(150);
    await b('Ruaj & krijo etiketën').click();await p.waitForTimeout(300);
    pack=await p.evaluate(()=>packs().at(-1));assert.ok(pack?.id);assert.equal(pack.net,50);assert.ok(pack.sourceLots.includes(outputLot));
    assert.ok((await p.locator('#modal').innerText()).includes('UI-LOT-FIN'));await close();

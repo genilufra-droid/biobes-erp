@@ -1912,7 +1912,7 @@ function coreCreatePurchase(data,confirm=false){
 }
 function coreSupplierPayment(data){if(!data.supplier||!(data.amount>0))return coreResult(false,'Furnitori dhe shuma pozitive janë të detyrueshme');if(state.payments.some(x=>x.id===data.id))return coreResult(false,'Numri i mandatit ekziston');state.payments.push({...data,status:data.status||'Konfirmuar'});return coreResult(true,'',data)}
 function coreProcess(data){let lot=by('lots',data.sourceLot);if(!lot?.id)return coreResult(false,'Loti burimor mungon');if(state.processes.some(x=>x.id===data.id))return coreResult(true,'',state.processes.find(x=>x.id===data.id));if(!(data.input>0)||!(data.output>0)||data.input>lotAvail(lot)+.001||data.output>data.input&&!data.authorization)return coreResult(false,'Sasi procesi e pavlefshme ose mbi stok');let inputCost=+lot.unitCost||0,totalCost=data.input*inputCost,unitCost=totalCost/data.output,p={...data,lots:[data.sourceLot],input:data.input,output:data.output,loss:data.input-data.output,yield:data.output/data.input*100,status:'Përfunduar',unitCost,totalCost};state.processes.push(p);lot.availableNet=Math.max(0,lotAvail(lot)-data.input);lot.net=lot.availableNet;let out={id:data.outputLot,code:data.outputLotCode,parentLot:lot.id,sourceLots:[lot.id],process:p.id,supplier:lot.supplier,product:data.product||lot.product,warehouse:data.warehouse||lot.warehouse,rack:data.rack||lot.rack,net:data.output,originalNet:data.output,availableNet:data.output,unpackedNet:data.output,packedNet:0,unitCost,status:'Produkt përfundimtar',date:data.date,testRunId:data.testRunId};state.lots.push(out);coreMove({key:'PROCESS-OUT:'+p.id,type:'OUT',source:'process',sourceId:p.id,lot:lot.id,product:lot.product,warehouse:lot.warehouse,qty:-data.input,unitCost:inputCost,date:data.date,testRunId:data.testRunId});coreMove({key:'PROCESS-IN:'+p.id,type:'IN',source:'process',sourceId:p.id,lot:out.id,product:out.product,warehouse:out.warehouse,qty:data.output,unitCost,date:data.date,testRunId:data.testRunId});return coreResult(true,'',p)}
-function corePackage(data){let net=(+data.bags||0)*(+data.bagWeight||0);if(!data.order||!data.product||!data.internalLot)return coreResult(false,'Të dhënat e paketimit mungojnë');if(packs().some(x=>x.id===data.id))return coreResult(true,'',packs().find(x=>x.id===data.id));let raw=(data.sources&&data.sources.length)?data.sources:(data.sourceLot?[{lot:data.sourceLot,qty:net}]:[]);if(!raw.length)return coreResult(false,'Zgjidhni të paktën një lot burimor');let sources=[],seen=new Set();for(let z of raw){let lot=by('lots',z.lot??z.lotId??z.id),qty=+z.qty;if(!lot||!lot.id)return coreResult(false,'Loti burimor mungon');if(seen.has(lot.id))return coreResult(false,'Loti '+lot.code+' është shtuar dy herë');seen.add(lot.id);if(!(qty>0))return coreResult(false,'Sasia për lotin '+lot.code+' është e pavlefshme');if(qty>lotUnpacked(lot)+.001)return coreResult(false,'Paketimi tejkalon stokun e papaketuar të lotit '+lot.code+' (të lira '+fmt2(lotUnpacked(lot))+' kg)');if(lot.product!==data.product)return coreResult(false,'Loti '+lot.code+' është i produktit tjetër — përzieni vetëm lotë të së njëjtit produkt');sources.push({lot,qty})}if(!(net>0))return coreResult(false,'Pesha e paketimit është e pavlefshme');let sum=sources.reduce((a,z)=>a+z.qty,0);if(Math.abs(sum-net)>.01)return coreResult(false,'Sasia nga lotet ('+fmt2(sum)+' kg) duhet të jetë '+fmt2(net)+' kg');let ids=sources.map(z=>z.lot.id),qtys={};sources.forEach(z=>qtys[z.lot.id]=Math.round(z.qty*1000)/1000);let x={...data,sourceLots:ids,sourceLotQtys:qtys,net,qty:net,status:data.status||'Paketuar'};delete x.sourceLot;delete x.sources;packs().push(x);sources.forEach(z=>{z.lot.unpackedNet=lotUnpacked(z.lot)-z.qty;z.lot.packedNet=(+z.lot.packedNet||0)+z.qty;coreMove({key:(sources.length===1?'PACK:'+x.id:'PACK:'+x.id+':'+z.lot.id),type:'TRANSFER',source:'packaging',sourceId:x.id,lot:z.lot.id,product:z.lot.product,warehouse:z.lot.warehouse,qty:0,fromState:'unpacked',toState:'packed',stateQty:z.qty,unitCost:z.lot.unitCost,date:x.date,testRunId:x.testRunId})});return coreResult(true,'',x)}
+function corePackage(data){let net=(+data.bags||0)*(+data.bagWeight||0);if(!data.order||!data.product||!data.internalLot)return coreResult(false,'Të dhënat e paketimit mungojnë');if(packs().some(x=>x.id===data.id))return coreResult(true,'',packs().find(x=>x.id===data.id));let raw=(data.sources&&data.sources.length)?data.sources:(data.sourceLot?[{lot:data.sourceLot,qty:net}]:[]);if(!raw.length)return coreResult(false,'Zgjidhni të paktën një lot burimor');let sources=[],seen=new Set();for(let z of raw){let lot=by('lots',z.lot??z.lotId??z.id),qty=+z.qty;if(!lot||!lot.id)return coreResult(false,'Loti burimor mungon');if(seen.has(lot.id))return coreResult(false,'Loti '+lot.code+' është shtuar dy herë');seen.add(lot.id);if(!(qty>0))return coreResult(false,'Sasia për lotin '+lot.code+' është e pavlefshme');if(qty>lotUnpacked(lot)+.001&&!(data.overStock&&data.overStock.authorizedBy&&data.overStock.reason))return coreResult(false,'Nuk ka sasi të mjaftueshme në magazinë për lotin '+lot.code+' (të lira '+fmt2(lotUnpacked(lot))+' kg) — kërkohet autorizim admini');if(lot.product!==data.product)return coreResult(false,'Loti '+lot.code+' është i produktit tjetër — përzieni vetëm lotë të së njëjtit produkt');sources.push({lot,qty})}if(!(net>0))return coreResult(false,'Pesha e paketimit është e pavlefshme');let sum=sources.reduce((a,z)=>a+z.qty,0);if(Math.abs(sum-net)>.01)return coreResult(false,'Sasia nga lotet ('+fmt2(sum)+' kg) duhet të jetë '+fmt2(net)+' kg');let ids=sources.map(z=>z.lot.id),qtys={};sources.forEach(z=>qtys[z.lot.id]=Math.round(z.qty*1000)/1000);let x={...data,sourceLots:ids,sourceLotQtys:qtys,net,qty:net,status:data.status||'Paketuar'};delete x.sourceLot;delete x.sources;packs().push(x);sources.forEach(z=>{z.lot.unpackedNet=lotUnpacked(z.lot)-z.qty;z.lot.packedNet=(+z.lot.packedNet||0)+z.qty;coreMove({key:(sources.length===1?'PACK:'+x.id:'PACK:'+x.id+':'+z.lot.id),type:'TRANSFER',source:'packaging',sourceId:x.id,lot:z.lot.id,product:z.lot.product,warehouse:z.lot.warehouse,qty:0,fromState:'unpacked',toState:'packed',stateQty:z.qty,unitCost:z.lot.unitCost,date:x.date,testRunId:x.testRunId})});return coreResult(true,'',x)}
 function coreCreateSale(data,confirm=false){if(!data.id||!data.invoiceNumber||!data.customer||!(data.lines||[]).length)return coreResult(false,'Fatura e shitjes nuk është e plotë');if(!coreUnique(salesInvoices(),'invoiceNumber',data.invoiceNumber,data.id))return coreResult(false,'Numri i faturës ekziston');if(data.lines.some(l=>!l.product||!(l.net>0)||l.price<0))return coreResult(false,'Rresht shitjeje i pavlefshëm');let f=salesInvoices().find(x=>x.id===data.id);if(!f){f={...data,status:'Draft'};salesInvoices().push(f)}else Object.assign(f,data);f.subtotal=f.lines.reduce((a,l)=>a+l.net*l.price*(1-(+l.discount||0)/100),0);f.vatAmount=f.subtotal*(+f.vat||0)/100;f.total=f.subtotal+f.vatAmount+(+f.palletCost||0)+(+f.loadingCost||0);f.totalALL=f.total*(f.currency==='ALL'?1:(+f.exchangeRate||1));f.status=confirm?'Konfirmuar':'Draft';return coreResult(true,'',f)}
 function coreCustomerReceipt(data){if(!data.customer||!(data.amount>0))return coreResult(false,'Klienti dhe shuma pozitive janë të detyrueshme');if(customerPayments().some(x=>x.id===data.id))return coreResult(false,'Numri i mandatit ekziston');customerPayments().push({...data,status:data.status||'Konfirmuar'});return coreResult(true,'',data)}
 function coreCreateShipment(data){if(state.shipments.some(x=>x.id===data.id))return coreResult(true,'',by('shipments',data.id));let x={...data,status:'Planifikuar',stockDeducted:false};state.shipments.push(x);return coreResult(true,'',x)}
@@ -4878,7 +4878,7 @@ window.packSourceRowHtml = function(prefix, lotId, qty, oldMap){
     <td><b>${esc(lot.code)}</b><br><small style="color:#6b7d75">${esc(lot.code)}</small></td>
     <td>${esc(sup.code||'—')}<br><small>${esc(sup.name||'')}</small></td>
     <td>${fmt2(free)} kg</td>
-    <td><input type="number" step="0.001" min="0" value="${qtyVal}" data-pack-qty oninput="packSourceSum('${prefix}')" style="width:110px"> kg</td>
+    <td><input type="number" inputmode="decimal" step="0.001" min="0" value="${qtyVal}" placeholder="0" data-pack-qty oninput="packSourceSum('${prefix}')" style="width:110px"> kg<div data-pack-warn style="color:#c0392b;font-size:12px;margin-top:3px"></div></td>
     <td><button type="button" class="btn small danger" onclick="packSourceRemoveRow(this,'${prefix}')" title="Fshi rreshtin">×</button></td>
   </tr>`;
 };
@@ -4908,6 +4908,7 @@ window.packSourcePickerHtml = function(prefix, selected, productId, packId){
       <button type="button" class="btn small" onclick="packSourceDistribute('${prefix}')">Shpërnda njëlloj</button>
       <span class="hint" style="align-self:center">Vetëm lote me stok të papaketuar &gt;0 dhe të së njëjtit produkt.</span>
     </div>
+    <div id="${prefix}OverStock" style="display:none;margin-top:8px;padding:9px 12px;border:1px solid #f1b0a7;background:#fdecea;color:#7a1f14;border-radius:8px;font-size:13px"></div>
     <div class="pk-kpis">
       <div class="pk-kpi" id="${prefix}KpiTotal"><small>Totali nga lotet</small><b>0.00 kg</b></div>
       <div class="pk-kpi" id="${prefix}KpiNeed"><small>Duhet</small><b>0.00 kg</b></div>
@@ -5003,21 +5004,11 @@ window.showPackLotModal = function(prefix){
         // add row to packaging form
         const c = packSourceContainer(prefix);
         const oldMap = packSourceOldMap(prefix);
-        const total = packSourceTarget(prefix);
-        const cur = packSourceRows(prefix).reduce((a,r)=> a + (parseFloat(r.querySelector('[data-pack-qty]').value)||0), 0);
-        // if single row and balanced, split?
-        const rowsEl = packSourceRows(prefix);
-        if(rowsEl.length===1){
-          let q1 = parseFloat(rowsEl[0].querySelector('[data-pack-qty]').value)||0;
-          if(Math.abs(q1 - total) <= 0.01){
-            let half = Math.round(total/2*1000)/1000;
-            rowsEl[0].querySelector('[data-pack-qty]').value = fmt2(half);
-          }
-        }
-        let rest = Math.round((total - packSourceRows(prefix).reduce((a,r)=> a + (parseFloat(r.querySelector('[data-pack-qty]').value)||0),0))*1000)/1000;
+        // Sasinë e shkruan përdoruesi — rreshti shtohet BOSH, asnjë para-mbushje/ndarje automatike.
         const tbody = document.querySelector(`[data-pack-rows="${prefix}"]`);
         if(tbody){
-          tbody.insertAdjacentHTML('beforeend', packSourceRowHtml(prefix, lotId, rest>0?rest:'', oldMap));
+          tbody.insertAdjacentHTML('beforeend', packSourceRowHtml(prefix, lotId, '', oldMap));
+          try{ const ni=tbody.lastElementChild.querySelector('[data-pack-qty]'); if(ni) setTimeout(()=>{ try{ ni.focus(); }catch(e){} }, 50); }catch(e){}
           const lot = by('lots', lotId);
           const prodSel = document.getElementById(prefix+'Product');
           if(lot && lot.id && prodSel && !prodSel.value){
@@ -5047,15 +5038,21 @@ window.packSourceSum = function(prefix){
     if(!c) return;
     const rows = packSourceRows(prefix);
     const totalNeeded = ($num(prefix+'Bags',0))*($num(prefix+'BagWeight',0));
-    // if single row and needed >0, auto-fill
-    if(rows.length===1 && totalNeeded>0){
-      const inp = rows[0].querySelector('[data-pack-qty]');
-      if(inp) inp.value = fmt2(totalNeeded);
-    }
-    let sum = 0;
+    // Sasia shkruhet GJITHMONË nga përdoruesi — nuk mbushet dhe nuk mbishkruhet automatikisht.
+    let sum = 0, over = [];
     rows.forEach(r=>{
-      const v = parseFloat(r.querySelector('[data-pack-qty]')?.value)||0;
+      const inp = r.querySelector('[data-pack-qty]');
+      const v = parseFloat(inp?.value)||0;
       sum += v;
+      // paralajmërim vizual + tekst kur sasia e shkruar kalon stokun e papaketuar të lotit
+      try{
+        const lot = by('lots', r.dataset.lot);
+        const free = pkFree(lot, packSourceOldMap(prefix));
+        const warnEl = r.querySelector('[data-pack-warn]');
+        if(inp){ inp.style.borderColor = (v > free + 0.001) ? '#c0392b' : ''; inp.style.background = (v > free + 0.001) ? '#fdecea' : ''; }
+        if(warnEl){ warnEl.textContent = (v > free + 0.001) ? ('Nuk ka sasi të mjaftueshme në magazinë: të lira '+fmt2(free)+' kg, mungojnë '+fmt2(v-free)+' kg') : ''; }
+        if(v > free + 0.001) over.push({lot, v, free});
+      }catch(e){}
     });
     sum = Math.round(sum*1000)/1000;
     const diff = Math.round((totalNeeded - sum)*1000)/1000;
@@ -5077,8 +5074,52 @@ window.packSourceSum = function(prefix){
     if(el){
       el.textContent = `Totali ${fmt2(sum)} / Duhet ${fmt2(totalNeeded)} / Diferenca ${fmt2(diff)}`;
     }
+    // banderola e paralajmërimit për stokun
+    const ov = document.getElementById(prefix+'OverStock');
+    if(ov){
+      if(over.length){
+        ov.style.display='';
+        ov.innerHTML = '<b>⚠ Nuk ka sasi të mjaftueshme në magazinë për paketim.</b> '+over.map(o=>esc(o.lot.code)+': kërkohen '+fmt2(o.v)+' kg, të lira '+fmt2(o.free)+' kg').join(' · ')+'<br><small>Ruajtja me sasi mbi stokun lejohet vetëm me fjalëkalimin e adminit dhe me arsyen se ku do të shkojë magazina (regjistrohet në ditar).</small>';
+      } else { ov.style.display='none'; ov.innerHTML=''; }
+    }
     // call original for compatibility but we already did
   }catch(e){ console.error(e); }
+};
+
+// Autorizim admini për paketim mbi stokun (overlay mbi formën — forma nuk humbet)
+window.packOverStockAuthorize = function(overStock, onOk){
+  try{
+    let old=document.getElementById('pkOverAuth'); if(old) old.remove();
+    const overlay=document.createElement('div'); overlay.id='pkOverAuth';
+    overlay.style.cssText='position:fixed;inset:0;background:#13251d99;z-index:95;display:flex;align-items:flex-start;justify-content:center;padding:35px 14px;overflow:auto';
+    const box=document.createElement('div'); box.style.cssText='background:#fff;width:min(560px,100%);border-radius:11px;box-shadow:0 20px 70px #0004;overflow:hidden';
+    const list=overStock.map(o=>'<li><b>'+esc(o.lot.code)+'</b>: kërkohen '+fmt2(o.qty)+' kg, në magazinë të lira '+fmt2(o.cap)+' kg → <b style="color:#b63c46">mungojnë '+fmt2(o.qty-o.cap)+' kg</b></li>').join('');
+    const adm=(typeof resetAdminUser==='function'&&resetAdminUser())||null; let admName='admin'; try{admName=(serverUser&&serverUser.username)||(adm&&adm.username)||'admin'}catch(e){}
+    box.innerHTML='<div style="padding:16px 19px;border-bottom:1px solid #dfe6e2"><h3 style="margin:0">Nuk ka sasi të mjaftueshme në magazinë</h3></div>'
+      +'<div style="padding:14px 19px"><p style="margin:0 0 8px">Sasia e shkruar është më e madhe se stoku i papaketuar:</p><ul style="margin:0 0 12px 18px">'+list+'</ul>'
+      +'<p style="margin:0 0 10px;color:#5b6b64">Paketimi mbi stokun pranohet vetëm me <b>fjalëkalimin e adminit</b> («'+esc(admName)+'») dhe me <b>arsyen</b> se ku do të shkojë magazina. Veprimi regjistrohet në ditar.</p>'
+      +'<div class="form-grid"><div class="field full"><label>Fjalëkalimi i adminit</label><input id="pkOverPass" type="password" autocomplete="current-password"></div>'
+      +'<div class="field full"><label>Arsyeja / ku do të shkojë magazina</label><textarea id="pkOverReason" rows="3" placeholder="p.sh. Mungesa mbulohet nga loti B1118-105-26 i peshimit të sotëm që s\'është futur ende në sistem"></textarea></div></div>'
+      +'<div id="pkOverErr" style="color:#b63c46;min-height:18px;margin-top:6px"></div></div>'
+      +'<div style="padding:12px 19px;border-top:1px solid #dfe6e2;display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn" id="pkOverCancel">Anulo</button><button type="button" class="btn primary" id="pkOverOk">Autorizo dhe ruaj</button></div>';
+    overlay.appendChild(box); document.body.appendChild(overlay);
+    const close=()=>overlay.remove();
+    box.querySelector('#pkOverCancel').onclick=close;
+    overlay.addEventListener('click',e=>{ if(e.target===overlay) close(); });
+    setTimeout(()=>{ try{ box.querySelector('#pkOverPass').focus(); }catch(e){} },30);
+    box.querySelector('#pkOverOk').onclick=async()=>{
+      const pass=box.querySelector('#pkOverPass').value||'', reason=(box.querySelector('#pkOverReason').value||'').trim(), err=box.querySelector('#pkOverErr'), okBtn=box.querySelector('#pkOverOk');
+      if(!pass) return err.textContent='Shkruani fjalëkalimin e adminit';
+      if(reason.length<5) return err.textContent='Shkruani arsyen (të paktën 5 karaktere)';
+      okBtn.disabled=true; err.textContent='Po verifikohet…';
+      let v={ok:false,reason:'Verifikimi dështoi'};
+      try{ v=await verifyAdminPassword(pass); }catch(e){}
+      if(!v||!v.ok){ okBtn.disabled=false; err.textContent=(v&&v.reason)||'Fjalëkalimi i adminit është i gabuar'; try{ noteAdminFail(v,'PACK_OVER_STOCK_FAIL','Autorizim i dështuar për paketim mbi stokun'); }catch(e){} return; }
+      window._pkOverStockAuth={ admin:(v.adm&&v.adm.username)||admName, reason, via:v.via||'server' };
+      close();
+      try{ onOk&&onOk(); }catch(e){ window._pkOverStockAuth=null; toast('Gabim: '+e.message); }
+    };
+  }catch(e){ console.error(e); toast('Gabim: '+e.message); }
 };
 
 // Override savePackaging to handle multi-lot with validation and stockMove
@@ -5098,6 +5139,7 @@ window.savePackaging = function(){
     // collect sources
     const seen=new Set();
     const sources=[];
+    const overStock=[];
     let sum=0;
     for(let r of rows){
       const lotId = r.dataset.lot;
@@ -5106,15 +5148,20 @@ window.savePackaging = function(){
       if(seen.has(lotId)) return toast('Loti '+lot.code+' është shtuar dy herë');
       seen.add(lotId);
       const qty = parseFloat(r.querySelector('[data-pack-qty]').value)||0;
-      if(!(qty>0)) return toast('Sasia për lotin '+lot.code+' duhet të jetë pozitive');
+      if(!(qty>0)) return toast('Shkruani sasinë (kg) për lotin '+lot.code);
       const cap = lotUnpacked(lot);
-      if(qty > cap + 0.001) return toast('Paketimi tejkalon stokun e papaketuar të lotit '+lot.code+' (të lira '+fmt2(cap)+' kg)');
+      if(qty > cap + 0.001) overStock.push({lot, qty, cap});
       if(lot.product !== product) return toast('Loti '+lot.code+' është i produktit tjetër — përzieni vetëm lotë të së njëjtit produkt');
       const q = Math.round(qty*1000)/1000;
       sources.push({lot: lotId, qty: q});
       sum = Math.round((sum+q)*1000)/1000;
     }
     if(Math.abs(sum - total) > 0.01) return toast('Sasia nga lotet ('+fmt2(sum)+' kg) duhet të jetë '+fmt2(total)+' kg (diferenca '+fmt2(total-sum)+' kg)');
+    if(overStock.length && !window._pkOverStockAuth){
+      // Nuk ka sasi të mjaftueshme në magazinë → kërkohet fjalëkalimi i adminit + arsyeja
+      return packOverStockAuthorize(overStock, ()=> savePackaging());
+    }
+    const overAuth = window._pkOverStockAuth || null; window._pkOverStockAuth = null;
     const data = {
       id:nextSeqId('PK',packs(),1,new Date().getFullYear()),
       order: order,
@@ -5135,13 +5182,24 @@ window.savePackaging = function(){
       date: new Date().toISOString().slice(0,10),
       sources: sources
     };
+    if(overAuth){
+      data.overStock = { authorizedBy: overAuth.admin, reason: overAuth.reason, at: new Date().toISOString(), by: (activeUser()&&activeUser().username)||'',
+        lots: overStock.map(o=>({lot:o.lot.id, code:o.lot.code, requested:Math.round(o.qty*1000)/1000, free:Math.round(o.cap*1000)/1000, shortage:Math.round((o.qty-o.cap)*1000)/1000})) };
+    }
     const r = atomicTransaction('Paketim', ()=> corePackage(data));
     if(!r || !r.ok) return toast((r&&r.error)||'Paketimi dështoi');
+    if(overAuth){
+      try{
+        const txt = 'Paketim '+data.id+' MBI STOKUN e magazinës — autorizoi admini '+overAuth.admin+' · arsyeja: '+overAuth.reason+' · '+data.overStock.lots.map(l=>l.code+': kërkuar '+fmt2(l.requested)+' kg, të lira '+fmt2(l.free)+' kg (mungesë '+fmt2(l.shortage)+' kg)').join('; ');
+        (state.events=state.events||[]).push({date:new Date().toLocaleString('sq-AL'),type:'Paketim mbi stokun',ref:data.id,text:txt});
+        securityAudit('PACK_OVER_STOCK', txt);
+      }catch(e){}
+    }
     save();
     closeModal();
     render();
     setTimeout(()=> packagingCard(r.record.id), 80);
-    toast('Paketimi u krijua');
+    toast(overAuth ? 'Paketimi u krijua me autorizim admini (mbi stokun)' : 'Paketimi u krijua');
   }catch(e){ console.error(e); toast('Gabim gjatë ruajtjes: '+e.message); }
 };
 
