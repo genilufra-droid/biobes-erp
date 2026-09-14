@@ -4,12 +4,12 @@ const assets=path.resolve(process.env.BIOBES_OCR_ASSETS||'.audit/node_modules');
 for(const pkg of ['tesseract.js','tesseract.js-core','pdfjs-dist','@tesseract.js-data/eng'])assert.ok(fs.existsSync(path.join(assets,pkg)),`Missing ${pkg}: install test engines as described in tests/README.md`);
 async function run(mobile){const{browser,context,page:p,errors}=await open(mobile);const requests=[];
 try{
- await context.route(/https:\/\/(cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|tessdata\.projectnaptha\.com)\//,async route=>{
+ await context.route(/https:\/\/(cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|unpkg\.com|tessdata\.projectnaptha\.com)\//,async route=>{
    const url=route.request().url();requests.push(url);let file;
-   if(url.includes('/tesseract.js@'))file=path.join(assets,'tesseract.js/dist',url.split('/').at(-1));
-   else if(url.includes('/tesseract.js-core@'))file=path.join(assets,'tesseract.js-core',url.split('/').at(-1));
+   if(/\/tesseract\.js(@|\/5\.1\.1\/)/.test(url))file=path.join(assets,'tesseract.js/dist',url.split('/').at(-1));
+   else if(/\/tesseract\.js-core(@|\/5\.1\.1\/)/.test(url))file=path.join(assets,'tesseract.js-core',url.split('/').at(-1));
    else if(url.endsWith('/eng.traineddata.gz'))file=path.join(assets,'@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz');
-   else if(url.includes('/pdf.js/3.11.174/'))file=path.join(assets,'pdfjs-dist/build',url.split('/').at(-1).replace('.min.js','.js'));
+   else if(url.includes('/pdf.js/3.11.174/')||url.includes('/pdfjs-dist@3.11.174/'))file=path.join(assets,'pdfjs-dist/build',url.split('/').at(-1).replace('.min.js','.js'));
    if(!file||!fs.existsSync(file))throw Error('Unmapped OCR asset '+url+' → '+file);
    await route.fulfill({status:200,body:fs.readFileSync(file),contentType:file.endsWith('.js')?'application/javascript':file.endsWith('.wasm')?'application/wasm':'application/octet-stream',headers:{'Access-Control-Allow-Origin':'*'}});
  });

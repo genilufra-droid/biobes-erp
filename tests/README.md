@@ -28,9 +28,12 @@ npm test
 - **Asnjë kërkesë nuk shkon në API-n e prodhimit.** Kërkesat HTTPS interceptohen në
   profilin e përkohshëm të Chromium. Konfigurimi backend zbrazet për provat.
 - Llogaria `audit` krijohet vetëm në profilin e testit; nuk është llogari e aplikacionit.
-- OCR **nuk simulohet**: URL-të CDN marrin byte-t origjinale të paketave npm
-  Tesseract, worker/WASM, traineddata dhe PDF.js. CSP-ja e faqes mbetet aktive.
+- OCR **nuk simulohet**: URL-të CDN (jsdelivr, unpkg, cdnjs) marrin byte-t origjinale
+  të paketave npm Tesseract, worker/WASM, traineddata dhe PDF.js. CSP-ja e faqes mbetet aktive.
   Kjo provon motorët dhe integrimin, jo disponueshmërinë e CDN-ve në internet.
+- Motori OCR (`biobes-ocr-v2`) provon me radhë jsdelivr → unpkg → cdnjs dhe mban një
+  worker të përhershëm; menuja e llogarisë ka **🔎 Testo OCR** për të provuar pajisjen
+  reale të përdoruesit (shfaq serverin e motorit, lexuesin PDF dhe arsyen e dështimit).
 - Rezultatet JSON, PDF-të dhe fotografitë ruhen në `.audit/` (jashtë Git).
 - Boot-Guard përdor fillimisht kandidatin si përgjigje për URL-në known-good,
   pa ndryshuar skedarin e rikuperimit. **Pas rifreskimit** të snapshot-it, ekzekuto:
