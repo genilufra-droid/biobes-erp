@@ -7506,6 +7506,222 @@ console.log(VERSION+' aktiv — '+MODS.length+' module analitike te Raportet');
 }catch(e){console.error(VERSION,'nuk u aktivizua:',e)}
 })();
 </script>
+<script id="biobes-rights-matrix-v1">
+/* BioBes ERP — Të drejtat me kuti (checkbox) për çdo modul, si në Vyapar/Odoo — v1
+   Modeli:   rights.modules = { sales:['view','create','edit','confirm','cancel','delete','print'], ... }  (v2)
+             + nivelet e vjetra të grupeve ('Shitjet dhe klientët':'Përdorues' …) për pajtueshmëri me serverin/klientët e vjetër.
+   UI:       matricë me kuti te "Përdorues i ri / Ndrysho përdoruesin" (server dhe lokal) + "Të drejtat e mia" te Llogaria.
+   Zbatimi:  (a) butonat / kartelat "Veprime" / menutë "⋮ Veprime" që kërkojnë një të drejtë që përdoruesi s'e ka HIQEN;
+             (b) vetë funksionet (fshi, anulo, ndrysho, shto, konfirmo, printo) e refuzojnë thirrjen edhe kur thirren direkt (console/URL);
+             (c) faqja e hapur kalon automatikisht te moduli i parë i lejuar; menuja/naviguesi tregojnë vetëm modulet me "Shiko".
+   Administratori nuk kufizohet nga asgjë prej këtyre. */
+(function(){
+try{
+if(window.__biobesRightsMatrixV1)return;window.__biobesRightsMatrixV1=true;
+const VERSION='rights-matrix-v1';
+try{document.head.insertAdjacentHTML('beforeend','<style id="biobes-rights-matrix-css">.rt-wrap{margin:6px 0 10px}.rt-tools{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}.rt-table table{width:100%;border-collapse:collapse;font-size:12.5px}.rt-table th,.rt-table td{padding:5px 6px;text-align:center;white-space:nowrap;border-bottom:1px solid var(--line)}.rt-table th:first-child,.rt-table td:first-child{text-align:left}.rt-table th label{cursor:pointer;font-weight:700}.rt-table td input[type=checkbox],.rt-table th input[type=checkbox]{width:17px;height:17px;vertical-align:middle;cursor:pointer;margin:0}.rt-table td small{display:block;font-size:9.5px;color:var(--muted);line-height:1.1}.rt-table tr.rt-group td{background:#f1f6f3;text-align:left;padding:6px 8px}.rt-table tr.rt-group label{cursor:pointer}.rt-table td.rt-na{color:#c5cdc8}.rt-ro .rt-table td input[type=checkbox]{cursor:default}@media(max-width:640px){.rt-table th,.rt-table td{padding:4px 3px;font-size:11.5px}.rt-table th:first-child,.rt-table td:first-child{position:sticky;left:0;background:#fff;z-index:1;box-shadow:2px 0 0 var(--line)}.rt-table tr.rt-group td{position:static}.rt-table td input[type=checkbox],.rt-table th input[type=checkbox]{width:20px;height:20px}}</style>')}catch(e){}
+const RT_ACTIONS=['view','create','edit','confirm','cancel','delete','print'];
+const RT_ACTION_LABELS={view:'Shiko',create:'Shto',edit:'Ndrysho',confirm:'Konfirmo',cancel:'Anulo',delete:'Fshi',print:'Printo',manage:'Menaxho',export:'Eksporto',import:'Importo',financial:'Financiar'};
+const RT_GROUPS=[['Shitjet dhe klientët',['sales','orders','customers']],['Blerjet dhe furnitorët',['weighings','purchases','suppliers']],['Magazina dhe prodhimi',['products','warehouse','lots','samples','processing','packaging']],['Paraja dhe kontabiliteti',['payments','cashreceipts','banking','accounting']],['Dërgesat dhe eksportet',['shipments','exports','trace','photos']],['Raportet dhe paneli',['dashboard','reports']],['Administrimi',['registries','settings','users','backup','import']]];
+const RT_ALLOWED={dashboard:['view'],reports:['view','print'],trace:['view','print'],photos:['view'],users:['view','edit'],settings:['view','edit'],backup:['view','create','edit','print'],import:['view','create'],registries:['view','create','edit','delete'],lots:['view','print'],suppliers:['view','create','edit','delete','print'],products:['view','create','edit','delete','print'],customers:['view','create','edit','delete','print'],warehouse:['view','create','edit','print'],samples:['view','create','edit','delete','print'],orders:['view','create','edit','cancel','delete','print'],processing:['view','create','edit','delete'],packaging:['view','create','edit','delete','print'],shipments:['view','create','edit','confirm','cancel','print'],payments:['view','create','edit','delete','print'],cashreceipts:['view','create','edit','cancel','print'],banking:['view','create','edit','confirm','cancel','print'],accounting:['view','create','edit','confirm','print']};
+const RT_COL_LABELS={users:{edit:'Menaxho'},settings:{edit:'Menaxho'},backup:{create:'Rikthe',edit:'Menaxho',print:'Shkarko'},import:{create:'Importo'}};
+const RT_EXTRA_LABELS={users:'Përdoruesit dhe rolet',backup:'Rezervimi (backup)',import:'Importi nga Excel',cashreceipts:'Arka',cash:'Arka',weighings:'Blerje & Peshime',lots:'Lotet',photos:'Fotot',registries:'Regjistrat',settings:'Konfigurime',dashboard:'Paneli',reports:'Raportet',trace:'Gjurmueshmëri'};
+const RT_ALIAS={cash:'cashreceipts'},RT_ALIAS_BACK={cashreceipts:'cash'};
+const RT_ACTION_ALIAS={manage:'edit',export:'print',import:'create',financial:'view'};
+try{MODULE_GROUP_OF.cashreceipts='Paraja dhe kontabiliteti';MODULE_GROUP_OF.photos='Dërgesat dhe eksportet';MODULE_GROUP_OF.weighings=MODULE_GROUP_OF.weighings||'Blerjet dhe furnitorët';MODULE_GROUP_OF.lots=MODULE_GROUP_OF.lots||'Magazina dhe prodhimi';MODULE_GROUP_OF.registries=MODULE_GROUP_OF.registries||'Administrimi'}catch(e){}
+try{Object.assign(MODULE_LABELS,{weighings:'Blerje & Peshime',lots:'Lotet',cashreceipts:'Arka',photos:'Fotot',registries:'Regjistrat'})}catch(e){}
+function rtModules(){let out=[];RT_GROUPS.forEach(g=>g[1].forEach(m=>out.push(m)));return out}
+function rtCanon(m){m=String(m||'');return RT_ALIAS[m]||m}
+function rtAllowed(m){return RT_ALLOWED[m]||RT_ACTIONS}
+function rtLabel(m){try{let x=(typeof modules!=='undefined'?modules:[]).find(z=>z&&z[0]===m);if(x&&x[2])return x[2]}catch(e){}return RT_EXTRA_LABELS[m]||(typeof MODULE_LABELS!=='undefined'&&MODULE_LABELS[m])||m}
+function rtColLabel(m,a){return (RT_COL_LABELS[m]&&RT_COL_LABELS[m][a])||RT_ACTION_LABELS[a]||a}
+function rtActLabel(action){let a=RT_ACTION_ALIAS[action]||action;return action==='manage'||action==='export'||action==='import'?RT_ACTION_LABELS[action]:(RT_ACTION_LABELS[a]||action)}
+function rtHasV2(R){return !!(R&&R.modules&&typeof R.modules==='object'&&!Array.isArray(R.modules))}
+
+/* ---------- modeli: v2 (module) <-> nivelet e vjetra të grupeve ---------- */
+const rightsActionsLegacy=rightsActions;
+rightsActions=function(rights,module){let m=rtCanon(module);if(rtHasV2(rights)){let a=rights.modules[m]||rights.modules[RT_ALIAS_BACK[m]||'']||[];return a.slice()}return rightsActionsLegacy(rights,m)};
+function rtModulesFromRights(rights){let out={};if(rtHasV2(rights)){Object.keys(rights.modules).forEach(k=>{let m=rtCanon(k),al=rtAllowed(m),a=rights.modules[k]||[];if(!rtModules().includes(m))return;let acts=a.includes('*')?al.slice():al.filter(x=>a.includes(x));if(acts.length)out[m]=acts});return out}
+ rtModules().forEach(m=>{let a=[];try{a=rightsActionsLegacy(rights||DEFAULT_RIGHTS,m)||[]}catch(e){}let al=rtAllowed(m),acts=a.includes('*')?al.slice():al.filter(x=>a.includes(x));if(acts.length)out[m]=acts});return out}
+function rtModulesFromRole(r){let out={},P=(r&&r.permissions)||{},star=(P['*']||[]).includes('*');rtModules().forEach(m=>{let al=rtAllowed(m);if(star){out[m]=al.slice();return}let a=(P[m]||[]).concat(P[RT_ALIAS_BACK[m]||'']||[]);if(a.includes('*')){out[m]=al.slice();return}let acts=al.filter(x=>a.includes(x)||a.some(y=>RT_ACTION_ALIAS[y]===x));if(acts.length)out[m]=acts});return out}
+function rtLevels(mods){let out={};RT_GROUPS.forEach(g=>{let ms=g[1],acts=ms.map(m=>mods[m]||[]);if(!acts.some(a=>a.length)){out[g[0]]='Pa akses';return}let full=ms.every(m=>rtAllowed(m).every(a=>(mods[m]||[]).includes(a)));if(full){out[g[0]]='Administrator';return}let onlyView=acts.every(a=>a.every(x=>x==='view'||x==='print'));out[g[0]]=onlyView?'Shikim':'Përdorues'});return out}
+function rtBuildRights(mods){let clean={};Object.keys(mods||{}).forEach(m=>{let c=rtCanon(m),a=(mods[m]||[]).filter(x=>rtAllowed(c).includes(x));if(a.length)clean[c]=a});return Object.assign(rtLevels(clean),{modules:clean,v:2})}
+function rtSummary(rights){try{let mods=rtModulesFromRights(rights);let ks=Object.keys(mods);if(!ks.length)return 'asnjë modul';return ks.map(m=>rtLabel(m)+': '+mods[m].map(a=>rtColLabel(m,a)).join('/')).join(' · ')}catch(e){return ''}}
+function rtEffectiveModules(u){let out={};rtModules().forEach(m=>{let acts=rtAllowed(m).filter(a=>userCan(m,a));if(acts.length)out[m]=acts});return out}
+window.rtBuildRights=rtBuildRights;window.rtModulesFromRights=rtModulesFromRights;window.rtSummary=rtSummary;
+
+/* ---------- vendimi: userCan / requirePermission / isAdmin / requireAdmin ---------- */
+userCan=function(module,action){action=action||'view';let u=null;try{u=activeUser()}catch(e){}if(!u)return false;if(u.role==='ROLE-ADMIN')return true;
+ let m=rtCanon(module),a=RT_ACTION_ALIAS[action]||action,r=null;try{r=(securityState().roles||[]).find(x=>x.id===u.role)}catch(e){}
+ if(r&&r.permissions&&(r.permissions['*']||[]).includes('*'))return true;
+ let R=u.rights;
+ if(rtHasV2(R)){let acts=R.modules[m]||R.modules[RT_ALIAS_BACK[m]||'']||[];return acts.includes('*')||acts.includes(a)}
+ if(u.server){if(u.role!=='ROLE-USER')return false;let acts=rightsActionsLegacy(R||DEFAULT_RIGHTS,m);return acts.includes('*')||acts.includes(action)}
+ if(u.role!=='ROLE-USER'&&r&&!r.system){let P=r.permissions||{},acts=(P[m]||[]).concat(P[RT_ALIAS_BACK[m]||'']||[]);return acts.includes('*')||acts.includes(action)}
+ let acts=rightsActionsLegacy(R||DEFAULT_RIGHTS,m);return acts.includes('*')||acts.includes(action)};
+let __lastDeny={k:'',t:0};
+function rtDeny(module,action){let m=rtCanon(module);try{toast('⛔ Nuk keni të drejtë për këtë veprim: '+rtLabel(m)+' → '+rtActLabel(action))}catch(e){}try{let k=m+':'+action,now=Date.now();if(__lastDeny.k!==k||now-__lastDeny.t>5000){__lastDeny={k:k,t:now};securityAudit('ACCESS_DENIED',k)}}catch(e){}}
+requirePermission=function(module,action){action=action||'view';if(userCan(module,action))return true;rtDeny(module,action);return false};
+const isAdminLegacy=isAdmin;
+isAdmin=function(){let u=null;try{u=activeUser()}catch(e){}if(u){if(u.role==='ROLE-ADMIN')return true;try{let r=(securityState().roles||[]).find(x=>x.id===u.role);if(r&&r.permissions&&(r.permissions['*']||[]).includes('*'))return true}catch(e){}return false}return isAdminLegacy()};
+const __stack=[];let __ctxModule='';
+requireAdmin=function(action){if(isAdmin())return true;let top=__stack[__stack.length-1];if(top&&top.granted)return true;toast('Vetëm administratori mund të '+action);return false};
+
+/* ---------- harta funksion → (modul, veprim) ---------- */
+const idEdit=a=>a[0]?'edit':'create';
+const saveOrConfirm=a=>a[1]?(a[0]?['confirm']:['create','confirm']):(a[0]?{any:['edit','create']}:['create']);
+const newConfirm=a=>a[0]?['create','confirm']:['create'];
+const TYPE_MOD={product:'products',products:'products',supplier:'suppliers',suppliers:'suppliers',customer:'customers',customers:'customers',machine:'processing',machines:'processing',rack:'warehouse',racks:'warehouse',warehouse:'warehouse',warehouses:'warehouse'};
+const typeMod=a=>TYPE_MOD[a[0]]||'registries';
+const IMPORT_MOD={products:'products',suppliers:'suppliers',customers:'customers',purchaseInvoices:'purchases',warehouses:'warehouse',racks:'warehouse',machines:'processing',orders:'orders',packagings:'packaging',salesInvoices:'sales',payments:'payments',bankAccounts:'banking',shipments:'shipments'};
+const ctxMod=(a,ctx)=>{let m=rtCanon(ctx||'');return m&&rtAllowed(m).includes('print')?m:null};
+const G=[
+ /* shitjet */
+ ['saleInvoiceForm','sales',idEdit],['saveSaleInvoice','sales',saveOrConfirm],['saveSaleInvoiceV2','sales',saveOrConfirm],['quickConfirmSale','sales','confirm'],['confirmSalesGridRow','sales','confirm'],['addSalesGridRow','sales','create'],['deleteSalesGridRow','sales','delete'],['deleteSale','sales','delete'],['voidSaleInvoice','sales','cancel'],['unlockSaleInvoiceEdit','sales','edit'],['cloneSaleInvoice','sales','create'],['cloneSalesInvoice','sales','create'],['printSale','sales','print'],['exportSaleInvoiceXlsx','sales','print'],['exportSalesRegisterXlsx','sales','print'],['createInvoiceFromOrder','sales','create'],['saveCustomerReturn','sales',newConfirm],['cancelCustomerReturn','sales','cancel'],['saleInvoiceCard','sales','view'],['saleActions','sales','view'],
+ ['returnsCenter',a=>a[0]==='supplier'?'purchases':'sales','view'],
+ /* porositë */
+ ['orderForm','orders','create'],['addOrder','orders','create'],['saveOperationalOrder','orders','edit'],['editOperationalOrder','orders','edit'],['cloneOrder','orders','create'],['cancelOrderSafe','orders','cancel'],['deleteOrderSafe','orders','delete'],['updateOrderPhoto','orders','edit'],['saveOrderPhoto','orders','edit'],['exportOrderDocumentXlsx','orders','print'],['orderCard','orders','view'],['orderActions','orders','view'],
+ /* klientët */
+ ['customerForm','customers',idEdit],['saveCustomerForm','customers',idEdit],['deleteCustomer','customers','delete'],['exportCustomersXls','customers','print'],['customerCard','customers','view'],
+ /* blerjet */
+ ['purchaseInvoiceForm','purchases','create'],['createPurchaseInvoiceFromForm','purchases','create'],['savePurchase','purchases',a=>a[1]?['confirm']:{any:['edit','create']}],['quickConfirmPurchase','purchases','confirm'],['unlockPurchaseInvoiceEdit','purchases','edit'],['cancelPurchaseInvoice','purchases','cancel'],['deletePurchase','purchases','delete'],['voidPurchaseInvoice','purchases','cancel'],['clonePurchaseInvoice','purchases','create'],['printPurchase','purchases','print'],['exportPurchaseDocumentXlsx','purchases','print'],['saveSupplierReturn','purchases',newConfirm],['cancelSupplierReturn','purchases','cancel'],['purchaseCard','purchases','view'],['purchaseActions','purchases','view'],
+ /* peshimet */
+ ['weighForm','weighings','create'],['saveWeigh','weighings',newConfirm],['saveWeighRows','weighings',newConfirm],['confirmExistingWeight','weighings','confirm'],['editWeight','weighings','edit'],['updateWeight','weighings','edit'],['cancelWeight','weighings','cancel'],['deleteWeight','weighings','delete'],['duplicateWeight','weighings','create'],['printWeight','weighings','print'],['doPrintWeight','weighings','print'],['uploadWeightDocument','weighings','edit'],['saveWeightDocument','weighings','edit'],['exportWeightDocumentXlsx','weighings','print'],['weightCard','weighings','view'],['weightActions','weighings','view'],
+ /* furnitorët / produktet / regjistrat e thjeshtë */
+ ['entityForm',a=>a[0]==='product'?'products':'suppliers','create'],['addProduct','products','create'],['addSupplier','suppliers','create'],['editEntity',typeMod,'edit'],['saveEditProduct','products','edit'],['saveEditSupplier','suppliers','edit'],['deleteEntity',typeMod,'delete'],['supplierEditForm','suppliers','edit'],['saveSupplierEdit','suppliers','edit'],['exportSuppliersXls','suppliers','print'],['exportProductsXls','products','print'],['productFormV2','products',idEdit],['saveProductV2','products',idEdit],['supplierCard','suppliers','view'],['productCard','products','view'],['openProductArticleCard','products','view'],
+ ['simpleForm',typeMod,'create'],['addSimple',typeMod,'create'],
+ /* magazina / lotet */
+ ['transferLotForm','warehouse','edit'],['openLotTransfer','warehouse','edit'],['saveLotTransfer','warehouse','edit'],['inventoryForm','warehouse','edit'],['confirmInventory','warehouse','edit'],['inventoryStockConfig','warehouse','edit'],['saveInventoryStockConfig','warehouse','edit'],['rackCard','warehouse','view'],['printLotLabel','lots','print'],['lotCard','lots','view'],
+ /* përpunimi */
+ ['processForm','processing','create'],['addProcess','processing','create'],['machineEditForm','processing','edit'],['saveMachineEdit','processing','edit'],['machineStatusForm','processing','edit'],['saveMachineStatus','processing','edit'],['machineDelete','processing','delete'],['machineDeleteConfirm','processing','delete'],['createProcessFromOrder','processing','create'],['processCard','processing','view'],['machineCard','processing','view'],
+ /* paketimi */
+ ['packagingForm','packaging','create'],['savePackaging','packaging','create'],['packagingEditForm','packaging','edit'],['savePackagingEdit','packaging','edit'],['packagingDelete','packaging','delete'],['copyPackaging','packaging','create'],['exportBartender','packaging','print'],['packagingCard','packaging','view'],
+ /* mostrat */
+ ['sampleForm','samples','create'],['addSample','samples','create'],['sampleEditForm','samples','edit'],['saveSampleEdit','samples','edit'],['deleteSampleSafe','samples','delete'],['updateSamplePhoto','samples','edit'],['saveSamplePhoto','samples','edit'],['createOrderFromSample','orders','create'],['exportSamplesReportXlsx','samples','print'],['sampleCard','samples','view'],
+ /* ngarkesat */
+ ['shipmentForm','shipments','create'],['addShipment','shipments','create'],['shipmentDetailsForm','shipments','edit'],['saveShipmentDetails','shipments','edit'],['shipmentAdvance','shipments','confirm'],['shipmentRollback','shipments','cancel'],['editShipmentSealPhoto','shipments','edit'],['saveShipmentSealPhoto','shipments','edit'],['createShipmentFromOrder','shipments','create'],['shipmentCard','shipments','view'],
+ /* dosjet e eksportit */
+ ['exportRegistryForm','exports',{any:['edit','create']}],['saveExportRegistry','exports',a=>a[1]?['confirm']:{any:['edit','create']}],['createExportRegistryRow','exports','create'],['addBlankExportRow','exports','create'],['addExportRegistryRow','exports','create'],['approveGridExport','exports','confirm'],['cancelExportRegistry','exports','cancel'],['deleteExportRegistry','exports','delete'],['closeExportDossier','exports','confirm'],['reopenExportDossier','exports','cancel'],['unlockCanonical','exports','edit'],['saveCanonical','exports','edit'],['customsDossierForm','exports','edit'],['saveCustomsDossier','exports','edit'],['addDossierDocument','exports','edit'],['createDossierDocument','exports','edit'],['uploadDocument','exports','edit'],['saveDocumentUpload','exports','edit'],['saveDocumentUploadValidated','exports','edit'],['saveDocumentUploadVersioned','exports','edit'],['stageExportSet','exports','edit'],['processDocumentSet','exports','edit'],['runDocumentOcr','exports','edit'],['quickDocumentCheck','exports','edit'],['runQuickZoneScan','exports','edit'],['saveQuickZoneScan','exports','edit'],['generateDossierPdf','exports','print'],['exportRegistryXlsx','exports','print'],['exportDossierCard','exports','view'],
+ /* pagesat / arka / banka / kontabiliteti */
+ ['paymentForm','payments','create'],['addPayment','payments','create'],['editPayment','payments','edit'],['savePaymentEdit','payments','edit'],['savePaymentEditMobile','payments','edit'],['deletePayment','payments','delete'],['paymentCard','payments','view'],['paymentActions','payments','view'],
+ ['receiptForm','cashreceipts','create'],['saveReceipt','cashreceipts','create'],['receiptActions','cashreceipts',{any:['edit','cancel']}],['receiptEditForm','cashreceipts','edit'],['saveReceiptEdit','cashreceipts','edit'],['cancelReceipt','cashreceipts','cancel'],['cashRegisterForm','cashreceipts',idEdit],['saveCashRegister','cashreceipts',idEdit],['exportReceiptsXlsx','cashreceipts','print'],['receiptCard','cashreceipts','view'],
+ ['bankTransactionForm','banking','create'],['saveBankTransaction','banking',newConfirm],['bankTransactionActions','banking','cancel'],['cancelBankTransaction','banking','cancel'],['bankAccountForm','banking',idEdit],['saveBankAccount','banking',idEdit],['exportBankTransactions','banking','print'],['bankTransactionCard','banking','view'],
+ ['accountingEntryForm','accounting',idEdit],['saveAccountingEntry','accounting',saveOrConfirm],['journalForm','accounting',idEdit],['saveJournal','accounting',idEdit],['accountForm','accounting',idEdit],['saveAccount','accounting',idEdit],['seedAccounting','accounting','create'],['syncAccountingSources','accounting','edit'],['saveAccountingSettings','accounting','edit'],['exportLedgerXlsx','accounting','print'],['exportLedgerXls','accounting','print'],['printLedger','accounting','print'],
+ /* regjistrat */
+ ['configForm','registries',a=>a[1]?'edit':'create'],['saveConfig','registries',a=>a[1]?'edit':'create'],['rateForm','registries','create'],['saveRate','registries','create'],['deleteRate','registries','delete'],
+ /* përdoruesit */
+ ['usersSecurityCenter','users','manage'],['userForm','users','manage'],['userEditForm','users','manage'],['serverUserForm','users','manage'],['saveUserSecurity','users','manage'],['saveServerUser','users','manage'],['serverUserToggle','users','manage'],['serverUserDelete','users','manage'],['deleteLocalUser','users','manage'],['toggleLocalUser','users','manage'],['roleEditForm','users','manage'],['saveRoleSecurity','users','manage'],['cloneRole','users','manage'],['cloneLocalUser','users','manage'],['cloneServerUser','users','manage'],
+ /* backup / import */
+ ['backup','backup','export'],['backupCenter','backup','manage'],['encryptedBackup','backup','export'],['downloadDatedSnapshot','backup','export'],['restore','backup','import'],['secureRestore','backup','import'],['restoreAutoBackup','backup','import'],['performDailyBackup','backup',a=>a[0]?'export':null],
+ ['importCenter','import','import'],['pickModuleImport',a=>IMPORT_MOD[a[0]]||'import','create'],['commitModuleImport',()=>{let k=null;try{k=window.pendingModuleImport&&window.pendingModuleImport.k}catch(e){}return IMPORT_MOD[k]||'import'},'create'],
+ /* konfigurime / veprime sistemi */
+ ['requestFactoryReset','settings','manage'],['confirmFactoryReset','settings','manage'],['blankSlateWipe','settings','manage'],['confirmBlankSlateWipe','settings','manage'],['resetDemo','settings','manage'],['cleanE2E','settings','manage'],['generateE2E','settings','manage'],['runE2EChecks','settings','manage'],['integratedSystemTest','settings','manage'],['runIntegratedSystemTest','settings','manage'],['runDeepFinancialTest','settings','manage'],['resetBootGuard','settings','manage'],['openKnownGood','settings','manage'],['qrOriginSave','settings','manage'],['qrOriginReset','settings','manage'],['exportFilteredActivity','settings','manage'],['cleanTestData','settings','manage'],
+ /* printimi i kartelës aktuale (moduli nga konteksti) */
+ ['printOnly',ctxMod,'print'],
+ /* vetëm për filtrimin e butonave (go() e ka rojën e vet) */
+ ['go',a=>a[0],'view',{noGuard:true}]
+];
+const BY_NAME={};G.forEach(e=>{BY_NAME[e[0]]=e});
+function rtResolve(entry,args,ctx){let m=entry[1],a=entry[2];try{if(typeof m==='function')m=m(args,ctx)}catch(e){m=null}try{if(typeof a==='function')a=a(args)}catch(e){a=null}if(a==null||!m)return{m:m?rtCanon(m):'',acts:[],any:false};if(a&&typeof a==='object'&&!Array.isArray(a)&&a.any)return{m:rtCanon(m),acts:a.any.slice(),any:true};return{m:rtCanon(m),acts:Array.isArray(a)?a.slice():[a],any:false}}
+function rtAllowedReq(r){if(!r||!r.acts.length)return true;return r.any?r.acts.some(x=>userCan(r.m,x)):r.acts.every(x=>userCan(r.m,x))}
+function rtDenyReq(r){let x=r.any?r.acts[0]:(r.acts.find(y=>!userCan(r.m,y))||r.acts[0]);rtDeny(r.m,x)}
+function rtGuard(entry){let name=entry[0],cur=window[name];if(typeof cur!=='function'||cur.__rtGuarded)return false;
+ let w=function(){let args=Array.prototype.slice.call(arguments),r=rtResolve(entry,args,__ctxModule);if(!rtAllowedReq(r)){rtDenyReq(r);return}let granted=r.acts.some(x=>x!=='view');if(r.m)__ctxModule=r.m;__stack.push({m:r.m,granted:granted});try{return cur.apply(this,arguments)}finally{__stack.pop()}};
+ w.__rtGuarded=true;w.__rtEntry=entry;window[name]=w;return true}
+
+/* ---------- filtrimi i DOM-it: butona, kartela "Veprime", menutë "⋮ Veprime", data-right ---------- */
+function rtParseArgs(src){let out=[],cur='',depth=0,q=null;for(let i=0;i<src.length;i++){let c=src[i];if(q){cur+=c;if(c==='\\'){cur+=src[++i]||'';continue}if(c===q)q=null;continue}if(c==="'"||c==='"'||c==='`'){q=c;cur+=c;continue}if(c==='('||c==='['||c==='{'){depth++;cur+=c;continue}if(c===')'||c===']'||c==='}'){if(depth===0)break;depth--;cur+=c;continue}if(c===','&&depth===0){out.push(cur);cur='';continue}cur+=c}
+ if(cur.trim()!==''||out.length)out.push(cur);
+ return out.map(s=>{s=s.trim();if(s.length>=2&&((s[0]==="'"&&s[s.length-1]==="'")||(s[0]==='"'&&s[s.length-1]==='"')))return s.slice(1,-1).replace(/\\(['"\\])/g,'$1');if(s==='true')return true;if(s==='false')return false;if(s!==''&&!isNaN(+s))return +s;return undefined})}
+function rtRequirementOf(el,ctx){let oc=el.getAttribute&&el.getAttribute('onclick')||'';if(!oc)return null;let re=/([A-Za-z_$][\w$]*)\s*\(/g,mm;while((mm=re.exec(oc))){let e=BY_NAME[mm[1]];if(!e)continue;return rtResolve(e,rtParseArgs(oc.slice(mm.index+mm[0].length)),ctx)}return null}
+const RT_SAFE=/^(closeModal|goBackModal|changeMyPassword|saveMyPassword|logoutUser|userMenu|toggleOdooMenu|closePhotoLightbox|minimizeModal|maximizeModal|closeModalWindow|vy[A-Z]\w*|o19\w*|filter\w*|clear\w*|reset\w*Filters|set\w*Period|switchDossierTab|supplierCardTab)\s*\(/;
+function rtTextRequirement(el,ctx){let oc=(el.getAttribute&&el.getAttribute('onclick')||'').trim();if(!oc||RT_SAFE.test(oc))return null;let b=el.querySelector?el.querySelector('b'):null,txt=((b?b.textContent:el.textContent)||'').trim().toLowerCase();if(!txt)return null;let a=null;if(/^(🗑\s*)?fshi\b/.test(txt))a='delete';else if(/^(✎\s*)?(ndrysho|modifiko)\b/.test(txt)||txt.includes('korrigjo të dhënat'))a='edit';else if(txt.includes('reset'))a='manage';if(!a)return null;return{m:rtCanon(ctx||''),acts:[a],any:false,fallback:true}}
+function rtFilterRoot(root,ctx){if(!root||!root.querySelectorAll)return;root.querySelectorAll('button,.app,[data-right]').forEach(el=>{try{
+ if(el.closest&&el.closest('#loginLock'))return;
+ let dr=el.getAttribute('data-right');if(dr){let p=dr.split(':');if(!userCan(p[0],p[1]||'view')){el.remove();return}}
+ let req=rtRequirementOf(el,ctx)||rtTextRequirement(el,ctx);
+ if(req&&req.acts.length){if(!rtAllowedReq(req)){el.remove();return}if(!req.fallback&&el.hasAttribute('data-admin-only'))el.removeAttribute('data-admin-only')}
+ if(el.dataset&&el.dataset.rowActions!==undefined){let t=document.createElement('template');t.innerHTML=el.dataset.rowActions;rtFilterRoot(t.content,ctx);if(!t.content.querySelector('button,.app')){el.remove();return}el.dataset.rowActions=t.content.firstElementChild?t.content.firstElementChild.outerHTML:''}
+}catch(e){}})}
+function rtShow(el,on){if(!el)return;let want=on?'':'none';if(el.style.display!==want)el.style.display=want}
+function rtStaticChrome(){let u=null;try{u=activeUser()}catch(e){}let admin=isAdmin();document.querySelectorAll('.mobile-nav button').forEach(b=>{let mm=(b.getAttribute('onclick')||'').match(/^go\('([^']+)'\)/);if(!mm)return;rtShow(b,!u||admin||userCan(mm[1],'view'))});rtShow(document.querySelector('.top-actions button[onclick="backup()"]'),!u||admin||userCan('backup','export'));rtShow(document.querySelector('.top-actions button[title="Import"]'),!u||admin||userCan('backup','import'))}
+let __applying=false,__raf=0;
+let __mo=null;function rtObserve(on){try{if(!__mo)return;if(on){if(__mo.__on)return;['main','modal'].forEach(id=>{let el=document.getElementById(id);if(el)__mo.observe(el,{childList:true,subtree:true})});__mo.__on=true}else if(__mo.__on){__mo.disconnect();__mo.__on=false}}catch(e){}}
+function rtApply(){if(__applying)return;__applying=true;try{let admin=isAdmin();try{let want=admin?'admin':'user';if(document.body.dataset.role!==want)document.body.dataset.role=want}catch(e){}rtStaticChrome();let u=null;try{u=activeUser()}catch(e){}if(!u||admin){rtObserve(false);return}rtObserve(true);let pg=rtCanon(typeof page!=='undefined'?page:'');rtFilterRoot(document.getElementById('main'),pg);rtFilterRoot(document.getElementById('modal'),__ctxModule||pg)}catch(e){console.error(VERSION,e)}finally{__applying=false}}
+window.rtApply=rtApply;
+applyRoleSecurity=function(){rtApply()};
+function rtSchedule(){if(__raf)return;__raf=requestAnimationFrame(()=>{__raf=0;rtApply()})}
+try{__mo=new MutationObserver(()=>{if(!__applying)rtSchedule()})}catch(e){}
+function rtEnsurePage(){try{let u=activeUser();if(!u||isAdmin())return;if(userCan(page,'view'))return;let first=(modules||[]).find(m=>userCan(m[0],'view'));if(first)page=first[0]}catch(e){}}
+function rtNoRightsNotice(){try{let u=activeUser();if(!u||isAdmin())return;if(userCan(page,'view'))return;let el=document.getElementById('main');if(el)el.innerHTML='<div class="card"><h3>🔒 Pa të drejta aksesi</h3><p>Llogaria <b>'+esc(u.username||u.name||'')+'</b> nuk ka asnjë modul të lejuar. Kërkoni administratorit t\'ju caktojë të drejtat (Konfigurime → Përdoruesit → kutitë e moduleve).</p></div>'}catch(e){}}
+const renderRightsBase=render;render=function(){rtEnsurePage();let r=renderRightsBase.apply(this,arguments);try{__ctxModule=rtCanon(typeof page!=='undefined'?page:'');rtApply();rtNoRightsNotice()}catch(e){}return r};
+const modalRightsBase=modal;modal=function(t,b,f){let r=modalRightsBase.apply(this,arguments);try{rtApply()}catch(e){}return r};
+
+/* ---------- matrica me kuti ---------- */
+function rtMatrixHtml(mods,ro){mods=mods||{};let cols=RT_ACTIONS,h='<div class="rt-wrap'+(ro?' rt-ro':'')+'">';
+ if(!ro)h+='<div class="rt-tools"><span class="hint">Shabllone:</span><button type="button" class="btn small" onclick="rtPreset(\'viewer\')">Vetëm shikim</button><button type="button" class="btn small" onclick="rtPreset(\'operator\')">Operator (pa anulim/fshirje)</button><button type="button" class="btn small" onclick="rtPreset(\'full\')">Gjithçka</button><button type="button" class="btn small" onclick="rtPreset(\'none\')">Pastro</button></div>';
+ h+='<div class="table-wrap rt-table"><table><thead><tr><th>Moduli</th>'+cols.map(a=>'<th title="'+esc(RT_ACTION_LABELS[a])+' në të gjitha modulet"><label>'+(ro?'':'<input type="checkbox" class="rt-col" data-a="'+a+'" onchange="rtToggleCol(this)"> ')+esc(RT_ACTION_LABELS[a])+'</label></th>').join('')+'<th>Të gjitha</th></tr></thead><tbody>';
+ RT_GROUPS.forEach((g,gi)=>{h+='<tr class="rt-group"><td colspan="'+(cols.length+2)+'"><label>'+(ro?'':'<input type="checkbox" class="rt-grp" data-g="'+gi+'" onchange="rtToggleGroup(this)"> ')+'<b>'+esc(g[0])+'</b></label></td></tr>';
+  g[1].forEach(m=>{let al=rtAllowed(m),cur=mods[m]||[];h+='<tr data-m="'+m+'" data-g="'+gi+'"><td>'+esc(rtLabel(m))+'</td>'+cols.map(a=>al.includes(a)?'<td title="'+esc(rtColLabel(m,a))+'"><input type="checkbox" class="rt-perm" data-m="'+m+'" data-a="'+a+'"'+(cur.includes(a)||cur.includes('*')?' checked':'')+(ro?' disabled':'')+' onchange="rtOnChange(this)">'+(RT_COL_LABELS[m]&&RT_COL_LABELS[m][a]?'<small>'+esc(RT_COL_LABELS[m][a])+'</small>':'')+'</td>':'<td class="rt-na">—</td>').join('')+'<td>'+(ro?'':'<input type="checkbox" class="rt-row" data-m="'+m+'" onchange="rtToggleRow(this)" title="Të gjitha për këtë modul">')+'</td></tr>'})});
+ h+='</tbody></table></div></div>';return h}
+function rtSyncAgg(){try{document.querySelectorAll('tr[data-m]').forEach(row=>{let p=[...row.querySelectorAll('.rt-perm')],r=row.querySelector('.rt-row');if(r)r.checked=p.length>0&&p.every(x=>x.checked)});RT_ACTIONS.forEach(a=>{let c=document.querySelector('.rt-col[data-a="'+a+'"]');if(!c)return;let p=[...document.querySelectorAll('.rt-wrap:not(.rt-ro) .rt-perm[data-a="'+a+'"]')];c.checked=p.length>0&&p.every(x=>x.checked)});document.querySelectorAll('.rt-grp').forEach(c=>{let p=[...document.querySelectorAll('.rt-wrap:not(.rt-ro) tr[data-g="'+c.dataset.g+'"] .rt-perm')];c.checked=p.length>0&&p.every(x=>x.checked)})}catch(e){}}
+function rtSetMatrix(mods){mods=mods||{};document.querySelectorAll('.rt-wrap:not(.rt-ro) .rt-perm').forEach(x=>{let a=mods[x.dataset.m]||[];x.checked=a.includes('*')||a.includes(x.dataset.a)});rtSyncAgg()}
+function rtReadMatrix(){let wrap=document.querySelector('.rt-wrap:not(.rt-ro)');if(!wrap)return null;let mods={};wrap.querySelectorAll('.rt-perm:checked').forEach(x=>{(mods[x.dataset.m]||(mods[x.dataset.m]=[])).push(x.dataset.a)});return mods}
+window.rtOnChange=function(cb){let a=cb.dataset.a,row=cb.closest('tr');if(cb.checked&&a!=='view'){let v=row.querySelector('.rt-perm[data-a="view"]');if(v)v.checked=true}if(!cb.checked&&a==='view')row.querySelectorAll('.rt-perm').forEach(x=>{x.checked=false});rtSyncAgg()};
+window.rtToggleRow=function(cb){cb.closest('tr').querySelectorAll('.rt-perm').forEach(x=>{x.checked=cb.checked});rtSyncAgg()};
+window.rtToggleCol=function(cb){let a=cb.dataset.a;document.querySelectorAll('.rt-wrap:not(.rt-ro) .rt-perm[data-a="'+a+'"]').forEach(x=>{x.checked=cb.checked;let row=x.closest('tr');if(cb.checked&&a!=='view'){let v=row.querySelector('.rt-perm[data-a="view"]');if(v)v.checked=true}if(!cb.checked&&a==='view')row.querySelectorAll('.rt-perm').forEach(y=>{y.checked=false})});rtSyncAgg()};
+window.rtToggleGroup=function(cb){document.querySelectorAll('.rt-wrap:not(.rt-ro) tr[data-g="'+cb.dataset.g+'"] .rt-perm').forEach(x=>{x.checked=cb.checked});rtSyncAgg()};
+window.rtPreset=function(kind){let mods={};if(kind==='viewer'){RT_GROUPS.forEach(g=>{if(g[0]==='Administrimi')return;g[1].forEach(m=>{mods[m]=rtAllowed(m).filter(a=>a==='view'||a==='print')})})}else if(kind==='operator')mods=rtModulesFromRights(DEFAULT_RIGHTS);else if(kind==='full')rtModules().forEach(m=>{mods[m]=rtAllowed(m).slice()});rtSetMatrix(mods)};
+window.rtMatrixHtml=rtMatrixHtml;window.rtReadMatrix=rtReadMatrix;window.rtSetMatrix=rtSetMatrix;
+const RT_HINT='<p class="hint">Shënoni me ✔ çfarë lejohet të bëjë ky përdorues në çdo modul (si në Vyapar): <b>Shiko</b> = e hap modulin, <b>Shto</b> = krijon dokumente, <b>Ndrysho</b>, <b>Konfirmo</b>, <b>Anulo</b>, <b>Fshi</b>, <b>Printo</b>. Çdo gjë e pashënuar <b>bllokohet</b> — si butoni, ashtu edhe veprimi.</p>';
+
+/* ---------- forma e përdoruesit të serverit ---------- */
+const serverUserFormBase=serverUserForm;
+serverUserForm=function(id){id=id||'';let r=serverUserFormBase(id);try{let box=document.getElementById('srvRightsBox');if(!box)return r;let su=null;try{su=(window._serverUsers||[]).find(x=>x.id===id)}catch(e){}let mods=su&&su.rights?rtModulesFromRights(su.rights):rtModulesFromRights(DEFAULT_RIGHTS);let cloneSel=box.querySelector('#suCloneFrom'),cloneHtml=cloneSel&&cloneSel.closest('.field')?cloneSel.closest('.field').outerHTML:'';box.innerHTML=RT_HINT+rtMatrixHtml(mods)+cloneHtml;setTimeout(rtSyncAgg,0)}catch(e){console.error(VERSION,e)}return r};
+cloneRightsFrom=function(){let id='';try{id=document.getElementById('suCloneFrom').value}catch(e){}if(!id)return;let u=null;try{u=(window._serverUsers||[]).find(x=>x.id===id)}catch(e){}rtSetMatrix(rtModulesFromRights((u&&u.rights)||DEFAULT_RIGHTS));toast('Të drejtat u klonuan — shtyp Ruaj')};
+resetRightsDefault=function(){rtSetMatrix(rtModulesFromRights(DEFAULT_RIGHTS));toast('U rikthye parazgjedhja — shtyp Ruaj')};
+cloneLocalUser=function(id){let s=state.users.find(x=>x.id===id);if(!s)return;userEditForm('');try{$set('ueName',(s.name||'')+' (kopje)');$set('ueRole',s.role);let sel=document.getElementById('ueRole');if(sel)sel.dispatchEvent(new Event('change'));let el=document.getElementById('ueActive');if(el)el.checked=s.active!==false;let rr=(securityState().roles||[]).find(x=>x.id===s.role);rtSetMatrix(rtHasV2(s.rights)?rtModulesFromRights(s.rights):(rr&&!rr.system?rtModulesFromRole(rr):rtModulesFromRights(s.rights||DEFAULT_RIGHTS)));let f=document.getElementById('ueUser');if(f)f.focus()}catch(e){}};
+cloneServerUser=function(id){let s=null;try{s=(window._serverUsers||[]).find(x=>x.id===id)}catch(e){}if(!s)return;serverUserForm('');try{$set('suName',(s.name||'')+' (kopje)');$set('suRole',s.role||'ROLE-USER');rtSetMatrix(rtModulesFromRights(s.rights||DEFAULT_RIGHTS));$css('srvRightsBox','display',$val('suRole')==='ROLE-ADMIN'?'none':'');let el=document.getElementById('suUser');if(el)el.focus()}catch(e){}};
+saveServerUser=async function(id){try{let b={username:$val('suUser').trim(),name:$val('suName').trim(),role:$val('suRole')};if($val('suPass'))b.password=$val('suPass');try{b.email=$val('suMail').trim()}catch(e){}
+ if(b.role==='ROLE-ADMIN'){b.rights=null;b.groups=['GRP-SET-ADMIN']}
+ else{let mods=rtReadMatrix();if(mods){if(!Object.keys(mods).length&&!confirm('Përdoruesi nuk ka asnjë kuti të shënuar — nuk do të shohë asnjë modul. Të ruhet kështu?'))return;b.rights=rtBuildRights(mods)}else{b.rights={};try{document.querySelectorAll('.srvRight').forEach(s=>{b.rights[s.dataset.g]=s.value})}catch(e){}if(!Object.keys(b.rights).length)b.rights=Object.assign({},DEFAULT_RIGHTS)}b.groups=serverGroupsFromRights(b.rights)}
+ if(!id&&!b.password)return toast('Vendosni fjalëkalimin (min 8 karaktere)');
+ let r=null;try{r=await apiCall(id?'/api/admin/users/'+id:'/api/admin/users',{method:id?'PATCH':'POST',body:JSON.stringify(b)})}catch(e){}
+ if(!r||!r.ok)return toast((r&&r.data&&r.data.error)||'Ruajtja u refuzua');
+ try{securityAudit(id?'USER_RIGHTS_EDIT':'USER_CREATE',b.username+' — '+(b.role==='ROLE-ADMIN'?'Administrator':rtSummary(b.rights)))}catch(e){}
+ toast('Përdoruesi u ruajt — të drejtat e reja zbatohen menjëherë në hyrjen tjetër (ose brenda 1 minute nëse është online)');usersSecurityCenter()}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}};
+
+/* ---------- forma e përdoruesit lokal ---------- */
+const userEditFormBase=userEditForm;
+userEditForm=function(id){id=id||'';let r=userEditFormBase(id);try{let u=state.users.find(x=>x.id===id),body=document.getElementById('modalBody');if(!body)return r;
+ let sel=document.getElementById('ueRole');if(sel){if(![...sel.options].some(o=>o.value==='ROLE-USER')){let o=document.createElement('option');o.value='ROLE-USER';o.textContent='Përdorues (të drejta me kuti)';sel.insertBefore(o,sel.firstChild)}sel.value=u?u.role:'ROLE-USER';if(u&&sel.value!==u.role)sel.value=u.role;sel.addEventListener('change',()=>{let rr=(securityState().roles||[]).find(x=>x.id===sel.value);$css('ueRightsBox','display',(sel.value==='ROLE-ADMIN'||(rr&&rr.system))?'none':'')})}
+ let role=sel?sel.value:(u?u.role:'ROLE-USER'),rr=(securityState().roles||[]).find(x=>x.id===role),isAdm=role==='ROLE-ADMIN'||!!(rr&&rr.system);
+ let mods=u&&rtHasV2(u.rights)?rtModulesFromRights(u.rights):(rr&&!rr.system?rtModulesFromRole(rr):rtModulesFromRights((u&&u.rights)||DEFAULT_RIGHTS));
+ let html='<h3 style="margin-top:14px">Të drejtat e aksesit</h3><div id="ueRightsBox" style="'+(isAdm?'display:none':'')+'">'+RT_HINT+rtMatrixHtml(mods)+'</div>'+(isAdm?'<p class="hint" id="ueAdminHint">🛡️ Administratori ka akses të plotë — zgjidhni rolin "Përdorues" për të caktuar kuti.</p>':'');
+ let h3=[...body.querySelectorAll('h3')].find(h=>/Të drejtat e aksesit/.test(h.textContent));
+ if(h3){let n=h3.nextSibling;while(n){let nx=n.nextSibling;n.remove();n=nx}h3.insertAdjacentHTML('afterend',html);h3.remove()}else{let p=[...body.querySelectorAll('p.hint')].find(x=>/Ruajeni përdoruesin/.test(x.textContent));if(p)p.outerHTML=html;else body.insertAdjacentHTML('beforeend',html)}
+ setTimeout(rtSyncAgg,0)}catch(e){console.error(VERSION,e)}return r};
+const saveUserSecurityBase=saveUserSecurity;
+saveUserSecurity=async function(id){let mods=null,role='',username='';try{mods=rtReadMatrix();role=$val('ueRole');username=$val('ueUser').trim().toLowerCase()}catch(e){}let sec=securityState(),n0=(sec.loginAudit||[]).length;let r=await saveUserSecurityBase.apply(this,arguments);
+ try{let la=sec.loginAudit||[],last=la[la.length-1];if(la.length>n0&&last&&/^USER_(EDIT|CREATE)$/.test(last.type)){let u=state.users.find(x=>x.id===id)||state.users.find(x=>x.username&&x.username.toLowerCase()===username);if(u&&mods){let rr=(sec.roles||[]).find(x=>x.id===role),isAdm=role==='ROLE-ADMIN'||!!(rr&&rr.system);u.rights=isAdm?null:rtBuildRights(mods);save()}}}catch(e){console.error(VERSION,e)}return r};
+
+/* ---------- "Të drejtat e mia" te Llogaria ---------- */
+const userMenuBase=userMenu;
+userMenu=function(){let r=userMenuBase.apply(this,arguments);try{let u=activeUser();if(!u||isAdmin())return r;let body=document.getElementById('modalBody');if(!body)return r;body.insertAdjacentHTML('beforeend','<details class="card" style="margin-top:10px"><summary style="cursor:pointer"><b>🔐 Të drejtat e mia</b> <span class="hint">(i cakton administratori)</span></summary>'+rtMatrixHtml(rtEffectiveModules(u),true)+'</details>')}catch(e){}return r};
+
+/* ---------- rifreskimi i të drejtave nga serveri (kur admini i ndryshon ndërkohë) ---------- */
+async function rtRefreshServerRights(){try{if(!serverBaseUrl()||!serverToken||!serverUser||!serverUser.id)return;let r=await apiCall('/api/auth/me');if(!r||!r.ok||!r.data||!r.data.user)return;let nu=r.data.user;if(!nu.id||nu.id!==serverUser.id)return;let changed=JSON.stringify(nu.rights||null)!==JSON.stringify(serverUser.rights||null)||(nu.role&&nu.role!==serverUser.role);if(!changed)return;serverUser=Object.assign({},serverUser,{rights:nu.rights||null,role:nu.role||serverUser.role,name:nu.name||serverUser.name});try{sessionStorage.setItem('biobesServerUser',JSON.stringify(serverUser));localStorage.setItem('biobesCurrentRole',/admin/i.test(serverUser.role||'')?'admin':'user')}catch(e){}toast('Të drejtat tuaja u përditësuan nga administratori');try{closeModal()}catch(e){}render()}catch(e){}}
+window.rtRefreshServerRights=rtRefreshServerRights;
+try{setInterval(rtRefreshServerRights,60000)}catch(e){}
+
+/* ---------- instalimi i rojeve ---------- */
+let guarded=0;G.forEach(e=>{if(e[3]&&e[3].noGuard)return;if(rtGuard(e))guarded++});
+window.__biobesRights={version:VERSION,guarded:guarded,actions:RT_ACTIONS,groups:RT_GROUPS,byName:BY_NAME,userCan:function(m,a){return userCan(m,a)}};
+try{rtApply()}catch(e){}
+console.log(VERSION+' aktiv — '+guarded+' funksione me rojë, '+rtModules().length+' module me kuti');
+}catch(e){console.error('rights-matrix-v1 nuk u aktivizua:',e)}
+})();
+</script>
 <script id="biobes-coldstart-v3">
 // BioBes ERP — Render Free cold-start recovery v3.
 (function(){
