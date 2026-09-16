@@ -7942,6 +7942,318 @@ console.log(VERSION+' aktiv');
 }catch(e){console.error('biobes-stock-docs-v1 nuk u aktivizua:',e)}
 })();
 </script>
+<style id="biobes-stock-docs-v2-css">
+/* biobes-stock-docs-v2 — formulari i fletës si dokumenti i letrës (plotësohet në kompjuter) + raportet tabelare të fletëve */
+.sdf-sheet{background:#fff;color:#111;border:1px solid #cfd8d3;border-radius:8px;padding:12px 14px;font-family:"Times New Roman",Georgia,serif}
+.sdf-sheet .sdf-head{display:grid;grid-template-columns:1fr 1.4fr 1fr;border:1.5px solid #111}
+.sdf-sheet .sdf-head>div{padding:8px;font-size:12.5px;line-height:1.5;min-width:0}
+.sdf-sheet .sdf-title{text-align:center;border-left:1.5px solid #111;border-right:1.5px solid #111}
+.sdf-sheet .sdf-title h1{margin:0;font-size:22px;letter-spacing:1px;font-weight:800;font-family:inherit}
+.sdf-sheet .sdf-nr{display:flex;justify-content:center;gap:10px;margin-top:6px;font-size:13px;align-items:baseline;flex-wrap:wrap}
+.sdf-sheet .sdf-nr label{font-weight:700}
+.sdf-sheet .sdf-tag{margin-top:6px;font-size:11.5px;font-weight:700;color:#176b49;font-family:system-ui,Segoe UI,Arial}
+.sdf-sheet .sdf-lbl{font-weight:700}
+/* fushat "e shkruara me dorë": vijë poshtë, pa kuti */
+.sdf-sheet input,.sdf-sheet select,.sdf-sheet .global-live-search input{font:inherit;font-size:13px;color:#0b2a63;background:transparent;border:0;border-bottom:1px dotted #111;border-radius:0;padding:2px 4px;width:100%;min-width:0;box-sizing:border-box;outline:none;box-shadow:none;appearance:none;-webkit-appearance:none}
+.sdf-sheet .sdf-tag .global-live-search input,.sdf-sheet .sdf-tag select{color:#176b49;font-weight:700;text-align:center;font-family:system-ui,Segoe UI,Arial;font-size:12px}
+.sdf-sheet input:focus,.sdf-sheet select:focus,.sdf-sheet .global-live-search input:focus{border-bottom:1.5px solid #176b49;background:#f4faf6}
+.sdf-sheet input[readonly]{color:#111;border-bottom-style:solid}
+.sdf-sheet input::placeholder{color:#9aa39e;font-style:italic;font-size:12px}
+.sdf-sheet .global-live-search{min-width:0}
+.sdf-sheet .global-live-results{font-family:system-ui,Segoe UI,Arial;font-size:13px}
+.sdf-sheet .global-live-option:empty{display:none} /* opsioni bosh (= placeholder-i i vijës) nuk shfaqet si rresht në listë */
+.sdf-sheet .sdf-row{display:flex;gap:6px;align-items:baseline;margin:2px 0}
+.sdf-sheet .sdf-row>label{white-space:nowrap;font-weight:700}
+.sdf-sheet .sdf-row>*:not(label){flex:1;min-width:0}
+.sdf-sheet .sdf-wrap{overflow:visible;margin-top:8px}
+.sdf-sheet table.sdf-table{width:100%;border-collapse:collapse;font-size:13px;min-width:640px;table-layout:fixed}
+.sdf-sheet table.sdf-table th,.sdf-sheet table.sdf-table td{border:1px solid #111;padding:4px 5px;vertical-align:top;overflow:visible}
+.sdf-sheet table.sdf-table th{background:#f2f5f3;font-weight:700;text-align:center;font-size:12.5px;white-space:nowrap}
+.sdf-sheet table.sdf-table td.c{text-align:center}.sdf-sheet table.sdf-table td.r,.sdf-sheet table.sdf-table th.r{text-align:right}
+.sdf-sheet table.sdf-table td.r input{text-align:right}
+.sdf-sheet table.sdf-table td.sdl-value{font-weight:700;padding-top:6px;white-space:nowrap}
+.sdf-sheet .sdf-detail{display:grid;grid-template-columns:auto minmax(0,1fr);gap:1px 6px;align-items:baseline;margin-top:3px;font-size:11px;color:#334;font-family:system-ui,Segoe UI,Arial}
+.sdf-sheet .sdf-detail>span{white-space:nowrap;color:#667}
+.sdf-sheet .sdf-detail input,.sdf-sheet .sdf-detail select,.sdf-sheet .sdf-detail .global-live-search input{font-size:11.5px;font-family:system-ui,Segoe UI,Arial;padding:1px 3px;border-bottom-color:#8a958f}
+.sdf-sheet .sdf-detail .sdf-toggle{grid-column:1/-1;font-size:10.5px;color:#176b49;cursor:pointer;text-decoration:underline dotted;background:none;border:0;padding:0;text-align:left;font-family:inherit}
+.sdf-sheet .sdf-more{display:none}.sdf-sheet tr.sd-line.sdf-open .sdf-more{display:block}
+.sdf-sheet table.sdf-table tr.sdf-blank td{color:#8a958f;height:28px}
+.sdf-sheet table.sdf-table tr.sdf-blank td .dash{opacity:.5;white-space:nowrap}
+.sdf-sheet table.sdf-table tr.sdf-blank .sdf-add-btn{font-family:system-ui,Segoe UI,Arial;font-size:11px;color:#176b49;background:none;border:1px dashed #8fb9a5;border-radius:4px;padding:2px 8px;cursor:pointer}
+.sdf-sheet table.sdf-table tr.sdf-blank .sdf-add-btn:hover{background:#f4faf6;border-color:#176b49}
+.sdf-sheet table.sdf-table tfoot th{font-size:14px;background:#fff}
+.sdf-sheet .sdf-rm{font-family:system-ui,Segoe UI,Arial;font-size:12px;color:#b63c46;background:none;border:0;cursor:pointer;padding:2px 4px}
+.sdf-sheet .sdf-sign{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:22px;text-align:center;font-weight:700;font-size:13px}
+.sdf-sheet .sdf-sign-line{border-bottom:1px solid #111;height:26px;margin-bottom:6px}
+.sdf-sheet .sdf-foot{display:flex;justify-content:space-between;gap:10px;margin-top:10px;font-size:10.5px;color:#556;flex-wrap:wrap;font-family:system-ui,Segoe UI,Arial}
+.sdf-hint{font-family:system-ui,Segoe UI,Arial;font-size:11.5px;color:#596961;margin:6px 0 0}
+#modal .sdf-sheet .sdf-nr input[type=date]{width:auto;min-width:112px;max-width:150px}
+#modal .sdf-sheet #sdNumber{width:104px;font-weight:700}
+#modal .sdf-sheet .sdf-party{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+#modal .sdf-sheet .sdf-party .sdf-row>*:first-child{flex:0 0 38%}
+@media (max-width:640px){
+.sdf-sheet{padding:8px}.sdf-sheet .sdf-head{grid-template-columns:1fr}.sdf-sheet .sdf-title{border-left:0;border-right:0;border-top:1px solid #111;border-bottom:1px solid #111}.sdf-sheet .sdf-sign{gap:16px}
+/* në celular çdo rresht i fletës bëhet kartë me dy rreshta: [Nr.] emërtimi (+ nën-rreshti) / Sasia | Çmimi | Vlefta — pa rrëshqitje horizontale */
+.sdf-sheet .sdf-wrap{overflow:visible}
+.sdf-sheet table.sdf-table{min-width:0;display:block;border:1px solid #111}
+.sdf-sheet table.sdf-table colgroup,.sdf-sheet table.sdf-table thead{display:none}
+.sdf-sheet table.sdf-table tbody,.sdf-sheet table.sdf-table tfoot{display:block}
+.sdf-sheet table.sdf-table tr{display:grid;grid-template-columns:26px 1fr 1fr 1.15fr 24px;border-bottom:1px solid #111}
+.sdf-sheet table.sdf-table td,.sdf-sheet table.sdf-table th{border:0;display:block;min-width:0}
+.sdf-sheet table.sdf-table tr.sd-line td.sd-n{grid-row:1/3;grid-column:1;border-right:1px solid #111}
+.sdf-sheet table.sdf-table tr.sd-line td.sdf-name{grid-column:2/5;grid-row:1}
+.sdf-sheet table.sdf-table tr.sd-line td.sdf-unit{display:none}
+.sdf-sheet table.sdf-table tr.sd-line td.sdf-qty{grid-column:2;grid-row:2}
+.sdf-sheet table.sdf-table tr.sd-line td.sdf-cost{grid-column:3;grid-row:2}
+.sdf-sheet table.sdf-table tr.sd-line td.sdl-value{grid-column:4;grid-row:2}
+.sdf-sheet table.sdf-table tr.sd-line td.sdf-qty,.sdf-sheet table.sdf-table tr.sd-line td.sdf-cost,.sdf-sheet table.sdf-table tr.sd-line td.sdl-value{border-top:1px dashed #9aa39e}
+.sdf-sheet table.sdf-table tr.sd-line td.sdf-x{grid-column:5;grid-row:1/3;border-left:1px solid #ddd}
+.sdf-sheet table.sdf-table tr.sd-line td.sdf-qty::before{content:'Sasia (kg)'}
+.sdf-sheet table.sdf-table tr.sd-line td.sdf-cost::before{content:'Çmimi ALL/kg'}
+.sdf-sheet table.sdf-table tr.sd-line td.sdl-value::before{content:'Vlefta ALL'}
+.sdf-sheet table.sdf-table tr.sd-line td.sdf-qty::before,.sdf-sheet table.sdf-table tr.sd-line td.sdf-cost::before,.sdf-sheet table.sdf-table tr.sd-line td.sdl-value::before{display:block;font-size:9.5px;color:#667;font-family:system-ui,Segoe UI,Arial;text-align:left;font-weight:400;line-height:1.2}
+.sdf-sheet table.sdf-table tr.sdf-blank{grid-template-columns:26px 1fr}
+.sdf-sheet table.sdf-table tr.sdf-blank td:first-child{border-right:1px solid #111}
+.sdf-sheet table.sdf-table tr.sdf-blank td:nth-child(n+3){display:none}
+.sdf-sheet table.sdf-table tfoot tr{grid-template-columns:1fr auto auto auto;gap:8px;align-items:baseline;border-bottom:0;padding:0 4px}
+.sdf-sheet table.sdf-table tfoot th:first-child{text-align:left}
+.sdf-sheet table.sdf-table tfoot th:last-child{display:none}
+}
+/* raportet tabelare të fletëve */
+.sdr-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.sdr-tabs button.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+.sdr-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 10px}
+.sdr-filters .field label{font-size:11px}
+.sdr-filters .field input,.sdr-filters .field select{padding:7px 8px;font-size:13px}
+.sdr-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;font-size:12px;align-items:center}
+.sdr-chips .pill{cursor:pointer}
+#sdrQ{width:100%;border:1px solid #cfd9d4;border-radius:7px;padding:9px 10px;box-sizing:border-box;font-size:14px}
+.sdr-table td.num,.sdr-table th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.sdr-table tfoot td{font-weight:700;background:#f5f8f6;border-top:2px solid var(--line)}
+.sdr-table th{cursor:pointer;user-select:none}
+.sdr-table th.sorted:after{content:' ▾';color:var(--brand)}.sdr-table th.sorted.asc:after{content:' ▴'}
+.sdr-table mark{background:#fff3b0;padding:0;border-radius:2px}
+.sdr-summary{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--line)}
+.sdr-summary b{color:var(--ink)}
+@media print{#sdReportsRoot .sdr-filters,#sdReportsRoot .sdr-tabs,#sdReportsRoot .actions,#sdReportsRoot .sdr-chips,#sdReportsRoot #sdrQ{display:none!important}}
+/* butoni i 4-t te Raportet nuk duhet ta zgjerojë faqen në celular */
+@media(max-width:620px){#main .reports-mode-tabs{flex-wrap:wrap;max-width:100%}}
+</style>
+<script id="biobes-stock-docs-v2">
+/* BioBes ERP — FLETË HYRJE / FLETË DALJE v2 — formulari si dokumenti i letrës + raportet tabelare
+   Kërkesa: formulari i v1 (kuti mbi kuti) ishte i komplikuar për përdoruesit. Tani formulari ËSHTË VETË DOKUMENTI —
+   i njëjti dizajn me bllokun fizik "FLETË - HYRJE" (Subjekti | FLETË - HYRJE Nr./Datë | Adresa nga vjen malli;
+   kolonat Nr., Emërtimi i mallit, Njësia, Sasia, Çmimi, Vlefta; SHUMA poshtë; SHITËSI / BLERËSI), vetëm që plotësohet
+   në kompjuter: klikon mbi vijën dhe shkruan; 8 rreshta të numëruar si blloku, rreshti tjetër hapet vetë.
+   Të dhënat ERP që letra s'i ka (loti, furnitori, thasët, kodi i lotit, rafti) rrinë si rresht i vogël nën emërtimin.
+   Ruajtja, validimi, konfirmimi, kontabiliteti dhe printimi janë ato të v1 (window.__biobesStockDocs) — ID-të e
+   fushave janë të njëjtat (sdNumber, sdDate, sdWarehouse, sdRack, sdReason, sdPartyType, sdPartyId, sdPartyName,
+   sdAddress, sdNote, #sdLines tr.sd-line .sdl-product/.sdl-lot/.sdl-lotcode/.sdl-supplier/.sdl-rack/.sdl-qty/.sdl-bags/.sdl-cost).
+   + RAPORTET E FLETËVE (Magazina → tab "Raportet e fletëve"; Raportet → buton "Fletët e magazinës"): tabela për çdo
+   rresht artikulli (fleta, lloji, malli, loti, furnitori, magazina, rafti, arsyeja, pala, thasë, hyrje/dalje kg, çmimi,
+   vlefta, statusi, përdoruesi), 8 pamje (rreshtat, sipas fletës, produktit, lotit, furnitorit, arsyes, magazinës/raftit,
+   ditore), 12 filtra të kombinuar, kërkim live me theksim, renditje me klik në kokë, totale, Excel, print A4 landscape.
+   Asnjë grafik. Raportet Alpha (1149–1310) të paprekura. */
+(function(){
+if(window.__biobesStockDocsV2)return;
+const VERSION='biobes-stock-docs-v2';
+const SD=window.__biobesStockDocs;
+if(!SD){console.error(VERSION,'kërkon biobes-stock-docs-v1');return}
+const REASONS=SD.reasons,FORM_ROWS=8; /* si blloku i letrës: 8 rreshta të numëruar; shtohen vetë kur mbushen */
+const numv=v=>{let n=+v;return Number.isFinite(n)?n:0},r2=v=>Math.round(numv(v)*100)/100;
+const today=()=>new Date().toISOString().slice(0,10),dmy=d=>String(d||'').slice(0,10).split('-').reverse().join('.');
+const $=id=>document.getElementById(id);
+const sdDocs=()=>SD.docs();
+function userName(){try{let u=activeUser();return u?(u.name||u.username||''):''}catch(e){return ''}}
+function pName(id){let p=by('products',id);return p&&p.id?(p.code?p.code+' — ':'')+p.name:''}
+function sName(id){let s=by('suppliers',id);return s&&s.id?(s.code?s.code+' — ':'')+s.name:''}
+function wName(id){let w=by('warehouses',id);return w&&w.id?(w.code?w.code+' — ':'')+w.name:'—'}
+function rName(id){if(!id)return '';let r=by('racks',id);return r&&r.id?r.code+(r.name?' — '+r.name:''):''}
+function reasonLabel(kind,code){let r=(REASONS[kind]||[]).find(x=>x[0]===code);return r?r[1]:(code||'—')}
+function kindLabel(kind){return kind==='IN'?'FLETË - HYRJE':'FLETË - DALJE'}
+function kindShort(kind){return kind==='IN'?'Fletë hyrje':'Fletë dalje'}
+function pill(s){let c=s==='Konfirmuar'?'green':s==='Draft'?'orange':s==='Anuluar'?'red':'blue';return '<span class="pill '+c+'">'+esc(s||'')+'</span>'}
+function opts(list,label,sel,empty){return '<option value="">'+esc(empty||'')+'</option>'+(list||[]).filter(x=>x&&x.id).map(x=>'<option value="'+esc(x.id)+'"'+(x.id===sel?' selected':'')+'>'+esc(label(x))+'</option>').join('')}
+function company(){try{return companyInfo()||{}}catch(e){return {}}}
+function availableLots(warehouse,product){return (state.lots||[]).filter(l=>l&&l.id&&(!warehouse||l.warehouse===warehouse)&&(!product||l.product===product)&&!/anul|bllok/i.test(String(l.status||''))&&lotAvail(l)>0.0005).sort((a,b)=>String(a.code).localeCompare(String(b.code)))}
+function lotOptions(kind,warehouse,product,selected){let lots=availableLots(warehouse,product);if(selected&&!lots.some(x=>x.id===selected)){let cur=by('lots',selected);if(cur&&cur.id)lots.unshift(cur)}return '<option value=""></option>'+lots.map(x=>'<option value="'+esc(x.id)+'"'+(x.id===selected?' selected':'')+'>'+esc(x.code+' · '+fmt2(lotAvail(x))+' kg'+(kind==='OUT'?' · '+((by('products',x.product)||{}).code||''):''))+'</option>').join('')}
+function productCost(prod){let p=by('products',prod)||{};try{if(typeof historicalProductCost==='function'){let c=+historicalProductCost(prod,today());if(c>0)return r2(c)}}catch(e){}return r2(p.purchasePrice||0)}
+function lotWac(lotId){let l=by('lots',lotId);if(!l||!l.id)return 0;if(+l.unitCost>0)return r2(l.unitCost);try{let q=0,v=0;stockMoves().forEach(m=>{if(m&&m.product===l.product&&m.status!=='Anuluar'&&+m.qty>0&&+m.unitCost>0){q+=+m.qty;v+=(+m.qty)*(+m.unitCost)}});if(q>0)return r2(v/q)}catch(e){}return productCost(l.product)}
+function rackOpts(warehouse,sel){return opts((state.racks||[]).filter(r=>r&&r.warehouse===warehouse),r=>r.code+(r.name?' — '+r.name:''),sel||'','')}
+/* select-et mbështillen nga kërkimi live (globalizeAllSelects) me listë të ngrirë → kur ndryshojnë opsionet, zëvendësohet elementi */
+function swapSelect(sel,inner){if(!sel)return null;let prev=sel.previousElementSibling;while(prev&&prev.classList&&(prev.classList.contains('global-live-search')||prev.classList.contains('search-select'))){let pp=prev.previousElementSibling;prev.remove();prev=pp}let ns=document.createElement('select');Array.prototype.forEach.call(sel.attributes,a=>{if(/^data-(global-live|live-ready|searchable|quick-ready)$/.test(a.name)||a.name==='style')return;ns.setAttribute(a.name,a.value)});ns.innerHTML=inner;let parent=sel.parentNode;sel.replaceWith(ns);try{if(typeof globalizeAllSelects==='function')globalizeAllSelects(parent)}catch(e){}placeholders(parent);return ns}
+function syncWrapper(sel){if(!sel)return;let w=sel.previousElementSibling;if(w&&w.classList&&(w.classList.contains('global-live-search')||w.classList.contains('search-select'))){let i=w.querySelector('input');if(i)i.value=sel.selectedOptions&&sel.selectedOptions[0]&&sel.selectedOptions[0].value?sel.selectedOptions[0].textContent.trim():''}}
+/* vendos tekstin ndihmës "si në letër" te kutia e kërkimit që mbështjell çdo select (data-ph) */
+function wrapNew(el){try{if(el&&typeof globalizeAllSelects==='function')globalizeAllSelects(el)}catch(e){}placeholders(el)}
+function placeholders(root){try{(root||document).querySelectorAll('select[data-ph]').forEach(s=>{let w=s.previousElementSibling;if(w&&w.classList&&w.classList.contains('global-live-search')){let i=w.querySelector('input');if(i)i.placeholder=s.dataset.ph}})}catch(e){}}
+
+/* ---------------- FORMULARI = DOKUMENTI ---------------- */
+function lineRow(kind,l,i,warehouse,opening){l=l||{};let open=!!(opening||(l.lotCode&&!l.lot)||l.rack);
+ let detail='<div class="sdf-detail">'
+  +'<span>Loti</span><div><select class="sdl-lot" data-ph="'+(kind==='IN'?'lot i ri — kod automatik (ose zgjidh një ekzistues)':'zgjidh lotin nga i cili del malli…')+'" onchange="sdLotChanged(this)">'+lotOptions(kind,warehouse,l.product,l.lot)+'</select></div>'
+  +(kind==='IN'?'<span>Furnitori</span><div><select class="sdl-supplier" data-ph="furnitori…">'+opts(state.suppliers||[],s=>(s.code?s.code+' — ':'')+s.name,l.supplier,'')+'</select></div>':'')
+  +'<span>Thasë</span><div><input class="sdl-bags" inputmode="numeric" placeholder="nr. thasëve" value="'+esc(l.bags!=null&&l.bags!==''?String(l.bags):'')+'" oninput="sdRecalc()" style="max-width:110px"></div>'
+  +(kind==='IN'?'<span class="sdf-more">Kodi i lotit</span><div class="sdf-more"><input class="sdl-lotcode" placeholder="bosh = kod automatik" value="'+esc(l.lotCode&&!l.lot?l.lotCode:'')+'"></div>'
+   +'<span class="sdf-more">Rafti</span><div class="sdf-more"><select class="sdl-rack" data-ph="rafti i fletës">'+rackOpts(warehouse,l.rack)+'</select></div>'
+   +'<button type="button" class="sdf-toggle" onclick="sdToggleMore(this)">'+(open?'më pak ▴':'kodi i lotit / rafti ▾')+'</button>':'')
+  +'</div>';
+ return '<tr class="sd-line'+(open?' sdf-open':'')+'" data-i="'+i+'"><td class="c sd-n">'+(i+1)+'.</td>'
+  +'<td class="sdf-name"><select class="sdl-product" data-ph="shkruaj emrin e mallit…" onchange="sdProductChanged(this)">'+opts(state.products||[],p=>(p.code?p.code+' — ':'')+p.name,l.product,'')+'</select>'+detail+'</td>'
+  +'<td class="c sdf-unit">kg</td>'
+  +'<td class="r sdf-qty"><input class="sdl-qty" inputmode="decimal" placeholder="0,00" value="'+esc(l.qty!=null&&l.qty!==''?String(l.qty):'')+'" oninput="sdRecalc()"></td>'
+  +'<td class="r sdf-cost"><input class="sdl-cost" inputmode="decimal" placeholder="0,00" value="'+esc(l.unitCost!=null&&l.unitCost!==''?String(l.unitCost):'')+'" oninput="sdRecalc()"></td>'
+  +'<td class="r sdl-value">'+fmt2(numv(l.qty)*numv(l.unitCost))+'</td>'
+  +'<td class="c sdf-x"><button class="sdf-rm" type="button" title="Hiq rreshtin" onclick="sdRemoveLine(this)">✕</button></td></tr>'}
+function blankRow(i){return '<tr class="sdf-blank" data-i="'+i+'"><td class="c">'+(i+1)+'.</td><td><button type="button" class="sdf-add-btn" onclick="sdAddLine()">+ shkruaj rreshtin '+(i+1)+'</button></td><td class="c"><span class="dash">——</span></td><td class="r"><span class="dash">————</span></td><td class="r"><span class="dash">————</span></td><td class="r"><span class="dash">————</span></td><td></td></tr>'}
+function renumber(){let tb=document.querySelector('#sdLines tbody');if(!tb)return;tb.querySelectorAll('tr.sdf-blank').forEach(r=>r.remove());let lines=tb.querySelectorAll('tr.sd-line');if(!lines.length){let t=document.createElement('tbody');t.innerHTML=lineRow(window.__sdDraft.kind,{},0,$val('sdWarehouse'),window.__sdDraft.opening);tb.appendChild(t.firstElementChild);lines=tb.querySelectorAll('tr.sd-line')}
+ lines.forEach((r,i)=>{r.dataset.i=i;let c=r.querySelector('.sd-n');if(c)c.textContent=(i+1)+'.'});let n=lines.length,target=Math.max(FORM_ROWS,n+1);for(let i=n;i<target;i++){let t=document.createElement('tbody');t.innerHTML=blankRow(i);tb.appendChild(t.firstElementChild)}wrapNew(tb)}
+window.sdToggleMore=function(btn){let tr=btn.closest('tr');if(!tr)return;tr.classList.toggle('sdf-open');btn.textContent=tr.classList.contains('sdf-open')?'më pak ▴':'kodi i lotit / rafti ▾'};
+
+window.stockDocForm=function(kind,id,o){o=o||{};let d=id?sdDocs().find(x=>x&&(x.id===id||x.number===id)):null;if(id&&!d)return toast('Fleta nuk u gjet');if(d&&d.status!=='Draft')return stockDocCard(d.id);if(!requirePermission('warehouse',d?'edit':'create'))return;
+ kind=d?d.kind:(kind==='OUT'?'OUT':'IN');let opening=d?!!d.opening:(!!o.opening&&kind==='IN');
+ let openingDate=today();try{if(typeof window.obDate==='function')openingDate=window.obDate()}catch(e){}
+ let doc=d||{kind,date:opening?openingDate:today(),warehouse:(state.warehouses||[]).find(w=>w&&w.id)?.id||'',rack:'',reason:opening?'opening':(kind==='IN'?'purchase':'damage'),party:{type:kind==='IN'?'supplier':'',id:'',name:''},address:'',note:'',lines:[]};
+ window.__sdDraft={id:d?d.id:'',kind,opening};
+ let c=company(),reasons=REASONS[kind].filter(r=>opening?r[0]==='opening':r[0]!=='opening'),pt=(doc.party&&doc.party.type)||'';
+ let partyList=pt==='supplier'?opts(state.suppliers||[],s=>(s.code?s.code+' — ':'')+s.name,doc.party&&doc.party.id,''):pt==='customer'?opts(state.customers||[],x=>(x.code?x.code+' — ':'')+x.name,doc.party&&doc.party.id,''):'<option value=""></option>';
+ let lines=(doc.lines&&doc.lines.length?doc.lines:[{}]),rows=lines.map((l,i)=>lineRow(kind,l,i,doc.warehouse,opening));for(let i=lines.length;i<Math.max(FORM_ROWS,lines.length+1);i++)rows.push(blankRow(i));
+ let body='<div class="sdf-sheet" id="sdFormSheet" data-kind="'+kind+'">'
+  +'<div class="sdf-head">'
+   +'<div><span class="sdf-lbl">Subjekti:</span> '+esc(c.name||'BIOBES sh.p.k.')+'<br>NIPT: '+esc(c.nipt||'—')+'<br>'+esc(c.address||[c.street,c.city].filter(Boolean).join(', ')||'')
+    +'<div class="sdf-row" style="margin-top:6px"><label>Magazina:</label><select id="sdWarehouse" data-ph="magazina…" onchange="sdWarehouseChanged()">'+opts(state.warehouses||[],w=>(w.code?w.code+' — ':'')+w.name,doc.warehouse,'')+'</select></div>'
+    +'<div class="sdf-row"><label>Rafti:</label><select id="sdRack" data-ph="'+(kind==='IN'?'automatik (rafti kryesor)':'—')+'">'+rackOpts(doc.warehouse,doc.rack)+'</select></div>'
+   +'</div>'
+   +'<div class="sdf-title"><h1>'+kindLabel(kind)+'</h1><div class="sdf-nr"><label>Nr.</label><input id="sdNumber" value="'+esc(doc.number||SD.nextNumber(kind,doc.date))+'"><label>Datë</label><input id="sdDate" type="date" value="'+esc(doc.date)+'"'+(opening?' readonly title="Data e hapjes së BIOBES ERP (Kontabiliteti → Gjendjet fillestare)"':'')+' onchange="sdDateChanged()"></div>'
+    +'<div class="sdf-tag"><select id="sdReason" data-ph="arsyeja e fletës">'+reasons.map(r=>'<option value="'+r[0]+'"'+(doc.reason===r[0]?' selected':'')+'>'+esc(r[1])+(r[2]!=='—'?' ('+r[2]+')':'')+'</option>').join('')+'</select></div></div>'
+   +'<div><span class="sdf-lbl">'+(kind==='IN'?'Adresa nga vjen malli:':'Adresa ku shkon malli:')+'</span>'
+    +'<div class="sdf-party"><div class="sdf-row"><select id="sdPartyType" data-ph="pala" onchange="sdPartyTypeChanged()"><option value=""'+(!pt?' selected':'')+'>Tjetër</option><option value="supplier"'+(pt==='supplier'?' selected':'')+'>Furnitor</option><option value="customer"'+(pt==='customer'?' selected':'')+'>Klient</option></select><select id="sdPartyId" data-ph="zgjidh nga regjistri…">'+partyList+'</select></div>'
+    +'<input id="sdPartyName" placeholder="emri i palës (kur s\'është në regjistër)" value="'+esc(doc.party&&!doc.party.id?doc.party.name||'':'')+'"'+(pt?' style="display:none"':'')+'>'
+    +'<input id="sdAddress" placeholder="adresa / vendi" value="'+esc(doc.address||'')+'"></div>'
+   +'</div>'
+  +'</div>'
+  +'<div class="sdf-wrap"><table class="sdf-table" id="sdLines"><colgroup><col style="width:6%"><col><col style="width:8%"><col style="width:13%"><col style="width:13%"><col style="width:15%"><col style="width:4%"></colgroup>'
+   +'<thead><tr><th>Nr.</th><th>Emërtimi i mallit</th><th>Njësia</th><th>Sasia</th><th>Çmimi</th><th>Vlefta</th><th></th></tr></thead>'
+   +'<tbody>'+rows.join('')+'</tbody>'
+   +'<tfoot><tr><th colspan="3" class="r">SHUMA</th><th class="r" id="sdSumQty"></th><th class="c" id="sdSumBags" style="font-size:11px;font-weight:400"></th><th class="r" id="sdSumValue"></th><th></th></tr></tfoot></table></div>'
+  +'<div class="actions" style="margin-top:6px;align-items:center;gap:10px"><button class="btn small" type="button" onclick="sdAddLine()">+ Rresht</button><span class="sdf-hint" style="margin:0">Rreshtat e pashkruar printohen të vizuar — asgjë s\'shtohet me dorë.</span></div>'
+  +'<div class="sdf-row" style="margin-top:8px"><label>Përshkrimi:</label><input id="sdNote" value="'+esc(doc.note||'')+'" placeholder="'+(kind==='IN'?'p.sh. mall i blerë pa peshim':'p.sh. thasë të dëmtuar nga lagështia')+'"></div>'
+  +'<div class="sdf-sign"><div><div class="sdf-sign-line"></div>'+(kind==='IN'?'SHITËSI':'DORËZOI')+'</div><div><div class="sdf-sign-line"></div>'+(kind==='IN'?'BLERËSI':'MORI NË DORËZIM')+'</div></div>'
+  +'<div class="sdf-foot"><span>'+(d?esc(d.status)+(d.createdBy?' · hapur nga '+esc(d.createdBy):''):'Fletë e re · '+esc(userName()))+'</span><span>BIOBES ERP · plotësohet në kompjuter · printohet A4 portret</span></div>'
+  +'</div>'
+  +(opening?'<p class="sdf-hint" style="color:#9a4e00"><b>Gjendja fillestare e magazinës më '+esc(dmy(doc.date))+':</b> një rresht = një lot (malli, furnitori, kodi i vjetër i lotit nëse e keni, rafti, kg, thasë, kosto ALL/kg). Vlera hyn automatikisht te rreshti 311 i "Bilanci i hapjes". Për shumë lote: importi nga Excel.</p>'
+   :'<p class="sdf-hint">Klikoni mbi vijën dhe shkruani — si në fletën e letrës. '+(kind==='IN'?'Çdo rresht krijon lot të ri me etiketë QR (ose shton te loti që zgjidhni nën emërtim).':'Zgjidhni nën emërtim lotin nga i cili del malli — jo më shumë se sa ka.')+'</p>');
+ modal((d?'Ndrysho ':'')+(opening?'Gjendja fillestare e magazinës':kindShort(kind))+(d?' — '+d.number:''),body,
+  '<button class="btn" onclick="closeModal()">Mbyll</button><button class="btn" onclick="saveStockDoc(false)">Ruaj draft</button><button class="btn primary" data-right="warehouse:confirm" onclick="saveStockDoc(true)">Ruaj & konfirmo</button>');
+ wrapNew($('sdFormSheet'));sdRecalc();setTimeout(()=>{placeholders($('sdFormSheet'));sdRecalc()},80)};
+window.sdDateChanged=function(){try{if(window.__sdDraft&&!window.__sdDraft.id){let n=$('sdNumber');if(n&&/^F[HD]-\d{4}-\d{4}$/.test(n.value))n.value=SD.nextNumber(window.__sdDraft.kind,$val('sdDate'))}}catch(e){}};
+window.sdAddLine=function(){let tb=document.querySelector('#sdLines tbody');if(!tb)return;let i=tb.querySelectorAll('tr.sd-line').length,t=document.createElement('tbody');t.innerHTML=lineRow(window.__sdDraft.kind,{},i,$val('sdWarehouse'),window.__sdDraft.opening);let row=t.firstElementChild,first=tb.querySelector('tr.sdf-blank');if(first)first.replaceWith(row);else tb.appendChild(row);wrapNew(row);renumber();sdRecalc();try{let tr=tb.querySelectorAll('tr.sd-line')[i],inp=tr&&tr.querySelector('.global-live-search input');if(inp)inp.focus()}catch(e){}};
+window.sdRemoveLine=function(btn){let tr=btn.closest('tr');if(!tr)return;tr.remove();renumber();sdRecalc()};
+window.sdRecalc=function(){let q=0,b=0,v=0;document.querySelectorAll('#sdLines tbody tr.sd-line').forEach(tr=>{let qty=parseLocal(tr.querySelector('.sdl-qty').value),bags=parseLocal((tr.querySelector('.sdl-bags')||{}).value||''),cost=parseLocal(tr.querySelector('.sdl-cost').value);q+=qty;b+=bags;v+=qty*cost;tr.querySelector('.sdl-value').textContent=fmt2(qty*cost)});if($('sdSumQty'))$('sdSumQty').textContent=fmt2(q)+' kg';if($('sdSumBags'))$('sdSumBags').textContent=b?Math.round(b)+' thasë':'';if($('sdSumValue'))$('sdSumValue').textContent=fmt2(v)+' ALL'};
+window.sdProductChanged=function(sel){let tr=sel.closest('tr');if(!tr)return;let kind=window.__sdDraft.kind,lotSel=tr.querySelector('.sdl-lot'),cur=lotSel?lotSel.value:'';if(cur){let cl=by('lots',cur);if(cl&&cl.id&&cl.product!==sel.value)cur=''}if(lotSel)swapSelect(lotSel,lotOptions(kind,$val('sdWarehouse'),sel.value,cur));let cost=tr.querySelector('.sdl-cost');if(cost&&!parseLocal(cost.value)&&sel.value){let c=productCost(sel.value);if(c>0)cost.value=String(c)}
+ try{let tb=tr.parentNode;if(sel.value&&!tb.querySelector('tr.sdf-blank')){let i=tb.querySelectorAll('tr.sd-line').length,t=document.createElement('tbody');t.innerHTML=blankRow(i);tb.appendChild(t.firstElementChild)}}catch(e){}
+ sdRecalc()};
+window.sdLotChanged=function(sel){let tr=sel.closest('tr'),lot=by('lots',sel.value);syncWrapper(sel);if(!tr||!lot||!lot.id)return;let ps=tr.querySelector('.sdl-product');if(ps&&ps.value!==lot.product){ps.value=lot.product;syncWrapper(ps)}let sup=tr.querySelector('.sdl-supplier');if(sup&&lot.supplier){sup.value=lot.supplier;syncWrapper(sup)}let lc=tr.querySelector('.sdl-lotcode');if(lc)lc.value='';let cost=tr.querySelector('.sdl-cost');if(cost&&!parseLocal(cost.value)){let c=lotWac(lot.id);if(c>0)cost.value=String(c)}sdRecalc()};
+window.sdWarehouseChanged=function(){let wh=$val('sdWarehouse'),kind=window.__sdDraft.kind;swapSelect($('sdRack'),rackOpts(wh,''));document.querySelectorAll('#sdLines tbody tr.sd-line').forEach(tr=>{let ps=tr.querySelector('.sdl-product'),ls=tr.querySelector('.sdl-lot'),rs=tr.querySelector('.sdl-rack');if(ls)swapSelect(ls,lotOptions(kind,wh,ps?ps.value:'',''));if(rs)swapSelect(rs,rackOpts(wh,''))});sdRecalc()};
+window.sdPartyTypeChanged=function(){let t=$val('sdPartyType');swapSelect($('sdPartyId'),t==='supplier'?opts(state.suppliers||[],x=>(x.code?x.code+' — ':'')+x.name,'',''):t==='customer'?opts(state.customers||[],x=>(x.code?x.code+' — ':'')+x.name,'',''):'<option value=""></option>');let n=$('sdPartyName');if(n)n.style.display=t?'none':''};
+function readForm(){let kind=window.__sdDraft.kind,opening=window.__sdDraft.opening,lines=[];
+ document.querySelectorAll('#sdLines tbody tr.sd-line').forEach(tr=>{let g=c=>tr.querySelector(c),product=g('.sdl-product').value,lot=g('.sdl-lot').value,qty=r2(parseLocal(g('.sdl-qty').value)),bags=Math.round(parseLocal((g('.sdl-bags')||{}).value||'')||0),unitCost=r2(parseLocal(g('.sdl-cost').value)),lotCode=(g('.sdl-lotcode')||{}).value||'',supplier=(g('.sdl-supplier')||{}).value||'',rack=(g('.sdl-rack')||{}).value||'';if(!product&&!lot&&!qty)return;lines.push({product,lot,lotCode:lotCode.trim(),supplier,rack,qty,bags,unitCost})});
+ let pt=$val('sdPartyType'),pid=$val('sdPartyId'),pname=String($val('sdPartyName')||'').trim(),party={type:pt,id:pt?pid:'',name:''};if(party.id){let rec=pt==='supplier'?by('suppliers',pid):by('customers',pid);party.name=rec&&rec.name||''}else party.name=pname;
+ return{kind,opening,number:String($val('sdNumber')||'').trim(),date:$val('sdDate'),warehouse:$val('sdWarehouse'),rack:$val('sdRack'),reason:opening?'opening':$val('sdReason'),party,address:String($val('sdAddress')||'').trim(),note:String($val('sdNote')||'').trim(),lines}}
+/* e njëjta logjikë me v1 (draft → validim → konfirmim), plus rafti për rresht */
+window.saveStockDoc=function(confirmIt){if(!window.__sdDraft)return;let editing=!!window.__sdDraft.id;if(!requirePermission('warehouse',editing?'edit':'create'))return;if(confirmIt&&!requirePermission('warehouse','confirm'))return;let f=readForm(),err=SD.validate(f,window.__sdDraft.id);if(err)return toast(err);
+ let d=editing?sdDocs().find(x=>x&&x.id===window.__sdDraft.id):null;if(editing&&!d)return toast('Fleta nuk u gjet');if(d&&d.status!=='Draft')return toast('Vetëm draftet mund të ndryshohen');if(!d){d={id:uid('SD'),createdAt:new Date().toISOString(),createdBy:userName(),status:'Draft'};sdDocs().push(d)}
+ Object.assign(d,{kind:f.kind,opening:!!f.opening,number:f.number,date:f.date,warehouse:f.warehouse,rack:f.rack,reason:f.reason,party:f.party,address:f.address,note:f.note,updatedAt:new Date().toISOString(),lines:f.lines.map((l,i)=>({id:'L'+(i+1),product:l.product,lot:l.lot||'',lotCode:l.lot?(by('lots',l.lot).code||''):(l.lotCode||''),supplier:l.supplier||'',rack:l.rack||'',qty:l.qty,bags:l.bags,unitCost:l.unitCost,value:r2(l.qty*l.unitCost),organic:l.organic||''}))});
+ audit(kindShort(f.kind)+(confirmIt?' — konfirmim':' — draft'),d.number);save();closeModal();
+ if(confirmIt){let r=SD.confirm(d.id);render();stockDocCard(d.id);return toast(r.ok?d.number+' u konfirmua':r.error)}
+ render();stockDocCard(d.id);toast(d.number+' u ruajt si draft')};
+
+/* ---------------- RAPORTET TABELARE TË FLETËVE ---------------- */
+window.sdrFilters=window.sdrFilters||{view:'lines',from:'',to:'',kind:'',status:'Konfirmuar',warehouse:'',rack:'',product:'',lot:'',supplier:'',reason:'',user:'',opening:'',q:'',sort:'',dir:'desc'};
+const VIEWS=[['lines','Rreshtat e fletëve'],['docs','Sipas fletës'],['product','Sipas produktit'],['lot','Sipas lotit'],['supplier','Sipas furnitorit'],['reason','Sipas arsyes'],['warehouse','Magazina / rafti'],['daily','Ditore']];
+function lineRows(){let f=window.sdrFilters,out=[],rk=f.reason?f.reason.split(':'):null;sdDocs().forEach(d=>{if(!d)return;if(f.kind&&d.kind!==f.kind)return;if(f.status&&d.status!==f.status)return;if(f.warehouse&&d.warehouse!==f.warehouse)return;if(f.from&&d.date<f.from)return;if(f.to&&d.date>f.to)return;if(rk&&(d.kind!==rk[0]||d.reason!==rk[1]))return;if(f.opening==='yes'&&!d.opening)return;if(f.opening==='no'&&d.opening)return;let who=d.confirmedBy||d.createdBy||'';if(f.user&&who!==f.user)return;
+ (d.lines||[]).forEach((l,i)=>{let lot=l.lot?by('lots',l.lot):null;if(lot&&!lot.id)lot=null;let rack=l.rack||d.rack||(lot&&lot.rack)||'';if(f.rack&&rack!==f.rack)return;if(f.product&&l.product!==f.product)return;let lotCode=(lot&&lot.code)||l.lotCode||'';if(f.lot&&lotCode!==f.lot)return;if(f.supplier&&l.supplier!==f.supplier)return;let qty=numv(l.qty),cost=numv(l.unitCost),val=r2(qty*cost),sign=d.kind==='IN'?1:-1;
+  out.push({docId:d.id,number:d.number,kind:d.kind,kindLabel:d.kind==='IN'?'Hyrje':'Dalje',date:d.date,reg:String(d.confirmedAt||d.createdAt||d.date||'').slice(0,10),status:d.status,opening:!!d.opening,warehouse:d.warehouse,warehouseName:wName(d.warehouse),rack,rackName:rName(rack)||'—',reason:d.reason,reasonLabel:d.opening?'Gjendje fillestare':reasonLabel(d.kind,d.reason),party:(d.party&&d.party.name)||'',address:d.address||'',n:i+1,product:l.product,productName:pName(l.product)||'—',lot:l.lot||'',lotCode:lotCode||'—',lotNew:!!(l.newLotId&&l.newLotId===l.lot),supplier:l.supplier||'',supplierName:sName(l.supplier)||'—',qty,bags:numv(l.bags),cost,value:val,inQty:sign>0?qty:0,outQty:sign<0?qty:0,inVal:sign>0?val:0,outVal:sign<0?val:0,net:sign*qty,netVal:sign*val,user:who||'—',note:d.note||'',cancelReason:d.cancelReason||''})})});return out}
+/* numrat kërkohen si i shkruan përdoruesi: 120,5 / 120.5 / 120,50 / 120.50 / 1.200,00 */
+function numForms(v){v=numv(v);let a=String(v),f=fmt2(v);return [a,a.replace('.',','),f,f.replace(/[.,]/g,c=>c==='.'?',':'.'),f.replace(/[.,](?=\d{3})/g,'')]}
+function matchQ(r,q){if(!q)return true;q=String(q).trim().toLocaleLowerCase('sq');if(!q)return true;let hay=[r.number,r.productName,r.lotCode,r.supplierName,r.reasonLabel,r.warehouseName,r.rackName,r.party,r.address,r.note,r.user,r.status,r.kindLabel,r.date,dmy(r.date)].concat(numForms(r.qty),numForms(r.value),numForms(r.cost),r.bags?[String(Math.round(r.bags))]:[]);return hay.some(v=>String(v==null?'':v).toLocaleLowerCase('sq').includes(q))}
+function groupRows(rows,keyFn,labelFn){let m={};rows.forEach(r=>{let k=keyFn(r),g=m[k]||(m[k]={key:k,label:labelFn(r),docSet:new Set(),lines:0,inQty:0,outQty:0,inVal:0,outVal:0,bags:0,net:0,netVal:0,lotSet:new Set(),first:r.date,last:r.date});g.docSet.add(r.docId);g.lines++;g.inQty+=r.inQty;g.outQty+=r.outQty;g.inVal+=r.inVal;g.outVal+=r.outVal;g.bags+=r.bags;g.net+=r.net;g.netVal+=r.netVal;if(r.lotCode&&r.lotCode!=='—')g.lotSet.add(r.lotCode);if(r.date<g.first)g.first=r.date;if(r.date>g.last)g.last=r.date});return Object.values(m).map(g=>Object.assign(g,{docs:g.docSet.size,lots:g.lotSet.size,avgCost:(g.inQty+g.outQty)>0?r2((g.inVal+g.outVal)/(g.inQty+g.outQty)):0}))}
+const docLink=r=>'<a class="link" onclick="stockDocCard(\''+esc(r.docId)+'\')"><b>'+esc(r.number)+'</b></a>'+(r.opening?' <span class="pill blue">hapje</span>':'');
+const kindPill=r=>r.kind==='IN'?'<span class="pill green">Hyrje</span>':'<span class="pill orange">Dalje</span>';
+const COLS={
+ lines:[{h:'Data',k:'date',f:r=>dmy(r.date)},{h:'Fleta',k:'number',html:docLink},{h:'Lloji',k:'kindLabel',html:kindPill},{h:'Nr.',k:'n',num:1,int:1},{h:'Emërtimi i mallit',k:'productName'},{h:'Loti',k:'lotCode',html:(r,q)=>(r.lot&&by('lots',r.lot).id?'<a class="link" onclick="lotCard(\''+esc(r.lot)+'\')">'+hl(r.lotCode,q)+'</a>':hl(r.lotCode,q))+(r.lotNew?' <small>(i ri)</small>':'')},{h:'Furnitori',k:'supplierName'},{h:'Magazina',k:'warehouseName'},{h:'Rafti',k:'rackName'},{h:'Arsyeja',k:'reasonLabel'},{h:'Pala / adresa',k:'party',f:r=>[r.party,r.address].filter(Boolean).join(' — ')||'—'},{h:'Thasë',k:'bags',num:1,int:1,sum:1},{h:'Hyrje kg',k:'inQty',num:1,sum:1},{h:'Dalje kg',k:'outQty',num:1,sum:1},{h:'Çmimi ALL/kg',k:'cost',num:1},{h:'Vlefta ALL',k:'value',num:1,sum:1},{h:'Statusi',k:'status',html:r=>pill(r.status)},{h:'Përdoruesi',k:'user'},{h:'Përshkrimi',k:'note',f:r=>r.note+(r.cancelReason?' · Anuluar: '+r.cancelReason:'')}],
+ docs:[{h:'Data',k:'date',f:r=>dmy(r.date)},{h:'Fleta',k:'number',html:docLink},{h:'Lloji',k:'kindLabel',html:kindPill},{h:'Magazina',k:'warehouseName'},{h:'Arsyeja',k:'reasonLabel'},{h:'Pala / adresa',k:'party',f:r=>[r.party,r.address].filter(Boolean).join(' — ')||'—'},{h:'Mallrat',k:'products'},{h:'Rreshta',k:'lines',num:1,int:1,sum:1},{h:'Thasë',k:'bags',num:1,int:1,sum:1},{h:'Sasia kg',k:'qty',num:1,sum:1},{h:'Vlefta ALL',k:'value',num:1,sum:1},{h:'Statusi',k:'status',html:r=>pill(r.status)},{h:'Përdoruesi',k:'user'},{h:'Regjistruar',k:'reg',f:r=>dmy(r.reg)},{h:'',k:'',html:r=>'<button class="btn small" onclick="stockDocCard(\''+esc(r.docId)+'\')">Hap</button> <button class="btn small" data-right="warehouse:print" onclick="printStockDoc(\''+esc(r.docId)+'\')">🖨</button>'}],
+ group:[{h:'',k:'label'},{h:'Fletë',k:'docs',num:1,int:1},{h:'Rreshta',k:'lines',num:1,int:1,sum:1},{h:'Lote',k:'lots',num:1,int:1},{h:'Thasë',k:'bags',num:1,int:1,sum:1},{h:'Hyrje kg',k:'inQty',num:1,sum:1},{h:'Dalje kg',k:'outQty',num:1,sum:1},{h:'Neto kg',k:'net',num:1,sum:1},{h:'Hyrje ALL',k:'inVal',num:1,sum:1},{h:'Dalje ALL',k:'outVal',num:1,sum:1},{h:'Neto ALL',k:'netVal',num:1,sum:1},{h:'Çmimi mes. ALL/kg',k:'avgCost',num:1},{h:'Nga',k:'first',f:r=>dmy(r.first)},{h:'Deri',k:'last',f:r=>dmy(r.last)}]};
+function buildReport(){let f=window.sdrFilters,all=lineRows(),rows=all.filter(r=>matchQ(r,f.q)),view=f.view,cols,data,title;
+ if(view==='lines'){cols=COLS.lines;data=rows;title='Rreshtat e fletëve — çdo artikull, lot, furnitor'}
+ else if(view==='docs'){cols=COLS.docs;let m={};rows.forEach(r=>{let g=m[r.docId]||(m[r.docId]={docId:r.docId,number:r.number,kind:r.kind,kindLabel:r.kindLabel,date:r.date,reg:r.reg,status:r.status,opening:r.opening,warehouseName:r.warehouseName,reasonLabel:r.reasonLabel,party:r.party,address:r.address,user:r.user,lines:0,bags:0,qty:0,value:0,prodSet:new Set()});g.lines++;g.bags+=r.bags;g.qty+=r.qty;g.value+=r.value;g.prodSet.add((by('products',r.product)||{}).code||r.productName)});data=Object.values(m).map(g=>Object.assign(g,{products:[...g.prodSet].join(', ')}));title='Fletët — një rresht për dokument'}
+ else{let key,lab,gl;if(view==='product'){key=r=>r.product;lab=r=>r.productName;gl='Emërtimi i mallit'}else if(view==='lot'){key=r=>r.lotCode+'|'+r.product;lab=r=>r.lotCode+' · '+r.productName;gl='Loti · malli'}else if(view==='supplier'){key=r=>r.supplier||'—';lab=r=>r.supplierName;gl='Furnitori'}else if(view==='reason'){key=r=>r.kind+':'+(r.opening?'opening':r.reason);lab=r=>(r.kind==='IN'?'Hyrje — ':'Dalje — ')+r.reasonLabel;gl='Lloji — arsyeja'}else if(view==='warehouse'){key=r=>r.warehouse+'|'+r.rack;lab=r=>r.warehouseName+(r.rackName!=='—'?' / '+r.rackName:'');gl='Magazina / rafti'}else{key=r=>r.date;lab=r=>dmy(r.date);gl='Data'}
+  cols=COLS.group.map((c,i)=>i===0?Object.assign({},c,{h:gl}):c);data=groupRows(rows,key,lab);title=VIEWS.find(v=>v[0]===view)[1]}
+ let sk=f.sort||(view==='lines'||view==='docs'?'date':(view==='daily'?'key':'inVal')),dir=f.dir==='asc'?1:-1;
+ data.sort((a,b)=>{let x=a[sk],y=b[sk],c;if(typeof x==='number'||typeof y==='number')c=(numv(x)-numv(y))*dir;else c=String(x==null?'':x).localeCompare(String(y==null?'':y),'sq')*dir;return c||String(a.number||a.key||'').localeCompare(String(b.number||b.key||''))*dir||(numv(a.n)-numv(b.n))});
+ return{cols,rows:data,title,all,sortKey:sk}}
+function cellText(c,r){if(c.f)return c.f(r);let v=r[c.k];if(c.num)return c.int?String(Math.round(numv(v))):fmt2(v);return v==null?'':String(v)}
+function hl(text,q){text=esc(text);q=String(q||'').trim();if(!q)return text;try{let re=new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','ig');return text.replace(re,'<mark>$1</mark>')}catch(e){return text}}
+function tableHtml(R){let f=window.sdrFilters,q=f.q,sum={};R.cols.forEach(c=>{if(c.sum)sum[c.k]=R.rows.reduce((z,r)=>z+numv(r[c.k]),0)});let vis=R.all.filter(r=>matchQ(r,q)),inQ=0,outQ=0,inV=0,outV=0,bags=0;vis.forEach(r=>{inQ+=r.inQty;outQ+=r.outQty;inV+=r.inVal;outV+=r.outVal;bags+=r.bags});
+ return '<div class="sdr-summary" id="sdrSummary"><span>Fletë: <b>'+new Set(vis.map(r=>r.docId)).size+'</b></span><span>Rreshta: <b>'+vis.length+'</b></span><span>Thasë: <b>'+Math.round(bags)+'</b></span><span>Hyrje: <b>'+fmt2(inQ)+' kg</b> · '+fmt2(inV)+' ALL</span><span>Dalje: <b>'+fmt2(outQ)+' kg</b> · '+fmt2(outV)+' ALL</span><span>Neto: <b>'+fmt2(inQ-outQ)+' kg</b> · '+fmt2(inV-outV)+' ALL</span></div>'
+  +'<div class="table-wrap" style="border:0"><table id="sdReportTable" class="sdr-table"><thead><tr>'+R.cols.map(c=>'<th class="'+(c.num?'num ':'')+(c.k&&c.k===R.sortKey?'sorted '+(f.dir==='asc'?'asc':''):'')+'" '+(c.k?'onclick="sdrSort(\''+c.k+'\')"':'')+'>'+esc(c.h)+'</th>').join('')+'</tr></thead><tbody>'
+  +(R.rows.length?R.rows.map(r=>'<tr data-sdr="1" data-doc="'+esc(r.docId||'')+'">'+R.cols.map(c=>'<td class="'+(c.num?'num':'')+'">'+(c.html?c.html(r,q):hl(cellText(c,r),q))+'</td>').join('')+'</tr>').join(''):'<tr><td colspan="'+R.cols.length+'" class="empty">Nuk ka rreshta për këto filtra.</td></tr>')
+  +'</tbody>'+(R.rows.length?'<tfoot><tr>'+R.cols.map((c,i)=>'<td class="'+(c.num?'num':'')+'">'+(i===0?'Totali ('+R.rows.length+')':(c.sum?(c.int?String(Math.round(sum[c.k])):fmt2(sum[c.k])):''))+'</td>').join('')+'</tr></tfoot>':'')+'</table></div>'}
+function inner(){let f=window.sdrFilters,R=buildReport(),users=[...new Set(sdDocs().map(d=>d&&(d.confirmedBy||d.createdBy)).filter(Boolean))].sort(),reasonsAll=[].concat(REASONS.IN.map(r=>['IN:'+r[0],'Hyrje — '+r[1]]),REASONS.OUT.map(r=>['OUT:'+r[0],'Dalje — '+r[1]])).filter(r=>!f.kind||r[0].startsWith(f.kind+':')),lotsAll=[...new Set(lineRowsNoLot().map(r=>r.lotCode).filter(x=>x&&x!=='—'))].sort();
+ const sel=(lbl,k,list,cur,empty)=>'<div class="field"><label>'+lbl+'</label><select data-sdrf="'+k+'" onchange="sdrSet(\''+k+'\',this.value)"><option value="">'+esc(empty||'Të gjitha')+'</option>'+list.map(x=>'<option value="'+esc(x[0])+'"'+(String(cur)===String(x[0])?' selected':'')+'>'+esc(x[1])+'</option>').join('')+'</select></div>';
+ return '<div class="card" id="sdReportsCard" style="border-top:4px solid #176b49"><h3 style="margin-top:0">Raportet e fletëve hyrje / dalje — tabelare</h3><p class="hint">Çdo rresht artikulli i fletëve (malli, loti, furnitori, magazina, rafti, arsyeja, pala, çmimi, vlefta, përdoruesi). Kombinoni filtrat, kërkoni live në tabelë, klikoni kokën e kolonës për renditje; totalet poshtë. Excel / print i pamjes aktuale.</p>'
+  +'<div class="sdr-tabs">'+VIEWS.map(v=>'<button type="button" class="btn small'+(f.view===v[0]?' active':'')+'" data-sdrview="'+v[0]+'" onclick="sdrSet(\'view\',\''+v[0]+'\')">'+esc(v[1])+'</button>').join('')+'</div>'
+  +'<div class="sdr-filters">'
+   +'<div class="field"><label>Nga data</label><input type="date" id="sdrFrom" value="'+esc(f.from)+'" onchange="sdrSet(\'from\',this.value)"></div><div class="field"><label>Deri</label><input type="date" id="sdrTo" value="'+esc(f.to)+'" onchange="sdrSet(\'to\',this.value)"></div>'
+   +sel('Lloji','kind',[['IN','Fletë hyrje'],['OUT','Fletë dalje']],f.kind)
+   +sel('Statusi','status',[['Konfirmuar','Konfirmuar'],['Draft','Draft'],['Anuluar','Anuluar']],f.status,'Të gjitha')
+   +sel('Magazina','warehouse',(state.warehouses||[]).filter(w=>w&&w.id).map(w=>[w.id,w.name]),f.warehouse)
+   +sel('Rafti','rack',(state.racks||[]).filter(r=>r&&r.id&&(!f.warehouse||r.warehouse===f.warehouse)).map(r=>[r.id,r.code+(r.name?' — '+r.name:'')]),f.rack)
+   +sel('Produkti','product',(state.products||[]).filter(p=>p&&p.id).map(p=>[p.id,(p.code?p.code+' — ':'')+p.name]),f.product)
+   +sel('Loti','lot',lotsAll.map(c=>[c,c]),f.lot)
+   +sel('Furnitori','supplier',(state.suppliers||[]).filter(s=>s&&s.id).map(s=>[s.id,(s.code?s.code+' — ':'')+s.name]),f.supplier)
+   +sel('Arsyeja','reason',reasonsAll,f.reason)
+   +sel('Përdoruesi','user',users.map(u=>[u,u]),f.user)
+   +sel('Gjendja fillestare','opening',[['no','Pa fletët e hapjes'],['yes','Vetëm hapja']],f.opening,'Përfshi')
+  +'</div>'
+  +'<div class="sdr-chips"><span class="hint">Periudha:</span>'+[['today','Sot'],['week','7 ditët'],['month','Ky muaj'],['prev','Muaji i kaluar'],['year','Ky vit'],['all','Gjithë periudha']].map(p=>'<span class="pill" onclick="sdrPeriod(\''+p[0]+'\')">'+p[1]+'</span>').join('')+'<span class="pill red" onclick="sdrReset()">✕ Pastro filtrat</span></div>'
+  +'<div class="actions" style="margin-top:10px;align-items:center"><input id="sdrQ" value="'+esc(f.q)+'" placeholder="Kërko live në tabelë: fleta, malli, loti, furnitori, arsyeja, rafti, pala, përdoruesi, sasia…" oninput="sdrSet(\'q\',this.value,true)" style="flex:1;min-width:200px"><button class="btn" data-right="warehouse:print" onclick="exportStockDocReportXlsx()">⬇ Excel</button><button class="btn" data-right="warehouse:print" onclick="printStockDocReport()">🖨 Printo</button></div></div>'
+  +'<div class="card" style="padding:0" id="sdrTableWrap">'+tableHtml(R)+'</div>'}
+function lineRowsNoLot(){let f=window.sdrFilters,keep=f.lot;f.lot='';try{return lineRows()}finally{f.lot=keep}}
+window.stockDocReportsView=function(){return '<div id="sdReportsRoot">'+inner()+'</div>'};
+window.sdrRerender=function(){let root=$('sdReportsRoot');if(!root){render();return}root.innerHTML=inner();try{if(typeof rtApply==='function')rtApply()}catch(e){}};
+window.sdrSet=function(k,v,live){let f=window.sdrFilters;f[k]=v;if(k==='warehouse')f.rack='';if(k==='kind')f.reason='';if(k==='view'){f.sort='';f.dir='desc'}
+ if(live&&k==='q'){let w=$('sdrTableWrap');if(w){w.innerHTML=tableHtml(buildReport());try{if(typeof rtApply==='function')rtApply()}catch(e){}return}}
+ sdrRerender()};
+window.sdrSort=function(k){let f=window.sdrFilters;if(f.sort===k)f.dir=f.dir==='asc'?'desc':'asc';else{f.sort=k;f.dir=(k==='date'||k==='number'||k==='label'||k==='productName'||k==='supplierName'||k==='lotCode'||k==='first'||k==='last'||k==='reg')?'asc':'desc'}let w=$('sdrTableWrap');if(w){w.innerHTML=tableHtml(buildReport());try{if(typeof rtApply==='function')rtApply()}catch(e){}}else sdrRerender()};
+window.sdrPeriod=function(p){let f=window.sdrFilters,t=new Date(),y=t.getFullYear(),m=t.getMonth(),iso=d=>new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);if(p==='today')f.from=f.to=today();else if(p==='week'){f.to=today();f.from=iso(new Date(t.getTime()-6*86400000))}else if(p==='month'){f.from=iso(new Date(y,m,1));f.to=iso(new Date(y,m+1,0))}else if(p==='prev'){f.from=iso(new Date(y,m-1,1));f.to=iso(new Date(y,m,0))}else if(p==='year'){f.from=y+'-01-01';f.to=y+'-12-31'}else{f.from='';f.to=''}sdrRerender()};
+window.sdrReset=function(){Object.assign(window.sdrFilters,{from:'',to:'',kind:'',status:'Konfirmuar',warehouse:'',rack:'',product:'',lot:'',supplier:'',reason:'',user:'',opening:'',q:'',sort:'',dir:'desc'});sdrRerender()};
+function filterText(){let f=window.sdrFilters;return [f.kind?(f.kind==='IN'?'Fletë hyrje':'Fletë dalje'):'',f.status,f.warehouse?wName(f.warehouse):'',f.rack?'rafti '+rName(f.rack):'',f.product?pName(f.product):'',f.lot?'loti '+f.lot:'',f.supplier?sName(f.supplier):'',f.reason?reasonLabel(f.reason.split(':')[0],f.reason.split(':')[1]):'',f.user,f.opening==='yes'?'vetëm hapja':f.opening==='no'?'pa hapjen':'',f.q?'kërkim: '+f.q:''].filter(Boolean).join(' · ')}
+window.exportStockDocReportXlsx=function(){if(!requirePermission('warehouse','print'))return;let R=buildReport(),cols=R.cols.filter(c=>c.k),headers=cols.map(c=>c.h),rows=R.rows.map(r=>cols.map(c=>{if(c.num)return c.int?Math.round(numv(r[c.k])):r2(r[c.k]);if(c.k==='number')return r.number+(r.opening?' (hapje)':'');return cellText(c,r)}));makeXlsx('Raport-flete-'+window.sdrFilters.view+'-'+today()+'.xlsx',headers,rows);toast('Raporti u eksportua ('+rows.length+' rreshta)')};
+window.printStockDocReport=function(){if(!requirePermission('warehouse','print'))return;let tbl=$('sdReportTable');if(!tbl)return toast('Raporti nuk u gjet');let f=window.sdrFilters,R=buildReport(),host=$('sdrPrintHost');if(!host){host=document.createElement('div');host.id='sdrPrintHost';host.style.cssText='position:fixed;left:-10000px;top:0;width:277mm';document.body.appendChild(host)}
+ let per=(f.from||f.to)?((f.from?dmy(f.from):'…')+' – '+(f.to?dmy(f.to):'…')):'gjithë periudha',flt=filterText(),sum=$('sdrSummary');
+ host.innerHTML='<div id="sdrPrintSheet"><h2 style="margin:0 0 4px;font-family:Georgia,serif">'+esc(company().name||'BIOBES sh.p.k.')+' — Raporti i fletëve të magazinës</h2><div style="font-size:12px;color:#334;margin-bottom:6px">'+esc(R.title)+' · periudha: '+esc(per)+(flt?' · filtra: '+esc(flt):'')+' · shtypur '+esc(new Date().toLocaleString('sq-AL'))+'</div>'+(sum?'<div style="font-size:11px;margin-bottom:6px">'+sum.innerHTML.replace(/<\/span>/g,' · </span>')+'</div>':'')+tbl.outerHTML.replace('id="sdReportTable"','id="sdrPrintTable"').replace(/<\/?mark>/g,'').replace(/<button[^>]*>[\s\S]*?<\/button>/g,'')+'</div>';
+ printOnly('sdrPrintSheet','Raporti i fletëve — '+R.title);setTimeout(()=>{try{host.innerHTML=''}catch(e){}},2000)};
+try{const basePO=printOnly;printOnly=function(elementId,title){if(elementId!=='sdrPrintSheet')return basePO.apply(this,arguments);let el=$(elementId);if(!el)return toast('Raporti nuk u gjet');
+ let css='@page{size:A4 landscape;margin:10mm} html,body{background:#fff;margin:0;padding:0;font-family:system-ui,Segoe UI,Arial;color:#111} table{border-collapse:collapse;width:100%;font-size:9.5px} th,td{border:1px solid #999;padding:3px 4px;text-align:left;vertical-align:top} th{background:#eee} td.num,th.num{text-align:right;white-space:nowrap} tfoot td{font-weight:700;background:#f3f3f3} .pill{font-weight:700} a{color:#000;text-decoration:none} tr{page-break-inside:avoid} th.sorted:after{content:""}';
+ let old=$('biobesPrintFrame');if(old)old.remove();let frame=document.createElement('iframe');frame.id='biobesPrintFrame';frame.title='Dokumenti për printim';frame.style.cssText='position:fixed;width:0;height:0;border:0;right:0;bottom:0';document.body.appendChild(frame);
+ frame.contentDocument.open();frame.contentDocument.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title||'Raport')+'</title><style>'+css+'</style></head><body>'+el.outerHTML+'<\/body></html>');frame.contentDocument.close();
+ frame.contentWindow.addEventListener('afterprint',()=>frame.remove(),{once:true});setTimeout(()=>{if(frame.isConnected){try{frame.contentWindow.focus();frame.contentWindow.print()}catch(e){}}},350);setTimeout(()=>{if(frame.isConnected)frame.remove()},60000)};window.printOnly=printOnly}catch(e){console.error(VERSION,'printOnly',e)}
+
+/* ---------------- Vendosja: Magazina (tab) + Raportet (buton + pamje) ---------------- */
+window.__sdWhTab=window.__sdWhTab||'docs';
+window.sdWhTab=function(t){window.__sdWhTab=t==='reports'?'reports':'docs';render();setTimeout(()=>{try{let el=$('sdWhTabs');if(el&&el.scrollIntoView)el.scrollIntoView({block:'start'})}catch(e){}},30)};
+try{const baseDocsView=window.stockDocsView;window.stockDocsView=function(){let tabs='<div class="sdr-tabs" id="sdWhTabs" style="margin:14px 0 6px"><button type="button" class="btn'+(window.__sdWhTab!=='reports'?' active':'')+'" onclick="sdWhTab(\'docs\')">📄 Fletët hyrje / dalje</button><button type="button" class="btn'+(window.__sdWhTab==='reports'?' active':'')+'" onclick="sdWhTab(\'reports\')">📋 Raportet e fletëve</button></div>';if(window.__sdWhTab==='reports')return tabs+window.stockDocReportsView();return tabs+baseDocsView.apply(this,arguments)}}catch(e){console.error(VERSION,'stockDocsView',e)}
+window.__sdrReportsOpen=false;
+window.sdrOpenReports=function(){try{if(typeof page!=='undefined'&&page!=='reports')go('reports')}catch(e){}window.__sdrReportsOpen=true;render()};
+window.sdrCloseReports=function(){window.__sdrReportsOpen=false;render()};
+try{if(typeof views!=='undefined'&&views&&typeof views.reports==='function'){const baseReports=views.reports;views.reports=function(){if(window.__sdrReportsOpen)return head('Raportet','Fletët e magazinës — raporte tabelare (hyrje / dalje)')+'<div class="reports-mode-tabs"><button class="btn" type="button" onclick="sdrCloseReports()">← Raportet</button><button class="btn active" type="button">📋 Fletët e magazinës</button></div>'+window.stockDocReportsView();
+ let h=baseReports.apply(this,arguments);try{let inAlpha=(typeof alphaActiveReport!=='undefined'&&alphaActiveReport);if(typeof h==='string'&&!inAlpha&&h.indexOf('onclick="sdrOpenReports()"')<0){let m='<div class="reports-mode-tabs">',i=h.indexOf(m);if(i>=0){let e=h.indexOf('</div>',i);if(e>i)h=h.slice(0,e)+'<button class="btn" type="button" onclick="sdrOpenReports()">📋 Fletët e magazinës</button>'+h.slice(e)}}}catch(e){}return h}}}catch(e){console.error(VERSION,'views.reports',e)}
+try{const baseGo=window.go;if(typeof baseGo==='function'){window.go=function(p){window.__sdrReportsOpen=false;if(p!=='warehouse')window.__sdWhTab='docs';return baseGo.apply(this,arguments)};try{go=window.go}catch(e){}}}catch(e){}
+
+window.__biobesStockDocsV2={version:VERSION,views:VIEWS.map(v=>v[0]),lineRows,buildReport,formRows:FORM_ROWS};
+console.log(VERSION+' aktiv: formulari i fletës si dokumenti i letrës + '+VIEWS.length+' raporte tabelare');
+})();
+</script>
 <style id="biobes-expenses-css">
 /* biobes-expenses-v1 — shpenzimet e klasës 6 (ekran + print A4 portret) */
 .ex-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.ex-tabs .btn.active{background:var(--brand);color:#fff;border-color:var(--brand)}
