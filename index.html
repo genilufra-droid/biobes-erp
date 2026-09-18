@@ -8603,6 +8603,173 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
 }catch(e){console.error('biobes-expenses-v1 nuk u aktivizua:',e)}
 })();
 </script>
+<script id="biobes-weigh-rack-v1">
+/* ==========================================================================
+   Peshimi: thasë & ambalazh OPSIONALE + zgjedhja e RAFTIT që në peshim
+   --------------------------------------------------------------------------
+   Kërkesa e përdoruesit (2026-09-18):
+   1) "Nr. thasëve" dhe "Peshorja / ambalazhi" nuk duhet të bllokojnë ruajtjen
+      kur lihen bosh — detyrueshëm mbetet vetëm KG bruto > 0 (tara ≤ bruto).
+      Më parë coreCreateWeighing (rregulli i vjetër) refuzonte rreshtin me
+      "Bruto, tara ose numri i thasëve është i pavlefshëm" kur thasët ishin 0.
+   2) Formulari i peshimit merr fushën "Rafti" (opsionale) menjëherë pas
+      magazinës; lista filtrohet sipas magazinës së zgjedhur. Rafti ruhet te
+      peshimi (weighing.rack) dhe kalon te loti kur konfirmohet — në të tria
+      rrugët: "Konfirmo & krijo lot", konfirmimi i draftit nga kartela dhe
+      modifikimi i peshimit. Pa raft të zgjedhur ruhet sjellja e mëparshme
+      (rafti i parë i magazinës ose "Rafti kryesor" i krijuar automatikisht).
+   3) Kartela e lotit merr butonin "Ndrysho raftin": rivendos vetëm pozicionin
+      (asnjë sasi, thes apo lëvizje stoku nuk preket), me ngjarje në historik.
+   Vetëm index.html; raportet Alpha nuk preken.
+   ========================================================================== */
+(function(){
+  const VERSION='biobes-weigh-rack-v1';
+  const $g=id=>document.getElementById(id);
+  const racksOf=wid=>(state.racks||[]).filter(r=>r&&r.id&&r.warehouse===wid);
+  const rackLabel=r=>(r.code||r.id)+(r.name?' — '+r.name:'');
+  const val=id=>{let e=$g(id);return e?String(e.value||''):''};
+
+  /* ---------- 1) rreshtat: vetëm bruto>0 dhe tara≤bruto janë të detyrueshme ---------- */
+  const rowBad=r=>{let g=parseLocal(r.gross),t=parseLocal(r.tare),b=parseLocal(r.bags);return !(g>0)||t<0||g<t||b<0};
+  if(typeof coreCreateWeighing==='function'){
+    const base=coreCreateWeighing;
+    const v3=function(data){
+      let rows=(data.bagRows||[]).filter(r=>String(r.gross??'').trim()!==''||String(r.tare??'').trim()!==''||String(r.bags??'').trim()!=='');
+      if(rows.length&&rows.some(rowBad))return coreResult(false,'Çdo rresht duhet të ketë KG bruto > 0 dhe ambalazhin jo më të madh se bruto (thasët dhe ambalazhi mund të lihen bosh)');
+      /* rregulli i vjetër kërkonte thasë>0: kalojmë 1 thes fiktiv VETËM për validim dhe e rikthejmë menjëherë */
+      let patched=rows.map(r=>parseLocal(r.bags)>0?r:Object.assign({},r,{bags:1,__noBags:true}));
+      let res=base(Object.assign({},data,{bagRows:patched}));
+      if(res&&res.ok&&res.record){
+        let rec=res.record;rec.bagRows=(rec.bagRows||[]).map(r=>{if(r&&r.__noBags){let c=Object.assign({},r);delete c.__noBags;c.bags=0;return c}return r});
+        rec.bags=rec.bagRows.reduce((a,r)=>a+(parseLocal(r.bags)||0),0);
+        if(data.rack!==undefined)rec.rack=data.rack||'';
+      }
+      return res;
+    };
+    window.coreCreateWeighing=v3;try{coreCreateWeighing=v3}catch(e){}
+  }
+
+  /* ---------- 2) fusha "Rafti" në formularin e peshimit ---------- */
+  function rackOptionsHtml(wid,selected){
+    let list=racksOf(wid);
+    let head=wid?(list.length?'<option value="">— automatik (rafti i parë i magazinës) —</option>':'<option value="">— magazina s’ka rafte: krijohet "Rafti kryesor" —</option>'):'<option value="">— zgjidh më parë magazinën —</option>';
+    return head+list.map(r=>`<option value="${esc(r.id)}" ${r.id===selected?'selected':''}>${esc(rackLabel(r))}</option>`).join('');
+  }
+  function swapRackSelect(selected){
+    let sel=$g('wRack');if(!sel)return;
+    let prev=sel.previousElementSibling;while(prev&&prev.classList&&(prev.classList.contains('global-live-search')||prev.classList.contains('search-select'))){let pp=prev.previousElementSibling;prev.remove();prev=pp}
+    let ns=document.createElement('select');ns.id='wRack';ns.innerHTML=rackOptionsHtml(val('wWarehouse'),selected||'');sel.replaceWith(ns);
+    try{if(typeof globalizeAllSelects==='function')globalizeAllSelects(ns.parentNode)}catch(e){}
+  }
+  window.weighRackRefresh=function(selected){swapRackSelect(selected)};
+  window.weighRackField=function(){/* ruajtur për thirrje nga jashtë */swapRackSelect(val('wRack'))};
+  function injectRackField(){
+    let wh=$g('wWarehouse');if(!wh||$g('wRack'))return;
+    let field=wh.closest('.field');if(!field)return;
+    field.insertAdjacentHTML('afterend',`<div class="field" id="wRackField"><label>Rafti <span class="hint" style="font-weight:400">(opsional)</span></label><select id="wRack">${rackOptionsHtml(wh.value,'')}</select><span class="hint">Pa zgjedhje: loti vendoset në raftin e parë të magazinës. Mund të ndryshohet më vonë nga kartela e lotit.</span></div>`);
+    if(!wh.dataset.rackBound){wh.dataset.rackBound='1';wh.addEventListener('change',()=>swapRackSelect(''))}
+    /* etiketat e kolonave: tregojmë që janë opsionale */
+    document.querySelectorAll('#modalBody thead th').forEach(th=>{let t=th.textContent.trim();if(t==='Nr. thasëve')th.innerHTML='Nr. thasëve <small class="hint">(ops.)</small>';else if(t==='Peshorja / ambalazhi')th.innerHTML='Peshorja / ambalazhi <small class="hint">(ops.)</small>'});
+  }
+  if(typeof weighForm==='function'){
+    const baseForm=weighForm;
+    const f=function(){let r=baseForm.apply(this,arguments);setTimeout(injectRackField,30);setTimeout(injectRackField,200);return r};
+    window.weighForm=f;try{weighForm=f}catch(e){}
+  }
+  /* modifikimi i një peshimi ekzistues: ngarko raftin e ruajtur (ose të lotit) */
+  if(typeof loadWeightIntoForm==='function'){
+    const baseLoad=loadWeightIntoForm;
+    const l2=function(x,editing){let r=baseLoad.apply(this,arguments);try{let lot=(state.lots||[]).find(l=>l&&l.weighing===x.id);let rid=(x&&x.rack)||(lot&&lot.rack)||'';setTimeout(()=>{injectRackField();swapRackSelect(rid)},60)}catch(e){}return r};
+    window.loadWeightIntoForm=l2;try{loadWeightIntoForm=l2}catch(e){}
+  }
+
+  /* ---------- 3) rafti kalon te peshimi dhe te loti ---------- */
+  function resolveRack(wid,rid){if(!rid)return '';let r=(state.racks||[]).find(x=>x&&x.id===rid);return (r&&r.warehouse===wid)?r.id:''}
+  function applyRackToLot(lot,rid,why){
+    if(!lot||!rid||lot.rack===rid)return false;
+    let r=(state.racks||[]).find(x=>x&&x.id===rid);if(!r||r.warehouse!==lot.warehouse)return false;
+    let from=(state.racks||[]).find(x=>x&&x.id===lot.rack);
+    lot.rack=rid;
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Vendosje në raft',ref:lot.id,text:`${lot.code||lot.id}: ${from?rackLabel(from):'—'} → ${rackLabel(r)}${why?' ('+why+')':''}`});
+    return true;
+  }
+  /* a) "Konfirmo & krijo lot" / "Ruaj draft" */
+  if(typeof saveWeighRows==='function'){
+    const baseSave=saveWeighRows;
+    const s2=function(confirmIt){
+      let wid=val('wWarehouse'),rid=resolveRack(wid,val('wRack'));
+      let before=new Set((state.weighings||[]).map(x=>x.id)),lotsBefore=new Set((state.lots||[]).map(x=>x.id));
+      let r=baseSave.apply(this,arguments);
+      try{
+        let w=(state.weighings||[]).find(x=>!before.has(x.id));
+        if(w){w.rack=rid||'';if(rid){let lot=(state.lots||[]).find(l=>!lotsBefore.has(l.id)&&l.weighing===w.id);if(lot&&applyRackToLot(lot,rid,'zgjedhur në peshim'))save()}}
+      }catch(e){console.warn(VERSION,e&&e.message)}
+      return r;
+    };
+    window.saveWeighRows=s2;try{saveWeighRows=s2}catch(e){}
+  }
+  /* b) konfirmimi i draftit nga kartela e peshimit */
+  if(typeof confirmExistingWeight==='function'){
+    const baseConfirm=confirmExistingWeight;
+    const c2=function(id){
+      let w=(state.weighings||[]).find(x=>x&&x.id===id),rid=w?resolveRack(w.weighingWarehouse,w.rack):'';
+      let lotsBefore=new Set((state.lots||[]).map(x=>x.id));
+      let r=baseConfirm.apply(this,arguments);
+      try{if(rid){let lot=(state.lots||[]).find(l=>!lotsBefore.has(l.id)&&l.weighing===id);if(lot&&applyRackToLot(lot,rid,'zgjedhur në peshim'))save()}}catch(e){console.warn(VERSION,e&&e.message)}
+      return r;
+    };
+    window.confirmExistingWeight=c2;try{confirmExistingWeight=c2}catch(e){}
+  }
+  /* c) modifikimi i peshimit: ruaj raftin dhe zhvendos lotin nëse ndryshoi */
+  if(typeof updateWeight==='function'){
+    const baseUpdate=updateWeight;
+    const u2=function(id){
+      let wid=val('wWarehouse'),rid=resolveRack(wid,val('wRack'));
+      let r=baseUpdate.apply(this,arguments);
+      try{let w=(state.weighings||[]).find(x=>x&&x.id===id);if(w&&$g('wRack')===null&&!$g('modal').classList.contains('open')){/* forma u mbyll = u ruajt */}
+        if(w&&!document.getElementById('wRack')){w.rack=rid||w.rack||'';let lot=(state.lots||[]).find(l=>l&&l.weighing===id);if(lot&&rid&&applyRackToLot(lot,rid,'modifikim peshimi'))save()}
+      }catch(e){console.warn(VERSION,e&&e.message)}
+      return r;
+    };
+    window.updateWeight=u2;try{updateWeight=u2}catch(e){}
+  }
+
+  /* ---------- 4) "Ndrysho raftin" në kartelën e lotit ---------- */
+  window.lotRackForm=function(id){
+    let l=(state.lots||[]).find(x=>x&&x.id===id);if(!l)return toast('Loti nuk u gjet');
+    let list=racksOf(l.warehouse),cur=(state.racks||[]).find(x=>x&&x.id===l.rack),wh=(state.warehouses||[]).find(x=>x&&x.id===l.warehouse)||{};
+    if(!list.length)return toast('Magazina '+(wh.name||'')+' nuk ka rafte. Shtoni rafte te Magazina.');
+    modal('Ndrysho raftin — '+(l.code||l.id),`<div class="form-grid"><div class="field full"><label>Pozicioni aktual</label><input value="${esc((wh.code||'')+' '+(wh.name||''))} / ${esc(cur?rackLabel(cur):'—')}" disabled></div><div class="field full"><label>Rafti i ri (e njëjta magazinë)</label><select id="lrRack">${list.map(r=>`<option value="${esc(r.id)}" ${r.id===l.rack?'selected':''}>${esc(rackLabel(r))}</option>`).join('')}</select></div><div class="field full"><label>Përshkrimi</label><input id="lrNote" placeholder="p.sh. u sistemua pas pranimit"></div></div><p class="hint">Ndryshon vetëm pozicionin e lotit (${n(l.net)} kg${l.bags?', '+l.bags+' thasë':''}); sasitë dhe stoku nuk preken. Për të kaluar në magazinë tjetër ose për ndarje sasie përdorni «Transfero».</p>`,
+      `<button class="btn" onclick="lotCard('${esc(l.id)}')">Anulo</button><button class="btn primary" onclick="saveLotRack('${esc(l.id)}')">Ruaj raftin</button>`);
+    setTimeout(()=>{try{globalizeAllSelects(document.getElementById('modalBody'))}catch(e){}},20);
+  };
+  window.saveLotRack=function(id){
+    let l=(state.lots||[]).find(x=>x&&x.id===id);if(!l)return;
+    let rid=val('lrRack'),note=val('lrNote').trim();
+    if(!rid)return toast('Zgjidhni raftin');
+    if(rid===l.rack){toast('Rafti është i njëjti');return lotCard(id)}
+    if(!applyRackToLot(l,rid,note||'ndryshuar nga kartela e lotit'))return toast('Rafti nuk i përket magazinës së lotit');
+    let w=(state.weighings||[]).find(x=>x&&x.id===l.weighing);if(w)w.rack=rid;
+    save();render();toast('Rafti u ndryshua');lotCard(id);
+  };
+  if(typeof lotCard==='function'){
+    const baseCard=lotCard;
+    const lc=function(id){
+      let r=baseCard.apply(this,arguments);
+      setTimeout(()=>{try{
+        let foot=$g('modalFoot');if(!foot||foot.querySelector('[data-lot-rack]'))return;
+        let l=(state.lots||[]).find(x=>x&&x.id===id);if(!l||!document.querySelector('#modal.open'))return;
+        let tr=[...foot.querySelectorAll('button')].find(b=>b.textContent.trim()==='Transfero');
+        let b=document.createElement('button');b.className='btn';b.setAttribute('data-lot-rack','1');b.setAttribute('data-right','warehouse:edit');b.textContent='Ndrysho raftin';b.addEventListener('click',()=>lotRackForm(id));
+        if(tr)tr.insertAdjacentElement('beforebegin',b);else foot.appendChild(b);
+      }catch(e){}},120);
+      return r;
+    };
+    window.lotCard=lc;try{lotCard=lc}catch(e){}
+  }
+  window.__biobesWeighRack={version:VERSION,racksOf,rackOptionsHtml,applyRackToLot};
+})();
+</script>
 <script id="biobes-rights-matrix-v1">
 /* BioBes ERP — Të drejtat me kuti (checkbox) për çdo modul, si në Vyapar/Odoo — v1
    Modeli:   rights.modules = { sales:['view','create','edit','confirm','cancel','delete','print'], ... }  (v2)
