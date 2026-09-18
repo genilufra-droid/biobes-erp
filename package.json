@@ -4,7 +4,7 @@
   "scripts": {
     "test:syntax": "node tests/check-syntax.cjs",
     "test:browser": "node tests/browser-audit.cjs",
-    "test": "npm run test:syntax && npm run test:browser && npm run test:warehouse && npm run test:operations && npm run test:recovery && npm run test:qr && npm run test:opening && npm run test:warehouse-docs && npm run test:expenses && npm run test:ocr",
+    "test": "npm run test:syntax && npm run test:browser && npm run test:warehouse && npm run test:operations && npm run test:recovery && npm run test:qr && npm run test:opening && npm run test:warehouse-docs && npm run test:stock-doc-ux && npm run test:label-print && npm run test:expenses && npm run test:ocr",
     "test:operations": "node tests/operations-audit.cjs",
     "test:warehouse": "node tests/warehouse-rack-audit.cjs",
     "test:recovery": "node tests/recovery-audit.cjs",
@@ -12,7 +12,9 @@
     "test:ocr": "node tests/ocr-audit.cjs",
     "test:qr": "node tests/qr-deeplink-audit.cjs",
     "test:opening": "node tests/opening-balances-audit.cjs",
-    "test:warehouse-docs": "node tests/warehouse-docs-audit.cjs"
+    "test:warehouse-docs": "node tests/warehouse-docs-audit.cjs",
+    "test:stock-doc-ux": "node tests/stock-doc-ux-audit.cjs",
+    "test:label-print": "node tests/label-print-audit.cjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"
