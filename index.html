@@ -8770,6 +8770,350 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
   window.__biobesWeighRack={version:VERSION,racksOf,rackOptionsHtml,applyRackToLot};
 })();
 </script>
+<script id="biobes-doc-numbering-v1">
+/* ==========================================================================
+   NUMËRIMI I DOKUMENTAVE — "numrin ta vendosin vetë" (2026-09-18)
+   --------------------------------------------------------------------------
+   Kërkesa: numrin e dokumentave (peshim, faturë, fletë hyrje/dalje, etj.)
+   përdoruesit duan ta shkruajnë vetë, jo ta gjenerojë sistemi.
+
+   Zgjidhja: për ÇDO lloj dokumenti admini zgjedh mënyrën e numërimit te
+   Konfigurime → "Numërimi i dokumentave":
+     • automatik  — si sot: sistemi e gjeneron, fusha nuk preket
+     • propozim   — sistemi e mbush numrin e radhës, përdoruesi mund ta ndryshojë
+     • me dorë    — fusha bosh, numri i detyrueshëm, e vendos përdoruesi
+   Formati është i lirë (p.sh. 125, A-17, 2026/0031). Kontrollohet vetëm që
+   numri të mos përsëritet brenda llojit të dokumentit.
+
+   Ku ruhet numri:
+     • Peshimi, Faturë blerjeje, Paketimi, Ngarkesa, Përpunimi, Mostra,
+       Porosia, Mandatet — numri ËSHTË çelësi i dokumentit (id): vendoset në
+       krijim dhe nuk ndryshohet më (ndryshimi do të thyente lidhjet: lot →
+       peshim → faturë → kontabilitet). Për këto përsëritja refuzohet gjithmonë.
+     • Fletë hyrje/dalje (FH/FD), Shpenzimet (SHP), Fatura shitjeje (FS) —
+       numri është fushë më vete (number / invoiceNumber) dhe mund të
+       ndryshohet edhe më vonë. Përsëritja këtu lejohet VETËM me fjalëkalimin
+       e adminit + arsye (regjistrohet në ditar). Për Shpenzimet kontrolli i
+       brendshëm nuk mund të anashkalohet, prandaj aty përsëritja refuzohet.
+
+   Parazgjedhjet = sjellja e sotme (asgjë nuk ndryshon pa e prekur admini).
+   Vetëm index.html; raportet Alpha nuk preken.
+   ========================================================================== */
+(function(){
+  const VERSION='biobes-doc-numbering-v1';
+  const $g=id=>document.getElementById(id);
+  const trim=v=>String(v==null?'':v).trim();
+  const arr=n=>Array.isArray(state[n])?state[n]:[];
+  const listOf=(key)=>{try{return DOCS[key].list()||[]}catch(e){return[]}};
+  const today=()=>new Date().toISOString().slice(0,10);
+  const safe=fn=>{try{return fn()}catch(e){return null}};
+
+  /* ---------- 1) tabela e dokumentave ---------- */
+  const DOCS={
+    PS :{label:'Peshimi',                  prefix:'PS',  def:'auto',    field:'id',            input:'wNumber',  list:()=>arr('weighings')},
+    FB :{label:'Faturë blerjeje',          prefix:'FB',  def:'auto',    field:'id',            input:'fifNumber',list:()=>safe(()=>purchaseInvoices())||arr('purchaseInvoices')},
+    FS :{label:'Faturë shitjeje',          prefix:'FS',  def:'manual',  field:'invoiceNumber', input:'sfiNumber',list:()=>safe(()=>salesInvoices())||arr('salesInvoices')},
+    PK :{label:'Paketimi',                 prefix:'PK',  def:'auto',    field:'id',            input:'pkNumber', list:()=>safe(()=>packs())||arr('packagings')},
+    NG :{label:'Ngarkesa / eksport',       prefix:'NG',  def:'auto',    field:'id',            input:'shNumber', list:()=>arr('shipments')},
+    PR :{label:'Përpunimi',                prefix:'PR',  def:'auto',    field:'id',            input:'prNumber', list:()=>arr('processes')},
+    SM :{label:'Mostra',                   prefix:'SM',  def:'auto',    field:'id',            input:'sNumber',  list:()=>arr('samples')},
+    PO :{label:'Porosi',                   prefix:'PO',  def:'auto',    field:'id',            input:'oNumber',  list:()=>arr('orders')},
+    MP :{label:'Mandat pagese (furnitor)', prefix:'MP',  def:'propose', field:'id',            input:'pNo',      list:()=>arr('payments')},
+    MA :{label:'Mandat arkëtimi (klient)', prefix:'MA',  def:'propose', field:'id',            input:'rNo',      list:()=>safe(()=>customerPayments())||arr('customerPayments')},
+    FH :{label:'Fletë hyrje',              prefix:'FH',  def:'propose', field:'number',        input:'sdNumber', list:()=>safe(()=>window.__biobesStockDocs.docs().filter(d=>d&&d.kind==='IN'))||[]},
+    FD :{label:'Fletë dalje',              prefix:'FD',  def:'propose', field:'number',        input:'sdNumber', list:()=>safe(()=>window.__biobesStockDocs.docs().filter(d=>d&&d.kind!=='IN'))||[]},
+    SHP:{label:'Shpenzimet',               prefix:'SHP', def:'propose', field:'number',        input:'exNumber', list:()=>safe(()=>window.__biobesExpenses.docs())||arr('expenses')}
+  };
+  const ORDER=['PS','FB','FS','PK','NG','PR','SM','PO','MP','MA','FH','FD','SHP'];
+  const MODES=[['auto','Automatik'],['propose','Propozim'],['manual','Me dorë']];
+
+  /* ---------- 2) cilësimet ---------- */
+  function store(){if(!state.docNumbering||typeof state.docNumbering!=='object'||Array.isArray(state.docNumbering))state.docNumbering={};return state.docNumbering}
+  function cfg(key){const d=DOCS[key],s=store()[key]||{};const mode=MODES.some(m=>m[0]===s.mode)?s.mode:d.def;
+    const prefix=trim(s.prefix).replace(/['"<>&`\\]/g,'').slice(0,8)||d.prefix;return{mode,prefix}}
+  function setCfg(key,patch){const s=store();s[key]=Object.assign({},s[key]||{},patch);save()}
+  const num=(key,rec)=>{const d=DOCS[key];if(!rec)return '';return d.field==='id'?trim(rec.id):trim(rec[d.field])};
+  function taken(key,v,exceptId){v=trim(v).toLowerCase();if(!v)return false;
+    return listOf(key).some(r=>r&&num(key,r).toLowerCase()===v&&trim(r.id)!==trim(exceptId||''))}
+  function suggest(key,date){const c=cfg(key),y=String(date||today()).slice(0,4);
+    const re=new RegExp('^'+c.prefix.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'-'+y+'-(\\d+)$');
+    let max=0;listOf(key).forEach(r=>{const m=num(key,r).match(re);if(m)max=Math.max(max,+m[1])});
+    let n=max+1,v;do{v=c.prefix+'-'+y+'-'+String(n).padStart(4,'0');n++}while(taken(key,v));
+    return v}
+  /* a duket si numër i gjeneruar nga sistemi? (për ta pastruar në mënyrën "me dorë") */
+  const looksGenerated=v=>/^(PS|FB|FS|PK|NG|PR|SM|PO|MP|MA|FH|FD|SHP)-\d{0,4}-?\d{0,4}$/i.test(trim(v));
+  const badChars=v=>/['"<>&`\\]/.test(v);
+
+  /* ---------- 3) numri i zgjedhur kalon te gjeneratorët e brendshëm ---------- */
+  let pending={};
+  function setPending(key,v){pending[key]={v:trim(v),at:Date.now()}}
+  function clearPending(key){delete pending[key]}
+  function takePending(prefix){
+    for(const key of ORDER){const p=pending[key];
+      if(p&&DOCS[key].prefix===prefix&&Date.now()-p.at<20000){delete pending[key];return p.v}}
+    return null}
+  if(typeof nextSeqId==='function'){const base=nextSeqId;
+    const f=function(prefix,list,minStart,year){const p=takePending(prefix);return p||base(prefix,list,minStart,year)};
+    window.nextSeqId=f;try{nextSeqId=f}catch(e){}}
+  ['nextPurchaseId','nextPurchaseInvoiceId'].forEach(n=>{const base=window[n];
+    if(typeof base!=='function')return;
+    window[n]=function(){const p=takePending('FB');return p||base.apply(this,arguments)}});
+
+  /* ---------- 4) fusha e numrit në formular ---------- */
+  function hintText(mode){return mode==='manual'?'Numërim me dorë — shkruani numrin tuaj (i detyrueshëm)'
+    :mode==='propose'?'Sistemi propozon numrin e radhës — mund ta ndryshoni'
+    :'Numërim automatik — numrin e vendos sistemi'}
+  function setHint(el,text){const f=el&&el.closest&&el.closest('.field');if(!f)return;
+    let h=f.querySelector('.hint[data-docnum]');
+    if(!h){h=document.createElement('span');h.className='hint';h.setAttribute('data-docnum','1');f.appendChild(h)}
+    h.textContent=text}
+  function injectField(key,anchorId,current,readonly){
+    const d=DOCS[key];if($g(d.input))return;
+    const anchor=$g(anchorId);if(!anchor)return;
+    const f=anchor.closest&&anchor.closest('.field');if(!f||!f.parentElement)return;
+    const c=cfg(key);
+    f.insertAdjacentHTML('beforebegin','<div class="field" id="'+d.input+'Field"><label>Numri i dokumentit <span class="hint" style="font-weight:400">'+esc(d.label)+'</span></label>'
+      +'<input id="'+d.input+'" value="'+esc(current||'')+'"'+(c.mode==='manual'?' placeholder="p.sh. 125 ose A-17"':'')+(readonly?' readonly':'')+' autocomplete="off"></div>');
+    setHint($g(d.input),hintText(c.mode)+(readonly?' — numri nuk ndryshohet pas krijimit':''));
+  }
+  /* fusha që ekziston tashmë (FS, MP, MA, FH/FD, SHP): vetëm e rregullojmë sipas mënyrës */
+  function tune(key,isNew,date){
+    const d=DOCS[key],el=$g(d.input);if(!el)return;
+    const c=cfg(key),cur=trim(el.value);
+    /* te dokumentet ku numri është çelësi, ai nuk ndryshohet pas krijimit */
+    const tail=isNew?'':(d.field==='id'?' — numri nuk ndryshohet pas krijimit':' — mund të ndryshohet, kontrollohet që të mos përsëritet');
+    if(c.mode==='auto'){
+      if(isNew&&!cur)el.value=suggest(key,date);
+      el.readOnly=true;setHint(el,hintText('auto')+tail);
+    }else if(c.mode==='manual'){
+      if(isNew&&looksGenerated(cur))el.value='';
+      el.readOnly=false;el.placeholder='p.sh. 125 ose A-17';setHint(el,hintText('manual')+tail);
+    }else{
+      el.readOnly=false;if(isNew&&!cur)el.value=suggest(key,date);
+      setHint(el,hintText('propose')+tail);
+    }
+  }
+  function hookForm(name,fn){const cur=window[name];if(typeof cur!=='function')return;
+    const w=function(){const a=arguments,r=cur.apply(this,a);
+      [40,260].forEach(ms=>setTimeout(()=>{try{fn.apply(null,a)}catch(e){console.warn(VERSION,e&&e.message)}},ms));
+      return r};
+    window[name]=w}
+  /* dokumentet me fushë të re: numri vendoset përpara fushës së parë të formularit */
+  const NEWFIELD=[['weighForm','PS','wDate'],['purchaseInvoiceForm','FB','fifDate'],['packagingForm','PK','pkOrder'],
+    ['shipmentForm','NG','shDate'],['processForm','PR','prOrder'],['sampleForm','SM','sDate'],['orderForm','PO','oDate']];
+  NEWFIELD.forEach(([form,key,anchor])=>hookForm(form,()=>{
+    if(cfg(key).mode==='auto')return;               /* asgjë nuk ndryshon në mënyrën automatike */
+    injectField(key,anchor,cfg(key).mode==='propose'?suggest(key):'',false)}));
+  /* dokumentet që e kanë tashmë fushën e numrit */
+  hookForm('saleInvoiceForm',id=>tune('FS',!id));
+  hookForm('paymentForm',()=>tune('MP',true));
+  hookForm('receiptForm',()=>tune('MA',true));
+  hookForm('stockDocForm',(kind,id)=>{const key=kind==='IN'?'FH':'FD';
+    const doc=id?safe(()=>window.__biobesStockDocs.docs().find(x=>x&&(x.id===id||x.number===id))):null;
+    tune(key,!id,doc&&doc.date)});
+  hookForm('expenseForm',id=>{const doc=id?safe(()=>window.__biobesExpenses.docs().find(x=>x&&x.id===id)):null;
+    tune('SHP',!id,doc&&doc.date)});
+  /* modifikimi i peshimit: numri shfaqet i pandryshueshëm */
+  if(typeof loadWeightIntoForm==='function'){const base=loadWeightIntoForm;
+    const l=function(x,editing){const r=base.apply(this,arguments);
+      setTimeout(()=>{try{const el=$g('wNumber');if(el&&x){el.value=trim(x.id);el.readOnly=true;setHint(el,'Numri i dokumentit nuk ndryshohet pas krijimit')}}catch(e){}},80);
+      return r};
+    window.loadWeightIntoForm=l;try{loadWeightIntoForm=l}catch(e){}}
+
+  /* ---------- 5) autorizimi i adminit për numër të përsëritur ---------- */
+  let auth=null;
+  const authFor=key=>(auth&&auth.key===key&&Date.now()-auth.at<120000)?auth:null;
+  function authorize(key,value){
+    return new Promise(res=>{
+      const d=DOCS[key];let old=$g('docNumAuth');if(old)old.remove();
+      const adm=safe(()=>resetAdminUser());let admName='admin';try{admName=(serverUser&&serverUser.username)||(adm&&adm.username)||'admin'}catch(e){}
+      const ov=document.createElement('div');ov.id='docNumAuth';
+      ov.style.cssText='position:fixed;inset:0;background:#13251d99;z-index:95;display:flex;align-items:flex-start;justify-content:center;padding:35px 14px;overflow:auto';
+      const box=document.createElement('div');box.style.cssText='background:#fff;width:min(560px,100%);border-radius:11px;box-shadow:0 20px 70px #0004;overflow:hidden';
+      box.innerHTML='<div style="padding:16px 19px;border-bottom:1px solid #dfe6e2"><h3 style="margin:0">Numri i dokumentit është përdorur tashmë</h3></div>'
+        +'<div style="padding:14px 19px"><p style="margin:0 0 8px">Numri <b>'+esc(value)+'</b> ekziston te <b>'+esc(d.label)+'</b>.</p>'
+        +'<p style="margin:0 0 10px;color:#5b6b64">Përsëritja lejohet vetëm me <b>fjalëkalimin e adminit</b> («'+esc(admName)+'») dhe me <b>arsyen</b>. Veprimi regjistrohet në ditar.</p>'
+        +'<div class="form-grid"><div class="field full"><label>Fjalëkalimi i adminit</label><input id="docNumPass" type="password" autocomplete="current-password"></div>'
+        +'<div class="field full"><label>Arsyeja</label><textarea id="docNumReason" rows="3" placeholder="p.sh. Fatura e furnitorit ka të njëjtin numër për dy dorëzime të ndara"></textarea></div></div>'
+        +'<div id="docNumErr" style="color:#b63c46;min-height:18px;margin-top:6px"></div></div>'
+        +'<div style="padding:12px 19px;border-top:1px solid #dfe6e2;display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn" id="docNumCancel">Anulo</button><button type="button" class="btn primary" id="docNumOk">Autorizo dhe vazhdo</button></div>';
+      ov.appendChild(box);document.body.appendChild(ov);
+      const close=()=>{ov.remove();res(false)};
+      $g('docNumCancel').onclick=close;
+      ov.addEventListener('click',e=>{if(e.target===ov)close()});
+      setTimeout(()=>{try{$g('docNumPass').focus()}catch(e){}},30);
+      $g('docNumOk').onclick=async()=>{
+        const pass=$g('docNumPass').value||'',reason=trim($g('docNumReason').value),err=$g('docNumErr'),ok=$g('docNumOk');
+        if(!pass){err.textContent='Shkruani fjalëkalimin e adminit';return}
+        if(reason.length<5){err.textContent='Shkruani arsyen (të paktën 5 karaktere)';return}
+        ok.disabled=true;err.textContent='Po verifikohet…';
+        let v={ok:false,reason:'Verifikimi dështoi'};try{v=await verifyAdminPassword(pass)}catch(e){}
+        if(!v||!v.ok){ok.disabled=false;err.textContent=(v&&v.reason)||'Fjalëkalimi i adminit është i gabuar';
+          try{noteAdminFail(v,'DOC_NUMBER_FAIL','Autorizim i dështuar për numër të përsëritur dokumenti')}catch(e){}
+          return}
+        auth={key,value,admin:(v.adm&&v.adm.username)||admName,reason,at:Date.now()};
+        ov.remove();res(true);
+      };
+    });
+  }
+  /* kontrolli përpara ruajtjes (sinkron): {skip} | {ok:false} | {ok:true,num} | {auth:true,num} */
+  function guardSync(key,exceptId){
+    const d=DOCS[key],c=cfg(key);
+    if(c.mode==='auto')return{skip:true};
+    if(d.field==='id'&&exceptId)return{skip:true};           /* dokument ekzistues: numri nuk ndryshohet */
+    const v=trim(val(d.input));
+    if(c.mode==='manual'&&!v){toast('Numri i dokumentit është i detyrueshëm — '+d.label+' (cilësimi: numërim me dorë)');return{ok:false}}
+    if(!v)return{ok:true,num:''};                            /* propozim i lënë bosh → numri automatik */
+    if(v.length>40){toast('Numri i dokumentit është shumë i gjatë (maks. 40 shenja)');return{ok:false}}
+    if(badChars(v)){toast('Numri nuk mund të përmbajë shenjat \' " < > &');return{ok:false}}
+    if(taken(key,v,exceptId)){
+      if(d.field==='id'||key==='SHP'){
+        toast('Numri "'+v+'" ekziston tashmë te '+d.label+' — zgjidhni një numër tjetër');return{ok:false}}
+      return{auth:true,num:v};                               /* kërkon fjalëkalimin e adminit + arsyen */
+    }
+    return{ok:true,num:v};
+  }
+  function logDuplicate(key,value,rec){
+    try{(state.events=state.events||[]).push({date:new Date().toLocaleString('sq-AL'),type:'Numër dokumenti i përsëritur',
+      ref:(rec&&rec.id)||value,text:DOCS[key].label+' '+((rec&&num(key,rec))||value)+' — numër i përsëritur i autorizuar nga admini '
+      +(auth&&auth.admin)+' · arsyeja: '+(auth&&auth.reason)});save()}catch(e){}
+  }
+
+  /* ---------- 6) mbështjellësit e ruajtjes ----------
+     Ruajtja mbetet SINKRONE (kthen atë që kthente më parë) në çdo rast të zakonzëm;
+     vetëm kur numri është i përsëritur dhe duhet autorizimi i adminit kthehet premtim. */
+  function val(id){const e=$g(id);return e?trim(e.value):''}
+  function wrapSave(name,opt){
+    const cur=window[name];if(typeof cur!=='function')return;
+    const run=(args,self,g,key,dup)=>{
+      const d=DOCS[key];let started=false;
+      try{
+        if(g.num&&d.field==='id'&&opt.seq!==false)setPending(key,g.num);
+        /* riemërim vetëm për dokumentet që gjeneratori i tyre nuk kalon nga nextSeqId (SM, PO) */
+        const list=opt.rename&&opt.list?opt.list():null;
+        const before=list?new Set(list.map(x=>x&&x.id)):null;
+        started=true;
+        const r=cur.apply(self,args);
+        if(g.num&&before&&list){
+          const rec=list.find(x=>x&&!before.has(x.id));
+          if(rec&&trim(rec.id)!==g.num){
+            const old=trim(rec.id);rec.id=g.num;
+            (state.events||[]).forEach(e=>{if(e&&trim(e.ref)===old){e.ref=g.num;if(typeof e.text==='string')e.text=e.text.split(old).join(g.num)}});
+            /* mesazhi i ruajtjes e përmend numrin e vjetër të sistemit → e zëvendësojmë me numrin e përdoruesit */
+            const t=$g('toast');if(t&&t.textContent&&t.textContent.indexOf(old)>=0)t.textContent=t.textContent.split(old).join(g.num);
+            save();
+          }
+          if(dup)logDuplicate(key,g.num,list.find(x=>x&&num(key,x)===g.num));
+        }else if(dup&&d.field!=='id'){
+          logDuplicate(key,g.num,listOf(key).filter(x=>x&&num(key,x)===g.num).pop());
+        }
+        return r;
+      }finally{try{clearPending(key);if(auth&&auth.key===key)auth=null}catch(e){}}
+    };
+    const tr=m=>{try{if(window.__docNumTrace)window.__docNumTrace.push(name+': '+m)}catch(e){}};
+    const w=function(){
+      const args=arguments,self=this;let key='',started=false;
+      try{
+        tr('thirrje');
+        key=typeof opt.key==='function'?opt.key.apply(null,args):opt.key;
+        if(!DOCS[key]){tr('pa DOC');return cur.apply(self,args)}
+        const exceptId=opt.except?trim(opt.except.apply(null,args)||''):'';
+        const g=guardSync(key,exceptId);
+        tr('g='+JSON.stringify(g));
+        if(g.skip)return cur.apply(self,args);
+        if(g.auth){tr('hap dialogun');return authorize(key,g.num).then(ok=>{tr('dialog ok='+ok);return ok?run(args,self,g,key,true):undefined})}
+        if(g.ok!==true)return;
+        started=true;
+        return run(args,self,g,key,false);
+      }catch(e){
+        tr('GABIM '+(e&&e.message));console.warn(VERSION,e&&e.message);
+        if(!started){try{clearPending(key)}catch(_e){} return cur.apply(self,args)}
+      }
+    };
+    window[name]=w;
+  }
+
+  wrapSave('saveWeighRows',{key:'PS'});
+  wrapSave('createPurchaseInvoiceFromForm',{key:'FB'});
+  wrapSave('savePackaging',{key:'PK'});
+  wrapSave('addShipment',{key:'NG'});
+  wrapSave('addProcess',{key:'PR'});
+  wrapSave('addOrder',{key:'PO',rename:true,list:()=>arr('orders')});
+  wrapSave('addPayment',{key:'MP',seq:false});      /* numri lexohet direkt nga fusha pNo */
+  wrapSave('saveReceipt',{key:'MA',seq:false});     /* numri lexohet direkt nga fusha rNo */
+  wrapSave('addSample',{key:'SM',rename:true,list:()=>arr('samples')});
+  wrapSave('saveSaleInvoiceV2',{key:'FS',except:a=>a[0]||''});
+  wrapSave('saveStockDoc',{key:()=>((window.__sdDraft&&window.__sdDraft.kind)||'IN')==='IN'?'FH':'FD',
+    except:()=>(window.__sdDraft&&window.__sdDraft.id)||''});
+  wrapSave('saveExpense',{key:'SHP',except:()=>(window.__exDraft&&window.__exDraft.id)||''});
+
+  /* numri i përsëritur i autorizuar: anashkalojmë kontrollin e brendshëm */
+  if(typeof validateSalesBusiness==='function'){const base=validateSalesBusiness;
+    const f=function(v,editingId){const e=base(v,editingId);
+      if(e&&/ekziston/i.test(e)&&authFor('FS'))return '';
+      return e};
+    window.validateSalesBusiness=f;try{validateSalesBusiness=f}catch(e){}}
+  if(typeof coreUnique==='function'){const base=coreUnique;
+    const f=function(list,field,value,except){
+      if(field==='invoiceNumber'&&authFor('FS'))return true;
+      return base(list,field,value,except)};
+    window.coreUnique=f;try{coreUnique=f}catch(e){}}
+  const SDX=window.__biobesStockDocs;
+  if(SDX&&typeof SDX.validate==='function'){const base=SDX.validate;
+    SDX.validate=function(f,selfId){const e=base(f,selfId);
+      if(e&&/ekziston/i.test(e)&&authFor(f&&f.kind==='IN'?'FH':'FD'))return '';
+      return e}}
+
+  /* ---------- 7) Konfigurime → karta "Numërimi i dokumentave" ---------- */
+  function cardHtml(){
+    const rows=ORDER.map(key=>{
+      const d=DOCS[key],c=cfg(key);
+      const btns=MODES.map(m=>'<button type="button" class="btn'+(c.mode===m[0]?' primary':'')+'" style="padding:4px 9px;font-size:12px;white-space:nowrap" '
+        +'onclick="docNumSetMode(\''+key+'\',\''+m[0]+'\')">'+m[1]+'</button>').join('');
+      const idNote=d.field==='id'?'numri = çelësi i dokumentit':'numri = fushë më vete';
+      return '<div data-dn="'+key+'" style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:9px 4px;border-bottom:1px solid #e6ece9">'
+        +'<div style="flex:1 1 180px;min-width:150px"><b>'+esc(d.label)+'</b><br><span class="hint">'+esc(idNote)+'</span></div>'
+        +'<label style="display:flex;align-items:center;gap:6px"><span class="hint">Prefiksi</span>'
+        +'<input id="dnPre'+key+'" value="'+esc(c.prefix)+'" style="width:72px" onchange="docNumSetPrefix(\''+key+'\',this.value)" title="Prefiksi i propozimit të sistemit"></label>'
+        +'<div style="display:flex;gap:4px;flex-wrap:wrap">'+btns+'</div>'
+        +'<span class="hint" style="margin-left:auto">Numri i radhës: <b>'+esc(suggest(key))+'</b></span></div>';
+    }).join('');
+    return '<div class="card" data-admin-only id="docNumCard" style="grid-column:1/-1"><h3>Numërimi i dokumentave</h3>'
+      +'<p class="hint">Zgjidhni për çdo lloj dokumenti nëse numrin e vendos sistemi apo përdoruesi. '
+      +'Formati është i lirë (p.sh. <b>125</b>, <b>A-17</b>, <b>2026/0031</b>); kontrollohet që numri të mos përsëritet brenda llojit. '
+      +'Te dokumentet ku numri është çelësi (peshim, faturë blerjeje, paketim, ngarkesë, përpunim, mostrë, porosi, mandate) '
+      +'numri vendoset në krijim dhe nuk ndryshohet më; përsëritja refuzohet. Te fletët e magazinës dhe faturat e shitjes '
+      +'përsëritja lejohet vetëm me fjalëkalimin e adminit dhe me arsye.</p>'
+      +rows
+      +'<p class="hint" style="margin-top:10px">Parazgjedhja është sjellja e deritanishme: asgjë nuk ndryshon pa e prekur këtë kartë.</p></div>';
+  }
+  const VIEWS=(typeof views!=='undefined'&&views)?views:window.views;
+  const settingsNumBase=VIEWS&&VIEWS.settings;
+  if(typeof settingsNumBase==='function')VIEWS.settings=function(){
+    let h=settingsNumBase.apply(this,arguments);
+    try{
+      if(!/aria-labelledby="settings-tab-admin"/.test(h))return h;
+      if(h.indexOf('id="docNumCard"')>=0)return h;
+      const mark='class="settings-grid">';
+      const i=h.indexOf(mark);
+      if(i<0)return h;
+      return h.slice(0,i+mark.length)+cardHtml()+h.slice(i+mark.length);
+    }catch(e){console.warn(VERSION,e&&e.message);return h}
+  };
+  window.docNumSetMode=function(key,mode){
+    if(!DOCS[key])return;if(!requireAdmin('ndryshojë numërimin e dokumentave'))return render();
+    setCfg(key,{mode});render();
+    toast('Numërimi i '+DOCS[key].label+' → '+(MODES.find(m=>m[0]===mode)||[])[1]);
+  };
+  window.docNumSetPrefix=function(key,prefix){
+    if(!DOCS[key])return;if(!requireAdmin('ndryshojë numërimin e dokumentave'))return render();
+    setCfg(key,{prefix});render();
+  };
+  window.__biobesDocNumbering={version:VERSION,docs:DOCS,order:ORDER,cfg,suggest,taken,guard:guardSync,cardHtml,
+    setMode:(k,m)=>setCfg(k,{mode:m}),setPrefix:(k,p)=>setCfg(k,{prefix:p})};
+})();
+</script>
+
 <script id="biobes-rights-matrix-v1">
 /* BioBes ERP — Të drejtat me kuti (checkbox) për çdo modul, si në Vyapar/Odoo — v1
    Modeli:   rights.modules = { sales:['view','create','edit','confirm','cancel','delete','print'], ... }  (v2)
