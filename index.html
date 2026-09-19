@@ -9226,8 +9226,16 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
       const amount=parseAmount(c[idx.amount]);
       if(isNaN(amount))continue;
       const extra=idx.ref>idx.party+1?c.slice(idx.party+1,idx.ref).join(' ').trim():'';
-      res.rows.push({no:+trim(c[0]),valueDate:parseDateDMY(c[1]||''),partyRaw:trim(c[idx.party]||''),
-        counterpart:parseCounterpart(c[idx.party]||''),description:trim(c[idx.desc]||''),
+      const partyRaw=trim(c[idx.party]||''),desc0=trim(c[idx.desc]||'');
+      let counterpart=parseCounterpart(partyRaw),recovered=false,partyMissing=false;
+      if(!counterpart.name){
+        /* përfituesi mungon te kolona C: provo ta gjesh në krye të përshkrimit (IBAN + emër) */
+        const m=desc0.match(/^([A-Z]{2}\d{12,})\s+(\S.*\S|\S)\s*$/);
+        if(m){counterpart={name:m[2].replace(/\s+/g,' '),iban:m[1],account:''};recovered=true}
+        else partyMissing=true;
+      }
+      res.rows.push({no:+trim(c[0]),valueDate:parseDateDMY(c[1]||''),partyRaw:partyRaw,
+        counterpart:counterpart,recovered:recovered,partyMissing:partyMissing,description:desc0,
         docCode:(trim(c[idx.desc]||'').match(/^[A-Z0-9]{6,20}/)||[''])[0],
         extra:extra,reference:trim(c[idx.ref]||''),transaction:trim(c[idx.tx]||''),
         processingDate:parseDateDMY(c[idx.proc]||''),amount:r2(amount),running:parseAmount(c[idx.total])});
@@ -9353,10 +9361,12 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
     if(!W.parsed.ok){box.innerHTML='<p style="color:#b63c46;margin-top:10px">'+esc(W.parsed.error)+'</p>';syncButtons();return}
     const m=W.parsed.meta,c=W.parsed.checks,acc=(typeof bankAccounts==='function'?bankAccounts():[]).find(a=>a.id===W.accountId)||{};
     const dupN=W.rows.filter(r=>r.dup).length,incN=W.rows.filter(r=>r.include).length,matchN=W.rows.filter(r=>r.include&&r.match).length;
+    const missN=W.rows.filter(r=>r.row.partyMissing&&!r.partyOverride).length,recN=W.rows.filter(r=>r.row.recovered).length;
     const chk=(ok,label,detail)=>'<span style="margin-right:14px;color:'+(ok===false?'#b63c46':ok===true?'#1e7e34':'#8a978f')+'">'+(ok===false?'✗':ok===true?'✓':'·')+' '+label+(detail?' <b>'+detail+'</b>':'')+'</span>';
     let bad=c.balanceOk===false||c.debitOk===false||c.creditOk===false;
     let h='<div class="card" style="margin-top:12px"><h3>'+esc(W.fileName||'extract')+' — '+(m.accountName?esc(m.accountName)+' · ':'')+(m.account?esc(m.account)+' · ':'')+(acc.currency?esc(acc.currency):'')+'</h3>'
-      +'<p class="hint">'+W.rows.length+' veprime të lexuara · <b>'+incN+'</b> për t’u ruajtur · <b>'+matchN+'</b> me çiftim të propozuar · <b>'+dupN+'</b> dublikate të kapërcyera</p>'
+      +'<p class="hint">'+W.rows.length+' veprime të lexuara · <b>'+incN+'</b> për t’u ruajtur · <b>'+matchN+'</b> me çiftim të propozuar · <b>'+dupN+'</b> dublikate të kapërcyera'
+      +(missN?' · <span id="bcMissN" style="color:#b63c46;font-weight:600">'+missN+' pa përfitues</span>':'')+(recN?' · <span style="color:#8a6d1a">'+recN+' përfitues të gjetur në përshkrim</span>':'')+'</p>'
       +'<p style="margin:4px 0"><button type="button" class="btn" onclick="bankCsvPrintParsed()">🖨 Printo A4 landscape</button> <span class="hint">i gjithë extract-i në një fletë, si origjinali i bankës</span></p>'
       +(acc.currency&&acc.currency!=='ALL'?'<p style="margin:6px 0"><label>Kursi i aplikuar (ALL për 1 '+esc(acc.currency)+') për shkrimet në kontabilitet: <input id="bcRate" style="width:90px" value="'+(W.rate||1)+'" onchange="bankCsvRate(this.value)"></label></p>':'')
       +'<p style="margin:6px 0">'+chk(c.balanceOk,'Bilanci: Previous + Σ = Current',fmt2(c.sum))
@@ -9369,7 +9379,9 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
       const opts='<option value="">Pa lidhje</option>'+r.candidates.map(cd=>'<option value="'+esc(cd.kind+':'+cd.id)+'" '+(r.match&&r.match.kind===cd.kind&&r.match.id===cd.id?'selected':'')+'>'+esc(cd.label)+(cd.why?' — '+cd.why:'')+'</option>').join('');
       h+='<tr style="border-bottom:1px solid #eef3f0;'+(r.dup?'opacity:.5':'')+'"><td style="padding:4px 6px"><input type="checkbox" '+(r.include?'checked':'')+' '+(r.dup?'disabled':'')+' onchange="bankCsvToggle('+i+',this.checked)"></td>'
         +'<td style="padding:4px 6px;white-space:nowrap">'+esc(r.row.valueDate)+'</td>'
-        +'<td style="padding:4px 6px">'+esc(r.row.counterpart.name||'—')+(r.row.counterpart.iban?'<br><span class="hint">'+esc(r.row.counterpart.iban)+'</span>':'')+'</td>'
+        +'<td style="padding:4px 6px">'+(r.row.partyMissing
+            ?'<span style="color:#b63c46;font-weight:600">⚠ Përfituesi mungon</span><br><input style="width:150px;font-size:12px" placeholder="Shkruaj përfituesin" value="'+esc(r.partyOverride||'')+'" onchange="bankCsvParty('+i+',this.value)">'
+            :esc(r.row.counterpart.name||'—')+(r.row.recovered?' <span class="hint" style="color:#8a6d1a">(nga përshkrimi)</span>':'')+(r.row.counterpart.iban?'<br><span class="hint">'+esc(r.row.counterpart.iban)+'</span>':''))+'</td>'
         +'<td style="padding:4px 6px;max-width:340px"><span title="'+esc(r.row.description)+'">'+esc(r.row.description.slice(0,64))+(r.row.description.length>64?'…':'')+'</span></td>'
         +'<td style="padding:4px 6px;text-align:right;white-space:nowrap;color:'+(r.row.amount<0?'#b63c46':'#1e7e34')+'"><b>'+fmt2(Math.abs(r.row.amount))+'</b></td>'
         +'<td style="padding:4px 6px"><select onchange="bankCsvType('+i+',this.value)">'+Object.keys({customerReceipt:1,supplierPayment:1,transfer:1,fee:1,tax:1,otherIn:1,otherOut:1}).map(t=>'<option value="'+t+'" '+(r.type===t?'selected':'')+'>'+typeLabel(t)+'</option>').join('')+'</select></td>'
@@ -9386,6 +9398,10 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
   }
   window.bankCsvToggle=function(i,on){if(W&&W.rows[i]){W.rows[i].include=!!on;bankCsvRenderReview()}};
   window.bankCsvType=function(i,v){if(W&&W.rows[i]){W.rows[i].type=v;bankCsvRenderReview()}};
+  window.bankCsvParty=function(i,v){if(!W||!W.rows[i])return;W.rows[i].partyOverride=trim(v);
+    const missN=W.rows.filter(r=>r.row.partyMissing&&!r.partyOverride).length;
+    const el=$g('bcMissN');if(el)el.textContent=missN+' pa përfitues';
+    if(!missN&&el)el.parentNode.removeChild(el);};
   window.bankCsvMatch=function(i,v){if(!W||!W.rows[i])return;const r=W.rows[i];
     if(!v){r.match=null;r.matchWhy=''}
     else{const[kind,id]=v.split(':');const cd=r.candidates.find(c=>c.kind===kind&&c.id===id)||{kind:kind,id:id,label:v,score:0,why:'zgjedhur me dorë'};
@@ -9426,9 +9442,11 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
         targetBank:'',reference:r.row.reference||r.row.docCode,amount:r2(Math.abs(r.row.amount)),currency:acc.currency,
         rate:acc.currency==='ALL'?1:(W.rate||1),fee:0,counterpart:meta[2],
         description:(r.row.description||'').slice(0,300),status:'Draft',
+        bankCounterpartOverride:r.partyOverride||'',partyMissing:!!(r.row.partyMissing&&!r.partyOverride),partyRecovered:!!r.row.recovered,
         importKey:r.key,source:'CSV '+W.fileName,bankCounterpart:r.row.counterpart.name,bankIban:r.row.counterpart.iban,
         matchedLink:link?link.link:'',matchWhy:r.matchWhy||'',
         createdAt:new Date().toISOString(),createdBy:(typeof activeUser==='function'&&(activeUser()||{}).username)||currentRole()};
+      if(r.partyOverride)x.bankCounterpart=r.partyOverride;
       list.push(x);created.push(x);
       if(confirmMatched&&link){x.status='Konfirmuar';try{createBankAccountingDraft(x)}catch(e){console.warn(VERSION,e&&e.message)}confirmed.push(x)}
     });
