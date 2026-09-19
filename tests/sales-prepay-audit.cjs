@@ -129,7 +129,7 @@ const {open}=require('./helpers.cjs'),assert=require('node:assert/strict');
  await step('Kartelat (ekran + print): totali Debi/Kredi/Detyrimi poshtë tabelës',async()=>{
    await ev(()=>customerCard(state.customers[0].id,'all'));await p.waitForTimeout(400);
    const cc=await ev(()=>{const tf=document.querySelector('#printCustomerCard tfoot');return tf?tf.innerText.replace(/\s+/g,' '):''});
-   assert.match(cc,/Totali/);assert.match(cc,/100,000/);assert.match(cc,/Detyrimi: 0/);
+   assert.match(cc,/Totali/);assert.match(cc,/100,000/);assert.match(cc,/Detyrimi \(Debi/);assert.match(cc,/0\.00 ALL/);
    await ev(()=>{closeModal();supplierCard(state.suppliers[0].id)});await p.waitForTimeout(500);
    const sc=await ev(()=>{const tf=document.querySelector('#printSupplierCard tfoot');return tf?tf.innerText.replace(/\s+/g,' '):''});
    assert.match(sc,/Totali/);assert.match(sc,/Detyrimi:/);
