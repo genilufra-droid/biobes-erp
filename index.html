@@ -10144,6 +10144,137 @@ try{const basePO=printOnly;printOnly=function(elementId,title){if(elementId!=='r
   try{document.head.appendChild(st)}catch(e){}
 })();
 </script>
+<script id="biobes-weigh-group-v1">
+/* Peshimi i grupuar: një fletë letre me shumë furnitorë/artikuj → dokumente të sakta PS-.
+   - Formular me rreshta të lirë (Furnitor | Produkt | Thasë | Bruto | Tara).
+   - Ruajtja grupon rreshtat sipas furnitor+produkt → nga një PS- (me thasët e bashkuar),
+     të lidhur me kod seance GR-YYYY-NNNN; konfirmim i njëhershëm (lot + draft-FB).
+   - Print A4 landscape i fletës së grupit me nëntotale sipas furnitorit + total (si letra).
+   - Skema e dokumenteve mbetet 1 furnitor + 1 produkt → Alpha e paprekur. */
+(function(){
+  const todayS=()=>new Date().toISOString().slice(0,10);
+  const supOpts=v=>'<option value="">Zgjidh furnitorin…</option>'+(state.suppliers||[]).filter(s=>s&&s.id).map(s=>'<option value="'+esc(s.id)+'"'+(s.id===v?' selected':'')+'>'+esc((s.code||'')+' — '+s.name)+'</option>').join('');
+  const prodOpts=v=>'<option value="">Zgjidh produktin…</option>'+(state.products||[]).filter(p=>p&&p.id).map(p=>'<option value="'+esc(p.id)+'"'+(p.id===v?' selected':'')+'>'+esc((p.code||'')+' — '+p.name)+'</option>').join('');
+  let rowN=0;
+  function rowHtml(){rowN++;return '<tr class="wg-row" style="border-bottom:1px solid #eef3f0">'
+    +'<td style="padding:4px"><select id="wgSup'+rowN+'" style="min-width:170px">'+supOpts('')+'</select></td>'
+    +'<td style="padding:4px"><select id="wgProd'+rowN+'" style="min-width:150px">'+prodOpts('')+'</select></td>'
+    +'<td style="padding:4px"><input class="wg-bags" type="number" min="0" step="1" style="width:64px" placeholder="0" oninput="wgCalc(this)"></td>'
+    +'<td style="padding:4px"><input class="wg-gross" type="number" min="0" step="0.01" style="width:86px" placeholder="0.00" oninput="wgCalc(this)"></td>'
+    +'<td style="padding:4px"><input class="wg-tare" type="number" min="0" step="0.01" style="width:86px" placeholder="0.00" oninput="wgCalc(this)"></td>'
+    +'<td style="padding:4px;text-align:right;white-space:nowrap"><b class="wg-net">0 kg</b></td>'
+    +'<td style="padding:4px"><button type="button" class="btn small" onclick="this.closest(\'tr\').remove();wgCalc()">Hiq</button></td></tr>'}
+  window.wgCalc=function(el){
+    document.querySelectorAll('#wgBody tr.wg-row').forEach(tr=>{
+      const g=+tr.querySelector('.wg-gross').value||0,t=+tr.querySelector('.wg-tare').value||0;
+      tr.querySelector('.wg-net').textContent=n(Math.max(0,g-t))+' kg'});
+    let G=0,T=0,B=0;document.querySelectorAll('#wgBody tr.wg-row').forEach(tr=>{B+=+tr.querySelector('.wg-bags').value||0;G+=+tr.querySelector('.wg-gross').value||0;T+=+tr.querySelector('.wg-tare').value||0});
+    const s=document.getElementById('wgTotal');if(s)s.innerHTML='Gjithsej: <b>'+B+'</b> thasë · <b>'+n(G)+' kg</b> bruto · <b>'+n(G-T)+' kg</b> neto';
+  };
+  window.weighGroupForm=function(){
+    if(!requirePermission('weighings','create'))return;
+    rowN=0;
+    modal('⚖ Peshim i grupuar — shumë furnitorë/artikuj në një fletë',
+      '<div class="form-grid"><div class="field"><label>Data</label><input id="wgDate" type="date" value="'+todayS()+'"></div>'
+      +'<div class="field"><label>Magazina / pika e peshimit</label><select id="wgWh">'+(state.warehouses||[]).map(w=>'<option value="'+esc(w.id)+'">'+esc(w.name)+'</option>').join('')+'</select></div>'
+      +'<div class="field full"><label>Shënim (opsional)</label><input id="wgNote" placeholder="p.sh. peshimi i mëngjesit — 3 fermerë"></div></div>'
+      +'<div class="table-wrap" style="margin-top:8px"><table class="table"><thead><tr><th>Furnitori</th><th>Produkti</th><th>Thasë</th><th>Bruto</th><th>Tara</th><th style="text-align:right">Neto</th><th></th></tr></thead>'
+      +'<tbody id="wgBody">'+rowHtml()+rowHtml()+rowHtml()+'</tbody></table></div>'
+      +'<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn" onclick="wgAddRow()">+ Shto rresht</button><span id="wgTotal" class="hint"></span></div>',
+      '<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="weighGroupSave(true)">Ruaj + konfirmo të gjitha</button>');
+    setTimeout(()=>{try{wgCalc();const mb=document.getElementById('modalBody');if(typeof globalizeAllSelects==='function')globalizeAllSelects(mb);if(typeof installLiveQuickCreate==='function')installLiveQuickCreate(mb)}catch(e){}},80);
+  };
+  window.wgAddRow=function(){const b=document.getElementById('wgBody');if(!b)return;if(b.querySelectorAll('tr').length>=60)return toast('Maksimumi 60 rreshta');b.insertAdjacentHTML('beforeend',rowHtml());
+    try{const mb=document.getElementById('modalBody');if(typeof globalizeAllSelects==='function')globalizeAllSelects(mb);if(typeof installLiveQuickCreate==='function')installLiveQuickCreate(mb)}catch(e){} wgCalc()};
+  window.weighGroupSave=function(confirmIt){
+    if(!requirePermission('weighings','create'))return;
+    const rows=[...document.querySelectorAll('#wgBody tr.wg-row')].map(tr=>({sup:tr.querySelector('select').value,prod:tr.querySelectorAll('select')[1].value,
+      bags:+tr.querySelector('.wg-bags').value||0,gross:+tr.querySelector('.wg-gross').value||0,tare:+tr.querySelector('.wg-tare').value||0}))
+      .filter(r=>r.sup||r.prod||r.gross);
+    if(!rows.length)return toast('Shtoni të paktën një rresht peshimi');
+    const bad=rows.find(r=>!r.sup||!r.prod||!(r.gross>0)||r.tare>r.gross);
+    if(bad)return toast('Çdo rresht kërkon furnitorin, produktin dhe bruto > tara');
+    const date=(document.getElementById('wgDate')||{}).value||todayS();
+    const wh=(document.getElementById('wgWh')||{}).value||defaultWarehouseId();
+    const note=(document.getElementById('wgNote')||{}).value||'';
+    const yr=new Date().getFullYear();
+    const existing=new Set((state.weighings||[]).map(w=>w.groupId).filter(Boolean));
+    let gn=1;while(existing.has('GR-'+yr+'-'+String(gn).padStart(4,'0')))gn++;
+    const grId='GR-'+yr+'-'+String(gn).padStart(4,'0');
+    const merged={};rows.forEach(r=>{const k=r.sup+'|'+r.prod;(merged[k]=merged[k]||{sup:r.sup,prod:r.prod,rows:[]}).rows.push({bags:r.bags,gross:r.gross,tare:r.tare})});
+    const made=[];
+    const r=atomicTransaction('Peshim i grupuar '+grId,()=>{
+      Object.values(merged).forEach(m=>{
+        const wid=nextSeqId('PS',(state.weighings||[]),1,yr);
+        const c=coreCreateWeighing({id:wid,date:date,supplier:m.sup,product:m.prod,weighingWarehouse:wh,receiver:(activeUser()||{}).name||'Admin',discount:0,bagRows:m.rows,groupId:grId,groupNote:note,status:'Draft'});
+        if(!c.ok)return coreResult(false,c.error);
+        if(confirmIt){
+          const sup=by('suppliers',m.sup),p=by('products',m.prod);
+          const cc=coreConfirmWeighing(wid,{id:uid('L'),code:(window.lotCodeAuto?window.lotCodeAuto(m.sup):'')||('B1'+((sup&&sup.code)||m.sup)+'-'+((p&&p.code)||'000')+'-'+String(yr).slice(-2)),lotParts:window.__lcLastParts||undefined,supplier:m.sup,product:m.prod,warehouse:wh,rack:'',unitCost:0});
+          if(!cc.ok)return coreResult(false,cc.error);
+          made.push({wid:wid,lot:cc.record&&cc.record.code});
+        } else made.push({wid:wid,lot:null});
+      });
+      return coreResult(true,'');
+    });
+    if(!r.ok)return toast(r.error);
+    try{syncPurchaseDrafts()}catch(e){}
+    save();closeModal();
+    toast('U krijuan '+made.length+' dokumente PS- të seancës '+grId+(confirmIt?' (të konfirmuara me lote)':' (Draft)'));
+    weighGroupCard(grId);
+  };
+  window.weighGroupCard=function(grId){
+    const ws=(state.weighings||[]).filter(w=>w.groupId===grId);
+    if(!ws.length)return toast('Seanca nuk u gjet');
+    const rows=ws.map(w=>{const s=by('suppliers',w.supplier)||{},p=by('products',w.product)||{},l=(state.lots||[]).find(x=>x.weighing===w.id);
+      return [ '<a class="link" onclick="weightCard(\''+w.id+'\')">'+esc(w.id)+'</a>', esc((s.code||'')+' '+(s.name||'')), esc((p.code||'')+' '+(p.name||'')), w.bags||0, n(w.gross)+' kg', n(w.tare)+' kg', n(w.net)+' kg', esc(l?l.code:'—'), esc(w.status||'Draft')]});
+    modal('Seanca e peshimit '+grId,
+      '<p class="hint">'+esc(ws[0].date||'')+' · '+(by('warehouses',ws[0].weighingWarehouse)||{}).name+(ws[0].groupNote?' · '+esc(ws[0].groupNote):'')+' · '+ws.length+' dokumente</p>'
+      +tableCard(['PS-','Furnitori','Produkti','Thasë','Bruto','Tara','Neto','Loti','Statusi'],rows),
+      '<button class="btn" onclick="closeModal()">Mbyll</button><button class="btn" onclick="weighGroupPrint(\''+grId+'\')">🖨 Fletë grupi A4</button>');
+  };
+  window.weighGroupPrint=function(grId){
+    const ws=(state.weighings||[]).filter(w=>w.groupId===grId);if(!ws.length)return toast('Seanca nuk u gjet');
+    const sups=[];ws.forEach(w=>{if(!sups.includes(w.supplier))sups.push(w.supplier)});
+    let body='';
+    sups.forEach(sid=>{const s=by('suppliers',sid)||{};const list=ws.filter(w=>w.supplier===sid);
+      body+='<tr><td colspan="8" style="background:#e8f5e9;font-weight:700">'+esc((s.code||'')+' — '+(s.name||''))+'</td></tr>';
+      list.forEach(w=>{const p=by('products',w.product)||{},l=(state.lots||[]).find(x=>x.weighing===w.id);
+        body+='<tr><td>'+esc(w.id)+'</td><td>'+esc((p.code||'')+' — '+(p.name||''))+'</td><td class="num">'+(w.bags||0)+'</td><td class="num">'+n(w.gross)+'</td><td class="num">'+n(w.tare)+'</td><td class="num">'+n(w.net)+'</td><td>'+esc(l?l.code:'—')+'</td><td>'+esc(w.status||'')+'</td></tr>'});
+      const B=list.reduce((a,w)=>a+(+w.bags||0),0),G=list.reduce((a,w)=>a+(+w.gross||0),0),T=list.reduce((a,w)=>a+(+w.tare||0),0),N=list.reduce((a,w)=>a+(+w.net||0),0);
+      body+='<tr style="font-weight:700;background:#f3f3f3"><td>Nëntotali</td><td></td><td class="num">'+B+'</td><td class="num">'+n(G)+'</td><td class="num">'+n(T)+'</td><td class="num">'+n(N)+'</td><td colspan="2"></td></tr>';
+    });
+    const TB=ws.reduce((a,w)=>a+(+w.bags||0),0),TG=ws.reduce((a,w)=>a+(+w.gross||0),0),TT=ws.reduce((a,w)=>a+(+w.tare||0),0),TN=ws.reduce((a,w)=>a+(+w.net||0),0);
+    const comp=(()=>{try{if(typeof company==='function')return (company()||{}).name||''}catch(e){}return (state&&state.settings&&(state.settings.companyName||state.settings.company))||''})()||'BIOBES sh.p.k.';
+    const html='<div id="wgSheet"><h2 style="margin:0 0 3px;font-family:Georgia,serif">'+esc(comp)+' — Fletë peshimi e grupit '+esc(grId)+'</h2>'
+      +'<div style="font-size:11px;color:#334;margin-bottom:6px">Data: '+esc(ws[0].date||'')+' · Magazina: '+esc((by('warehouses',ws[0].weighingWarehouse)||{}).name||'')+(ws[0].groupNote?' · Shënim: '+esc(ws[0].groupNote):'')+' · Shtypur më '+esc(new Date().toLocaleString('sq-AL'))+'</div>'
+      +'<table class="wg-t"><thead><tr><th>Dokumenti</th><th>Produkti</th><th>Thasë</th><th>Bruto</th><th>Tara</th><th>Neto</th><th>Kodi i lotit</th><th>Statusi</th></tr></thead><tbody>'+body+'</tbody>'
+      +'<tfoot><tr><td>GJITHSEJ</td><td></td><td class="num">'+TB+'</td><td class="num">'+n(TG)+'</td><td class="num">'+n(TT)+'</td><td class="num">'+n(TN)+'</td><td colspan="2"></td></tr></tfoot></table>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:30px;margin-top:26px;font-size:11px"><div>________________<br>Nënshkrimi i peshuesit</div><div>________________<br>Pranoi në magazinë</div><div>________________<br>Furnitori(ët)</div></div></div>';
+    let host=document.getElementById('wgPrintHost');if(!host){host=document.createElement('div');host.id='wgPrintHost';host.style.cssText='position:fixed;left:-10000px;top:0;width:277mm';document.body.appendChild(host)}
+    host.innerHTML=html;
+    printOnly('wgSheet','Fletë peshimi e grupit '+grId);
+    setTimeout(()=>{try{host.innerHTML=''}catch(e){}},2000);
+  };
+  try{const basePO=printOnly;printOnly=function(elementId,title){if(elementId!=='wgSheet')return basePO.apply(this,arguments);
+    let el=document.getElementById(elementId);if(!el)return toast('Fleta nuk u gjet');
+    let css='@page{size:A4 landscape;margin:10mm} html,body{background:#fff;margin:0;padding:0;font-family:system-ui,Segoe UI,Arial;color:#111} #wgSheet{width:100%} #wgSheet h2{font-size:16px} table.wg-t{border-collapse:collapse;width:100%;font-size:9.5px} .wg-t th,.wg-t td{border:1px solid #999;padding:3px 4px;text-align:left;vertical-align:top} .wg-t th{background:#eee} .wg-t td.num,.wg-t th.num{text-align:right;white-space:nowrap} .wg-t tr{page-break-inside:avoid}';
+    let old=document.getElementById('biobesPrintFrame');if(old)old.remove();
+    let frame=document.createElement('iframe');frame.id='biobesPrintFrame';frame.title='Dokumenti për printim';frame.style.cssText='position:fixed;width:0;height:0;border:0;right:0;bottom:0';document.body.appendChild(frame);
+    frame.contentDocument.open();frame.contentDocument.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title||'Fletë grupi')+'</title><style>'+css+'</style></head><body>'+el.outerHTML+'<\/body></html>');frame.contentDocument.close();
+    frame.contentWindow.addEventListener('afterprint',()=>frame.remove(),{once:true});
+    setTimeout(()=>{if(frame.isConnected){try{frame.contentWindow.focus();frame.contentWindow.print()}catch(e){}}},350);
+    setTimeout(()=>{if(frame.isConnected)frame.remove()},60000);
+  };window.printOnly=printOnly}catch(e){console.error('weigh-group print',e)}
+  /* butoni te faqja e peshimeve + shenja te kartela e peshimit */
+  try{const wv=views.weighings;views.weighings=function(){return wv.apply(this,arguments).replace('<button class="btn primary" onclick="weighForm()">+ Peshim i ri</button>','<button class="btn primary" onclick="weighForm()">+ Peshim i ri</button><button class="btn" onclick="weighGroupForm()">⚖ Peshim i grupuar</button>')}}catch(e){}
+  try{const wcB=weightCard;weightCard=function(id){wcB.apply(this,arguments);setTimeout(()=>{try{
+    const x=(state.weighings||[]).find(w=>w.id===id);if(!x||!x.groupId)return;
+    const body=document.getElementById('modalBody');if(!body||body.querySelector('#wgChip'))return;
+    body.insertAdjacentHTML('afterbegin','<div id="wgChip" class="card" style="background:#edf7f1;border-color:#bfe3cf;padding:8px 10px;margin-bottom:8px">📎 Pjesë e seancës <b>'+esc(x.groupId)+'</b> — <button class="btn small" onclick="weighGroupCard(\''+x.groupId+'\')">Hap grupin</button> <button class="btn small" onclick="weighGroupPrint(\''+x.groupId+'\')">🖨 Fletë grupi</button></div>');
+  }catch(e){}},0)}}catch(e){}
+})();
+</script>
 <script id="biobes-rights-matrix-v1">
 /* BioBes ERP — Të drejtat me kuti (checkbox) për çdo modul, si në Vyapar/Odoo — v1
    Modeli:   rights.modules = { sales:['view','create','edit','confirm','cancel','delete','print'], ... }  (v2)
@@ -10229,7 +10360,7 @@ const G=[
  ['entityForm',a=>a[0]==='product'?'products':'suppliers','create'],['addProduct','products','create'],['addSupplier','suppliers','create'],['editEntity',typeMod,'edit'],['saveEditProduct','products','edit'],['saveEditSupplier','suppliers','edit'],['deleteEntity',typeMod,'delete'],['supplierEditForm','suppliers','edit'],['saveSupplierEdit','suppliers','edit'],['exportSuppliersXls','suppliers','print'],['exportProductsXls','products','print'],['productFormV2','products',idEdit],['saveProductV2','products',idEdit],['supplierCard','suppliers','view'],['productCard','products','view'],['openProductArticleCard','products','view'],
  ['simpleForm',typeMod,'create'],['addSimple',typeMod,'create'],
  /* magazina / lotet */
- ['transferLotForm','warehouse','edit'],['openLotTransfer','warehouse','edit'],['saveLotTransfer','warehouse','edit'],['inventoryForm','warehouse','edit'],['confirmInventory','warehouse','edit'],['inventoryStockConfig','warehouse','edit'],['saveInventoryStockConfig','warehouse','edit'],['rackCard','warehouse','view'],['printLotLabel','lots','print'],['lotCard','lots','view'],['rackCardPrint','warehouse','print'],['bankCsvQuickSupplier','suppliers','create'],['bankCsvQuickCustomer','customers','create'],['lotZonesManager','warehouse','edit'],['lotZoneAdd','warehouse','edit'],['lotZoneEdit','warehouse','edit'],['lotZoneSave','warehouse','edit'],['lotZoneDelete','warehouse','edit'],['lotZoneSupplierForm','suppliers','edit'],['lotZoneSupplierSave','suppliers','edit'],['openManual','dashboard','view'],['manualTourStart','dashboard','view'],['manualPrint','dashboard','view'],['manualSaveNote','settings','edit'],
+ ['transferLotForm','warehouse','edit'],['openLotTransfer','warehouse','edit'],['saveLotTransfer','warehouse','edit'],['inventoryForm','warehouse','edit'],['confirmInventory','warehouse','edit'],['inventoryStockConfig','warehouse','edit'],['saveInventoryStockConfig','warehouse','edit'],['rackCard','warehouse','view'],['printLotLabel','lots','print'],['lotCard','lots','view'],['rackCardPrint','warehouse','print'],['bankCsvQuickSupplier','suppliers','create'],['bankCsvQuickCustomer','customers','create'],['lotZonesManager','warehouse','edit'],['lotZoneAdd','warehouse','edit'],['lotZoneEdit','warehouse','edit'],['lotZoneSave','warehouse','edit'],['lotZoneDelete','warehouse','edit'],['lotZoneSupplierForm','suppliers','edit'],['lotZoneSupplierSave','suppliers','edit'],['openManual','dashboard','view'],['manualTourStart','dashboard','view'],['manualPrint','dashboard','view'],['manualSaveNote','settings','edit'],['weighGroupForm','weighings','create'],['weighGroupSave','weighings','create'],['weighGroupPrint','weighings','print'],['weighGroupCard','weighings','view'],
  /* përpunimi */
  ['processForm','processing','create'],['addProcess','processing','create'],['machineEditForm','processing','edit'],['saveMachineEdit','processing','edit'],['machineStatusForm','processing','edit'],['saveMachineStatus','processing','edit'],['machineDelete','processing','delete'],['machineDeleteConfirm','processing','delete'],['createProcessFromOrder','processing','create'],['processCard','processing','view'],['machineCard','processing','view'],
  /* paketimi */
