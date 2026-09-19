@@ -9903,121 +9903,237 @@ try{const basePO=printOnly;printOnly=function(elementId,title){if(elementId!=='r
    - Turni interaktiv: ndriçon elementet REALE të ekranit hap pas hapi. */
 (function(){
   const CH=[
-   {id:'fillimi',mod:null,icon:'🚀',title:'Fillimi i shpejtë (5 hapa)',intro:'Për kë e hap sistemin për herë të parë: gjithçka që duhet për të nisur punën.',steps:[
-     {t:'Hyrja',d:'Shkruaj emrin e përdoruesit dhe fjalëkalimin që të ka dhënë administratori, pastaj shtyp Enter. Nëse e harrojnë fjalëkalimin, kërkojini administratorit t\'jua ndryshojë.'},
-     {t:'Paneli fillim',d:'Pas hyrjes shihni numrat kryesorë të ditës: peshimet, lotet në magazinë, pagesat. Emri juaj shfaqet lart djathtas — aty pranë është edhe butoni 📖 i manualit.'},
-     {t:'Bëni peshimin e parë',d:'Shkoni te "Blerje & Peshime" → "+ Peshim i ri" → zgjidhni furnitorin, produktin, magazinën dhe shkruani peshat e thasëve → "Ruaj + konfirmo".'},
-     {t:'Gjeni lotin e krijuar',d:'Pas konfirmimit sistemi krijon vetë lotin në magazinë (me kod sipas skemës BioBES). Shiheni te "Lotet" ose te kartela e raftit.'},
-     {t:'Printoni kur duhet',d:'Çdo ekran ka butonin e printimit (🖨 ose "Printo"): dokumenti i peshimit, etiketa e lotit, kartela e raftit, extract-i bankar — të gjitha dalin në letër të gatshme.'}],
-    tip:'Nëse humbni: butoni 📖 lart djathtas ju sjell këtu. Butoni "Para/Tjetër" i turnit ju mëson duke ju treguar butonat realë.'},
-   {id:'peshimet',mod:'weighings',icon:'⚖',title:'Blerje & Peshime',intro:'Këtu regjistrohet malli që hyn: peshimi fizik, thasët dhe konfirmimi.',steps:[
-     {t:'Peshim i ri',d:'Butoni "+ Peshim i ri" hap formularin: data, furnitori, produkti, magazina dhe rafti (opsional).'},
-     {t:'Rreshtat e peshimit',d:'Për çdo grup thasësh shtoni një rresht: numri i thasëve, kg bruto dhe peshorja/ambalazhi. Sistemi llogarit vetë neton.'},
-     {t:'Kodi i lotit',d:'Nën furnitorin shihni fushat e kodit të lotit (lloji, zona, blerësi, periudha, ndarja). Ato mbushen vetë nga zona e furnitorit; mund t\'i ndryshoni ose të shkruani kodin "me dorë".'},
-     {t:'Ruajtja',d:'"Ruaj si Draft" e mban dokumentin në pritje; "Ruaj + konfirmo" krijon lotin në magazinë dhe draft-faturën e blerjes.'},
-     {t:'Dokumenti i printerit',d:'Ngarkoni foto/PDF të printerit elektronik të peshores: sistemi e lexon vetë (OCR) dhe kontrollon shumat.'},
-     {t:'Veprimet pas ruajtjes',d:'Te lista e peshimeve, butoni "⋮ Veprime" jep: Konfirmo, Modifiko, Anulo, Fshi, Printo dhe Eksporto XLSX.'}],
-    tip:'Peshimi i konfirmuar nuk dyfishohet kurrë: një peshim = një lot.'},
-   {id:'purchases',mod:'purchases',icon:'▥',title:'Faturat e blerjes',intro:'Faturat që shoqërojnë mallin e blerë (krijohen vetë nga peshimet ose me dorë).',steps:[
-     {t:'Lista',d:'Të gjitha faturat e blerjes me statusin Draft/Konfirmuar dhe shumën në ALL.'},
-     {t:'Krijimi nga peshimi',d:'Kur konfirmoni peshimin, draft-fatura krijohet vetë me sasinë fizike të peshuar.'},
-     {t:'Plotësimi',d:'Hapni faturën → plotësoni çmimin, TVSH-në dhe numrin e faturës së furnitorit → Konfirmo.'},
-     {t:'Printimi/eksporti',d:'Çdo faturë printohet A4 dhe eksportohet XLSX nga kartela e saj.'}],tip:'Faturat Draft nuk prekin gjendjen e furnitorit; vetëm Konfirmuar.'},
-   {id:'furnitoret',mod:'suppliers',icon:'♙',title:'Furnitorët (fermerët)',intro:'Regjistri i atyre që blejnë mallin — dhe zona e tyre e kodit të lotit.',steps:[
-     {t:'Shtim i shpejtë',d:'Te çdo formular që kërkon furnitor, shkruani emrin: nëse s\'ekziston, del "+ Shto…" dhe e krijoni me një klik.'},
-     {t:'Kartela',d:'Klikoni emrin te lista: shihni blerjet, pagesat dhe gjendjen (borxhin) e furnitorit.'},
-     {t:'Kodi i zonës',d:'Butoni "⌗ Kodi i zonës" te kartela: caktoni zonën (p.sh. K07) dhe ndarjen e blerësit (0-9) që përdoren te kodet e loteve të tij.'},
-     {t:'Xhiroja',d:'Butoni "Xhiro" tregon lëvizjet sipas periudhës dhe eksportohet XLSX.'}],tip:'Fermerët e rinj të extract-it bankar shtohen direkt nga wizard-i i bankës me "+ Shto si furnitor".'},
-   {id:'pagesa',mod:'payments',icon:'₳',title:'Pagesat furnitorëve',intro:'Pagesat MP-: me arkë, bankë ose kompensim.',steps:[
-     {t:'Pagesë e re',d:'Zgjidhni furnitorin, shumën, mënyrën (Arkë/Bankë) dhe datën → Ruaj.'},
-     {t:' Nga banka',d:'Pagesat e krijuara nga extract-i bankar (përhapja automatike) shfaqen këtu me mënyrën "Bankë".'},
-     {t:'Kartela e pagesës',d:'Klikoni numrin MP- për detajet dhe lidhjen me faturën.'},
-     {t:'Gjendja',d:'Gjendja e furnitorit llogarit vetëm dokumentet e konfirmuara.'}],tip:'Pagesa Draft nuk ul borxhin e furnitorit derisa të konfirmohet.'},
-   {id:'produktet',mod:'products',icon:'❧',title:'Produktet',intro:'Bimët dhe grupimet (Gjethe, Herbat, Lule, Rrënjë, Fruta).',steps:[
-     {t:'Lista',d:'Kodi, emri, emri botanik dhe kategoria e çdo produkti.'},
-     {t:'Shtimi',d:'"+ Produkt": kodi (p.sh. 105), emri shqip, emri botanik dhe grupi.'},
-     {t:'Çmimet',d:'Te kartela e produktit mbani çmimin e blerjes/shitjes që mbushet vetë në dokumente.'}],tip:'Kodi i produktit përdoret në etiketa dhe raporte — mbajeni të njëjtë me dokumentet e printerit.'},
-   {id:'magazina',mod:'warehouse',icon:'▦',title:'Magazina & Raftet',intro:'Gjendja fizike sipas vendeve dhe hyrjet e çdo rafti.',steps:[
-     {t:'Pamja',d:'Çdo raft tregon kg aktualë, numrin e loteve, furnitorëve dhe produkteve; filtri sipas magazinës.'},
-     {t:'Kartela e raftit',d:'Klikoni raftin: KPI-të, tabela e loteve dhe "Hyrjet në këtë raft" me lidhjen e peshimit.'},
-     {t:'Printimi A4',d:'Butoni "🖨 Printo A4 landscape" shtyp të gjithë kartelën e raftit në një fletë.'},
-     {t:'Zonat e loteve',d:'Butoni "⌗ Zonat e loteve" hap regjistrin e zonave/personave të skemës së kodit (M/K/S/W/A): shtoni kur vjen fermer i ri.'},
-     {t:'Transferimi',d:'"↔ Transfero lot": kalon sasi nga një raft në tjetrin me arsye të shënuar.'},
-     {t:'Inventari',d:'"✓ Inventar fizik": ngarkon gjendjen e raftit, numëroni thasët dhe konfirmon diferencat.'}],tip:'Rafti mund të lihet bosh te peshimi: loti shkon te rafti i parë i magazinës dhe ndryshohet më vonë nga kartela e lotit.'},
-   {id:'lotet',mod:'lots',icon:'▣',title:'Lotet & Etiketat',intro:'Çdo sasi e hyrë ka lot me kod, etiketë dhe QR.',steps:[
-     {t:'Kartela e lotit',d:'Klikoni kodin e lotit: peshat, rafti, historia e lëvizjeve dhe dokumentet burim.'},
-     {t:'Etiketa 80×60',d:'Butoni "Etiketë" printon etiketën fizike me QR që lexohet me telefon.'},
-     {t:'Skema e kodit',d:'Kodi = B + lloji + zona + ndarja e blerësit + periudha + ndarja (p.sh. B1K07-4-II/3). Shpjegimi i plotë te kapitulli "Kodi i lotit".'},
-     {t:'Ndryshimi i raftit',d:'Nga kartela e lotit mund të ndryshoni raftin pa prekur sasitë.'}],tip:'Skanoni QR-në e etiketës për të hapur direkt kartelën e lotit në telefon.'},
-   {id:'kodi_lotit',mod:'warehouse',icon:'🔢',title:'Kodi i lotit — skema BioBES',intro:'Si lexohet dhe si konfigurohet kodi i lotit.',steps:[
-     {t:'Pjesët e kodit',d:'B = BioBes; shifra pas = lloji (0 hyrje konv., 1 hyrje organike, 2 dalje organike, 3 dalje konv., 4 mbetje, 5 kalim bio→konv., 6 gjendje, 7 kthim, 8 kalim në organik, 9 vaj).'},
-     {t:'Zona',d:'M01-M12 = qarqet e kultivuara konvencionale; K00-K17 = parcelat organike; S01-S12 = spontane konvencionale; W01… = spontane organike; A01… = blerje nga të tretë.'},
-     {t:'Ndarja e blerësit',d:'Shifra 0-9 ndan fermerët/grumbulluesit brenda të njëjtës zonë.'},
-     {t:'Periudha dhe ndarja',d:'I/II/III = periudhat e vjeljes gjatë vitit; /1-/9 = ndarja e produktit brenda zonës.'},
-     {t:'Konfigurimi',d:'Zona e re shtohet te "⌗ Zonat e loteve"; zona e furnitorit te kartela e tij; te peshimi çdo pjesë ndryshohet me dorë.'}],tip:'Shembull: B1K07-4-II/3 = hyrje organike nga Lekaj Lushnje (K07), blerësi nr. 4, periudha e dytë, ndarja 3.'},
-   {id:'mostrat',mod:'samples',icon:'⌁',title:'Mostrat',intro:'Mostrat e dërguara për analizë dhe rezultatet e tyre.',steps:[
-     {t:'Regjistrimi',d:'Zgjidhni lotin, datën dhe destinacionin e mostrës.'},
-     {t:'Rezultati',d:'Shënoni përgjigjen e laboratorit te kartela e mostrës.'}],tip:'Mostra lidhet me lotin: e gjeni edhe nga kartela e lotit.'},
-   {id:'klientet',mod:'customers',icon:'☷',title:'Klientët & Shitjet',intro:'Faturat e shitjes, arkëtimet dhe gjendja e hapur.',steps:[
-     {t:'Kartela e klientit',d:'Faturat, arkëtimet, kthimet dhe gjendja e hapur e çdo klienti.'},
-     {t:'Fatura shitjeje',d:'Krijoni faturën me produktet/lotet që nisen; konfirmimi e kalon te gjendja.'},
-     {t:'Arkëtimet',d:'MA- krijohet me dorë ose nga extract-i bankar (përhapja automatike).'}],tip:'Gjendja e klientit = e faturuar − e arkëtuar − kthimet (vetëm Konfirmuar).'},
-   {id:'porosite',mod:'orders',icon:'☷',title:'Porositë',intro:'Porositë e klientëve dhe ecuria e tyre.',steps:[
-     {t:'Porosi e re',d:'Klienti, produktet dhe sasitë e porositura.'},
-     {t:'Ecuria',d:'Statusi tregon sa është përgatitur/nisur; nga porosia krijohet ngarkesa.'}],tip:'Porosia mban çmimin e rënë dakord deri në faturë.'},
-   {id:'perpunimi',mod:'processing',icon:'⚙',title:'Përpunimi & Makineritë',intro:'Tharja/përpunimi i lotëve dhe gjendja e makinerive.',steps:[
-     {t:'Makineritë',d:'Lista e makinerive/dhomave me statusin (E lirë / Në punë).'},
-     {t:'Procesi',d:'Zgjidhni lotin burim, makinerinë dhe sasinë: sistemi krijon lotin e ri të përpunuar.'}],tip:'Humbja e përpunimit llogaritet vetë nga diferenca hyrje-dalje.'},
-   {id:'paketimi',mod:'packaging',icon:'▧',title:'Paketimi & Etiketa',intro:'Paketimi në kg/copë dhe etiketat e kolive.',steps:[
-     {t:'Paketim i ri',d:'Zgjidhni lotin, peshën e kolit dhe numrin e kolive: sistemi zbrit sasinë nga loti.'},
-     {t:'Etiketa 80×60',d:'Printimi i etiketës së kolit me QR dhe të dhënat e eksportit.'}],tip:'Paketimet shfaqen te kartela e lotit si lëvizje dalje.'},
-   {id:'ngarkesat',mod:'shipments',icon:'🚚',title:'Ngarkesat & Dosjet Eksport',intro:'Nisjet e mallit dhe dokumentet e eksportit.',steps:[
-     {t:'Ngarkesa',d:'Porosia/klienti, targa, vulat dhe peshat e ngarkesës.'},
-     {t:'Dosja e eksportit',d:'Sistemi mbledh vetë dokumentet e nevojshme (fatura, lista e kolive, certifikatat) në një dosje.'}],tip:'Kontrolli i shpejtë i dosjes tregon çdo dokument që mungon para nisjes.'},
-   {id:'banka',mod:'banking',icon:'🏦',title:'Banka & Extract-i CSV',intro:'Veprimet bankare dhe importi i extract-it të bankës.',steps:[
-     {t:'Lista e veprimeve',d:'Të gjitha veprimet e importuara me kundërpale, shumë dhe status; kolona "Subjekti" tregon emrin e përfituesit.'},
-     {t:'Importi',d:'Butoni "⬆ Importo template" → zgjidhni skedarin CSV të bankës (lexohet vetëm në pajisjen tuaj) → shfaqet tabela e rishikimit.'},
-     {t:'Rishikimi',d:'Kontrolloni bilancin (Previous + Σ = Current), çiftimet e propozuara dhe shënimet "Përfituesi mungon".'},
-     {t:'Regjistrimi',d:'Për çdo rresht zgjidhni: Pagesë furnitori / Arkëtim klienti / Shpenzim (me kategori) / Vetëm veprim bankar. Me "+ Shto si furnitor/klient" regjistroni subjektin e ri nga vetë rreshti.'},
-     {t:'Ruajtja',d:'"Ruaj si Draft" ose "Ruaj + konfirmo": dokumentet (MP-/MA-/SHP-) krijohen vetë bashkë me kartelat dhe veprimet kontabël.'},
-     {t:'Printimi',d:'"🖨 Printo A4 landscape" shtyp extract-in të plotë në një fletë, si origjinali i bankës.'}],tip:'Shpenzimet pa kategori bllokojnë ruajtjen me mesazh — zgjidhni kategorinë te kolona "Regjistrim".'},
-   {id:'shpenzimet',mod:'expenses',icon:'💸',title:'Shpenzimet',intro:'Shpenzimet e përgjithshme (OSHEE, VODAFONE, TATIME, paga, karburant…).',steps:[
-     {t:'Shpenzim i ri',d:'Data, kategoria, shuma dhe përshkrimi; bashkëngjitni faturën në foto/PDF.'},
-     {t:'Nga banka',d:'Rreshtat e extract-it me plan "Shpenzim" krijohen vetë me kategorinë që zgjidhni te wizard-i.'},
-     {t:'Printimi',d:'Dokumenti SHP- printohet A4 me nënshkrime.'}],tip:'Kategoritë shtohen te konfigurimet e shpenzimeve nga admini.'},
-   {id:'arka_kontabilitet',mod:'accounting',icon:'Σ',title:'Arka & Kontabiliteti',intro:'Gjendja e arkës dhe veprimet kontabël (VK).',steps:[
-     {t:'Arka',d:'Prasitë/pagesat me arkë dhe gjendja momentale.'},
-     {t:'Kontabiliteti',d:'Çdo dokument i konfirmuar krijon veprimin kontabël përkatës (J-BANK për bankën, "Postuar" për pagesat/arkëtimet).'},
-     {t:'Eksporti',d:'Veprimet eksportohen për kontabilistin.'}],tip:'Veprimet Draft s\'hyjnë në kontabilitet deri sa të konfirmohen.'},
-   {id:'raportet',mod:'reports',icon:'▥',title:'Raportet',intro:'Raportet e menaxhimit dhe ato zyrtare (Alpha).',steps:[
-     {t:'Raportet e menaxhimit',d:'Xhiroja, gjendjet, blerjet/shitjet sipas periudhës — me filtra dhe eksport XLSX.'},
-     {t:'Raportet Alpha',d:'Skedat zyrtare (Gjendja e artikullit, Kartela e artikullit, O19 etj.) me formatin e kërkuar; printohen A4 landscape.'},
-     {t:'Periudha',d:'Zgjidhni nga-data/deri-data lart; çdo raport rifreskohet menjëherë.'}],tip:'Raportet lexojnë vetëm dokumentet e konfirmuara, si në letër.'},
-   {id:'gjurmueshmeria',mod:'trace',icon:'⌘',title:'Gjurmueshmëria',intro:'Nga rafti te klienti: historia e plotë e një loti.',steps:[
-     {t:'Kërkimi',d:'Shkruani kodin e lotit: shihni çdo hap (hyrje, përpunim, paketim, ngarkesë, klient).'},
-     {t:'Certifikimi',d:'Përdoret për kërkesat e certifikimit/auditit.'}],tip:'E njëjta histori del edhe nga QR-ja e etiketës.'},
-   {id:'perdoruesit',mod:'settings',icon:'🔐',title:'Përdoruesit & Të drejtat',intro:'Kush hyjnë dhe çfarë sheh secili (vetëm admin).',steps:[
-     {t:'Përdoruesit',d:'Shtoni përdorues me rol dhe fjalëkalim fillestar; sistemi kërkon ndryshimin në hyrjen e parë.'},
-     {t:'Të drejtat',d:'Për çdo modul: shiko / ndrysho / fshi / printo — me kutiza sipas përdoruesit.'},
-     {t:'Shënimet e manualit',d:'Admini mund të shtojë shënime të kompanisë te çdo kapitull i manualit (butoni te fundi i kapitullit).'}],tip:'Përdoruesi sheh në manual vetëm kapitujt e moduleve që ka të drejtë t\'i hapë.'},
-   {id:'fjalori',mod:null,icon:'📚',title:'Fjalor i termave',intro:'Fjalët e sistemit me shembuj.',steps:[
-     {t:'Lot',d:'Sasia e mallit që hyn me një peshim; ka kod, raft dhe etiketë. Shembull: B1K07-4-II/3.'},
-     {t:'Peshim (PS-)',d:'Dokumenti i pranimit me peshat e thasëve; konfirmimi krijon lotin.'},
-     {t:'MP- / MA-',d:'Pagesë furnitori / Arkëtim klienti.'},
-     {t:'SHP-',d:'Dokument shpenzimi me kategori.'},
-     {t:'Draft / Konfirmuar',d:'Draft = në pritje (s\'prek gjendjet); Konfirmuar = i regjistruar plotësisht.'},
-     {t:'VK',d:'Veprim kontabël: pasqyrimi i dokumentit në kontabilitet.'},
-     {t:'Kundërpale',d:'Ai që paguhet ose arkëton një veprim bankar (emri, jo kodi).'},
-     {t:'Thasë / Bruto / Tara / Neto',d:'Numri i thasëve; pesha gjithsej; pesha e ambalazhit; pesha e mallit.'}],tip:''},
-   {id:'faq',mod:null,icon:'❓',title:'Pyetje të shpeshta (FAQ)',intro:'Përgjigje për rastet më të zakonshme.',steps:[
-     {t:'Pse s\'mund të ruaj peshimin?',d:'Kontrolloni: furnitori, produkti, magazina dhe të paktën një rresht me bruto > 0.'},
-     {t:'Pse në extract dalin kode në vend të emrave?',d:'Formati i gushtit i bankës i ka kodin dhe emrin në kolona të veçanta; sistemi i bashkon vetë — nëse shihni ende kode, bëni Ctrl+F5 për versionin e ri.'},
-     {t:'Pse një rresht banker mbetet "Vetëm veprim bankar"?',d:'Sepse subjekti s\'ekziston në sistem: përdorni "+ Shto si furnitor/klient" dhe rreshti çiftohet.'},
-     {t:'Mund ta fshij një lot të gabuar?',d:'Vetëm admini, te Lotet → Veprime → Fshi; lëvizjet e lidhura anulohen me historik.'},
-     {t:'Printimi del i prerë?',d:'Përdorni butonat e printimit brenda sistemit (A4 landscape/portrait të vendosur vetë), jo printimin e shfletuesit.'},
-     {t:'Humbi fjalëkalimi?',d:'Administratori e ndryshon te Përdoruesit; sistemi s\'dërgon e-mail.'},
-     {t:'Psh të dhënat ruhen ku?',d:'Në pajisjen tuaj dhe sinkronizohen me serverin kur ka lidhje; asgjë s\'shkon te banka gjatë importit CSV.'}],tip:''}
+   {id:'fillimi',mod:null,icon:'🚀',title:'Hyrja dhe orientimi në sistem',intro:'Për kë e hap BioBes për herë të parë: hyrja, menuja, kërkimi, ruajtja dhe sinkronizimi — gjithçka në 7 hapa.',steps:[
+     {t:'Hyrja',d:'Shkruaj emrin e përdoruesit dhe fjalëkalimin që të ka dhënë administratori, pastaj shtyp "Hyru" ose Enter. Fjalëkalimin e harruar e ndryshon vetëm administratori.'},
+     {t:'Paneli fillim',d:'Pas hyrjes hapet "Paneli": peshimet e sotme, lotet në magazinë dhe pagesat. Çdo numër është i klikueshëm — të çon te lista përkatëse.'},
+     {t:'Menuja majtas',d:'Të gjitha modulet: Blerje & Peshime, Fatura Blerjeje, Furnitorë, Lotet, Magazina, Klientët, Banka, Raportet e me radhë. Moduli i hapur shfaqet me sfond të gjelbër.'},
+     {t:'Kërkimi global',d:'Shiriti sipër kërkon njëherësh: kod loti, numër fature, emër fermeri ose klienti. Kliko rezultatin për të hapur kartelën direkt.'},
+     {t:'Manuali dhe turni',d:'Butoni 📖 lart djathtas hap këtë manual. "▶ Turni interaktiv" të tregon butonët kryesorë hap pas hapi, në ekranin real.'},
+     {t:'Ruajtja dhe sinkronizimi',d:'Çdo "Ruaj" regjistron të dhënat menjëherë dhe i dërgon te serveri. Nëse interneti shkëputet, sistemi të lajmëron me sfond të kuq — mos e mbyll faqen pa u shfaqur rifillimi i sinkronizimit.'},
+     {t:'Dalja',d:'Kliko emrin tënd lart djathtas → "Dil". Në kompjuter të përbashkët dil gjithmonë në fund të turnit.'}],
+    tip:'Nse ekrani duket i vjetruar pas një përditësimi, shtyp Ctrl+F5 një herë.',
+    warn:'Mos puno njëkohësisht me dy përdorues të ndryshëm në dy skeda të së njëjtës dritare.'},
+   {id:'peshimet',mod:'weighings',icon:'⚖',title:'Blerje & Peshime — peshimi individual',intro:'Dokumenti kryesor i hyrjes së mallit: peshimi fizik PS- që bëhet lot në magazinë.',steps:[
+     {t:'Hapja e formularit',d:'"Blerje & Peshime" → butoni "+ Peshim i ri".'},
+     {t:'Të dhënat kryesore',d:'Data (vjen vetë sot), furnitori, produkti dhe magazina. Rafti është opsional — loti mund të vendoset në raft edhe më vonë.'},
+     {t:'Rreshtat e peshimit',d:'Për çdo grup thasësh shtohet një rresht: thasët (opsionale), bruto kg dhe tara/ambalazhi (opsionale). Netoja llogaritet vetë: bruto minus tara.'},
+     {t:'Kodi i lotit',d:'Nën furnitorin është kutia e kodit (lloji, zona, blerësi, periudha, ndarja). Mbushet vetë nga zona e furnitorit; mund ta ndryshosh ose ta shkruash me dorë para ruajtjes.'},
+     {t:'Kuponi i peshores',d:'Me "Ngarko dokumentin" ngarko foto/PDF të kuponit elektronik: sistemi e lexon vetë (OCR) dhe krahason shumat me formularin.'},
+     {t:'Ruajtja',d:'"Ruaj si Draft" = dokumenti rri në pritje, nuk krijon lot. "Ruaj + konfirmo" = krijon lotin në magazinë dhe draft-faturën e blerjes me një veprim.'},
+     {t:'Kartela e peshimit',d:'Pas ruajtjes hapet kartela: statusi, loti i krijuar, fatura, printimi dhe "⋮ Veprime" (Konfirmo, Modifiko, Anulo, Fshi, Printo, XLSX).'},
+     {t:'Ndryshimet',d:'Drafti ndryshohet lirshëm. Peshimi i konfirmuar ndryshohet vetëm duke e anuluar dhe ri-konfirmuar — kështu ruhet gjurma e auditt.'}],
+    fields:[
+     {k:'Furnitori',v:'Fermeri/furnitori që sjell mallin (kërkim me emër ose krijim i shpejtë).'},
+     {k:'Produkti',v:'Çfarë po pranohet: sherbelë, dafinë, trumzë e me radhë.'},
+     {k:'Magazina',v:'Ku hyn malli; zakonisht "Magazina Qendrore".'},
+     {k:'Thasë',v:'Numri i thasëve të atij rreshti — OPSIONAL nëse kuponi nuk i ka.'},
+     {k:'Bruto',v:'Pesha totale me gjithë thasët/ambalazhin, në kg.'},
+     {k:'Tara',v:'Pesha e ambalazhit që zbritet — OPSIONAL.'},
+     {k:'Rafti',v:'Rafti ku vendoset loti — OPSIONAL, caktohet edhe më vonë.'}],
+    warn:'Një peshim = një lot. Mos e regjistro dy herë të njëjtin mall: kërko përpara sipas furnitorit ose datës.',
+    tip:'Nëse kuponi i peshores ka vetëm bruto/tara, lëri thasët bosh — dokumenti prapë është i saktë.'},
+   {id:'peshim-grup',mod:'weighings',icon:'🧺',title:'Peshimi i grupuar — disa furnitorë në një fletë',intro:'Kur në një letër shkruhen 2-3 artikuj të një furnitori, ose peshohen 3 furnitorë njëherësh: i fut të gjitha në një formular.',steps:[
+     {t:'Hapja',d:'"Blerje & Peshime" → butoni "⚖ Peshim i grupuar" (nën butonin e peshimit të ri).'},
+     {t:'Rreshtat',d:'Çdo rresht = një furnitor + një produkt. Nëse i njëjti furnitor ka 2-3 artikuj, vendosi në rreshta të ndryshëm me të njëjtin furnitor.'},
+     {t:'Shtimi dhe fshirja',d:'"+ Shto rresht" shton rresht të ri; "Hiq" e fshin atë. Poshtë tabelës shfaqet shuma: thasë, bruto dhe neto totale.'},
+     {t:'Ruajtja',d:'"Ruaj + konfirmo të gjitha" krijon dokumente PS- të NDARA për çdo furnitor+produkt (ashtu si e kërkon skema e Alpha-s), të lidhura me seancën GR-YYYY-NNNN.'},
+     {t:'Çfarë krijohet',d:'Çdo dokument konfirmohet menjëherë: lot në magazinë me kod të ri + draft-faturë blerjeje — njëjtë si te peshimi individual.'},
+     {t:'Seanca',d:'Pas ruajtjes hapet përmbledhja e seancës me të gjithë dokumentet. Më vonë e gjen nga kartela e çdo peshimi: "Hap grupin" ose "🖨 Fletë grupi".'},
+     {t:'Fleta e grupit',d:'A4 landscape: rreshtat sipas furnitorit, Nëntotali për secilin, GJITHSEJ dhe 3 vija nënshkrimesh — fleta e letrës që mbahet te peshorja.'}],
+    warn:'Gjithçka ose asgjë: nëse një rresht ka gabim (p.sh. neto negative), nuk ruhet asnjë — corregjo rreshtin dhe ruaj sërish.',
+    tip:'Fleta e grupit zëvendëson fletën e shkruar me dorë: printoje dhe arkivoje me kuponat e peshores.'},
+   {id:'ocr',mod:'weighings',icon:'📸',title:'Kuponi i peshores dhe leximi automatik (OCR)',intro:'Fotoja ose PDF-i i kuponit elektronik lexohet vetë dhe krahasohet me peshat e shkruara.',steps:[
+     {t:'Ngarkimi',d:'Te formulari ose kartela e peshimit: "Ngarko dokumentin" → zgjidh foton/PDF-në e kuponit.'},
+     {t:'Leximi',d:'Sistemi nxjerr furnitorin, datën, bruto, tarën dhe neton nga kuponi dhe i shfaq në kutinë jeshile.'},
+     {t:'Krahasimi',d:'Nëse vlerat e lexuara ndryshojnë nga formulari, diferenca shfaqet me të kuqe — corregjoje para konfirmimit.'},
+     {t:'Riprovimi',d:'Nëse fotoja është e paqartë: rrotulloje/prite dhe ngarkoje sërish. OCR v2 lexon edhe kupona me pika-gjëlpstë.'},
+     {t:'Arkivimi',d:'Kuponi mbetet i lidhur me peshimin: hapet çdo moment nga kartela e lotit ("Hap foton/PDF").'}],
+    tip:'Fotografo kuponin në sfond të errët dhe pa hije — leximi bëhet më i saktë.'},
+   {id:'purchases',mod:'purchases',icon:'▥',title:'Faturat e blerjes (FB)',intro:'Faturat që shoqërojnë mallin e blerë — krijohen vetë nga peshimet ose me dorë.',steps:[
+     {t:'Krijimi automatik',d:'Çdo peshim i konfirmuar krijon një draft-FB me sasinë fizike të peshuar — nuk ka dyshim regjistrimi.'},
+     {t:'Lista',d:'"Fatura Blerjeje": numri FB-, furnitori, data, statusi (Draft/Konfirmuar) dhe shuma. Kërko sipas emrit ose filtro sipas statusit.'},
+     {t:'Plotësimi',d:'Hap faturën → shkruaj çmimin për kg, TVSH-në dhe numrin e faturës së furnitorit → "Konfirmo".'},
+     {t:'Statuset',d:'Draft = nuk prek gjendjen e furnitorit. Konfirmuar = hyn në borxh, në kartelë dhe në raporte.'},
+     {t:'Printimi dhe XLSX',d:'Nga kartela: "Printo / PDF" (fletë A4) dhe "Eksporto XLSX" për kontabilistin.'},
+     {t:'Faturë me dorë',d:'"+ Faturë e re" për blerje pa peshim (p.sh. ambalazh, thasë, karburant me faturë).'}],
+    fields:[
+     {k:'Çmimi/kg',v:'Çmimi i blerjes i rënë dakord me furnitorin.'},
+     {k:'TVSH',v:'Zakonisht 0% për produktet bujqësore të papërpunuara.'},
+     {k:'Nr. i faturës së furnitorit',v:'Numri që ka lëshuar fermeri/furnitori — për arkivë dhe kontroll.'}],
+    warn:'Mos konfirmo faturë me çmim të gabuar: pas konfirmimit corregjimi bëhet me Anulo dhe ri-regjistrim.'},
+   {id:'furnitoret',mod:'suppliers',icon:'♙',title:'Furnitorët (fermerët)',intro:'Regjistri i atyre nga blehet malli — me zonën e kodit të lotit dhe gjendjen e borxhit.',steps:[
+     {t:'Lista dhe kërkimi',d:'"Furnitorë": emri, kodi (S01/1…), zona e lotit dhe gjendja (borxhi). Kërkimi sipër filtron menjëherë.'},
+     {t:'Shtimi i shpejtë',d:'Te çdo formular që kërkon furnitor: shkruaj emrin → nëse nuk ekziston del "+ Shto…" dhe krijohet me një klik (kodi vetë).'},
+     {t:'Kartela',d:'Kliko emrin: blerjet, pagesat, gjendja dhe xhiroja sipas periudhës. "Printo A4" jep kartelën e plotë për arkivë.'},
+     {t:'Kodi i zonës',d:'Butoni "⌗ Kodi i zonës": cakto zonën (p.sh. K07) dhe ndarjen e blerësit (0-9) — përdoren te kodet e loteve të tij (B1K07-4-…).'},
+     {t:'Xhiroja',d:'Butoni "Xhiro": lëvizjet hyrë-dalë sipas periudhës, me eksport XLSX.'},
+     {t:'Nga banka',d:'Fermeri i ri që shfaqet në extract-in bankar shtohet direkt nga wizard-i i bankës me "+ Shto si furnitor".'}],
+    tip:'Caktoja zonën një herë si duhet — të gjithë lotet e ardhshëm marrin kodin vetë.'},
+   {id:'pagesa',mod:'payments',icon:'₳',title:'Pagesat furnitorëve (MP-)',intro:'Pagesat MP-: me arkë, bankë ose kompensim — me mandat të printueshëm.',steps:[
+     {t:'Pagesë e re',d:'"Pagesa" → "+ Pagesë e re": furnitori, shuma, mënyra (Arkë/Bankë/Kompensim), data → Ruaj.'},
+     {t:'Nga banka',d:'Pagesat e krijuara nga extract-i bankar shfaqen këtu me mënyrën "Bankë" dhe referencën e extract-it.'},
+     {t:'Kartela e pagesës',d:'Kliko numrin MP-: shuma, mënyra, faturat e lidhura, statusi. "Printo / PDF" = mandati i pagesës për firmim.'},
+     {t:'Statuset',d:'Draft nuk e ul borxhin e furnitorit; Konfirmuar e ul menjëherë në kartelë dhe raporte.'},
+     {t:'Anulimi',d:'"⋮ Veprime" → Anulo (me arsye): pagesa e anuluar nuk numërohet në gjendje.'}],
+    warn:'Mënyra "Kompensim" përdoret kur setti llogaritet me mall të kthyer — shënoje arsyen te përshkrimi.'},
+   {id:'produktet',mod:'products',icon:'❧',title:'Produktet',intro:'Kartelat e artikujve: kode, njësi, kategori dhe gjendja.',steps:[
+     {t:'Lista',d:'"Produkte": kodi (101, 102…), emri, njësia (kg), kategoria dhe gjendja aktuale.'},
+     {t:'Shtimi dhe ndryshimi',d:'"+ Produkt i ri": kodi, emri, njësia, kategoria; aktiv/joaktiv.'},
+     {t:'Gjendja',d:'Kolona "Gjendja" është shuma e loteve në të gjitha magazinat; vlerën në lekë e jep raporti i magazinës (WAC).'},
+     {t:'Çaktivizimi',d:'Produkti me lëvizje nuk fshihet — shënoje joaktiv që të mos shfaqet në formularë.'}],
+    warn:'Kodi dhe emri shkojnë në etiketa e fatura: kontrollo shkrimin para peshimit të parë.'},
+   {id:'magazina',mod:'warehouse',icon:'▦',title:'Magazina & raftet',intro:'Gjendja fizike: magazine, rafte dhe sasi sipas lotesh.',steps:[
+     {t:'Pamja',d:'"Magazina": grid-i i magazineve me raftet dhe sasinë aktuale të çdo loti.'},
+     {t:'Kartela e raftit',d:'Kliko raftin: lotet me sasi; "Printo A4" jep kartelën e raftit landscape për ta mbajtur te rafti.'},
+     {t:'Lëvizjet',d:'Çdo lot tregon historikun: peshim (hyrje), transferim, paketim, shitje (dalje).'},
+     {t:'Inventari fizik',d:'Nga kartela e raftit: "Inventar fizik" → shkruaj sasinë e numëruar → diferenca regjistrohet e miratuar.'}],
+    tip:'Printo kartelat e rafteve në fillim të muajit: numërimi fizik bëhet me një sy.'},
+   {id:'lot-transfer',mod:'warehouse',icon:'🔀',title:'Transferimet & inventari',intro:'Lëvizja e loteve mes magazineve/rafteve dhe numërimi fizik.',steps:[
+     {t:'Transferimi',d:'Kartela e lotit → "Transfero": magazina/rafti i destinacionit dhe sasia (i plotë ose i pjesshëm) → Ruaj.'},
+     {t:'Historiku',d:'Transferimi shënohet në historikun e lotit dhe te të dy raftet.'},
+     {t:'Inventari',d:'Kartela e raftit → "Inventar fizik": i numëruar kundrejt sistemit; diferenca e miratuar rregullon gjendjen.'}],
+    warn:'Transferimi i pjesshëm e ndan lotin: pjesa e mbetur ruan kodin, pjesa e re merr prapashtesë.'},
+   {id:'lotet',mod:'lots',icon:'▣',title:'Lotet & kodi i lotit',intro:'Loti = sasia me origjinë (furnitor, ditë, zonë). Kodi i ri është pasaporta e tij.',steps:[
+     {t:'Lista',d:'"Lotet": kodi, produkti, furnitori, sasia neto, statusi (Aktiv / I bllokuar / I mbyllur).'},
+     {t:'Kodi i ri',d:'B1 + zona + blerësi + periudha + ndarja, p.sh. B1K07-4-II/3: lloji 1, zona K07, blerësi 4, periudha e dytë, ndarja 3. Përsëritja merr -2 në fund.'},
+     {t:'Kodi i vjetër',d:'Lotet e vjetra mbajnë kodin B1<furnitor>-<produkt>-<vit> — pranon kërkimin dhe printimin njëjtë.'},
+     {t:'Kartela e lotit',d:'Kliko kodin: të dhënat, peshimi, etiketa, paketimet, transferimet, mostrat — gjithë historia.'},
+     {t:'Zonat',d:'Lista e zonave dhe zonat e furnitorëve mbahen nga admini: "⌗ Zonat e kodeve" te faqja e loteve.'}],
+    fields:[
+     {k:'Lloji',v:'Numri i llojit të produktit (1 = lëndë e parë).'},
+     {k:'Zona',v:'Kodi i zonës së fermerit (K07, K12…).'},
+     {k:'Blerësi',v:'Numri i blerësit 0-9 që ka pranuar mallin.'},
+     {k:'Periudha',v:'I, II ose III — e treta e muajit kur u peshua.'},
+     {k:'Ndarja',v:'/1-/9 kur i njëjti kod ndahet në disa lote.'}],
+    tip:'Kodi lexohet si pasaportë: nga B1K07-4-II/3 e di zonën, blerësin dhe periudhën pa hapur kartelën.'},
+   {id:'etiketat',mod:'lots',icon:'🏷',title:'Etiketat: printer 80×60 dhe A4',intro:'Etiketa fizike e lotit dhe varianti për printer zyre.',steps:[
+     {t:'Nga loti',d:'Kartela e lotit → "Printo etiketën": printer etiketash 80×60 mm, 1 etiketë, pa kokë/fund faqeje.'},
+     {t:'A4 nga zyra',d:'"Printo në A4": fletë A4 me etiketën në madhësi reale lart-majtas + kodin QR — për printer zyre.'},
+     {t:'Përmbajtja',d:'Kodi i lotit, produkti, neto kg, data dhe QR me lidhjen dinamike të lotit.'},
+     {t:'Etiketa përfundimtare',d:'Pas paketimit printohet etiketa e paketimit (kapitulli Paketimi) — me klientin dhe përzierjen.'}],
+    warn:'Në dialogun e printimit zgjidh printerin e etiketave dhe formatin 80×60, përndryshe del në A4.'},
+   {id:'mostrat',mod:'samples',icon:'⌁',title:'Mostrat',intro:'Mostrat e laboratorit të lidhura me lotet dhe porositë.',steps:[
+     {t:'Regjistrimi',d:'"+ Mostrë e re": loti ose porosia, data, destinacioni (laboratori), parametri.'},
+     {t:'Lidhja',d:'Mostra lidhet me lotin dhe porosinë — shfaqet në kartelat e të dyjave.'},
+     {t:'Rezultati',d:'Shkruaj analizën (lagështi, mbetje, pesticide): statusi Pranohet / Refuzohet.'}],
+    tip:'Loti me mostër të refuzuar bllokohet nga paketimi me shenjën ⚠.'},
+   {id:'klientet',mod:'customers',icon:'☷',title:'Klientët & shitjet',intro:'Klientët, faturat e shitjes dhe gjendja e tyre.',steps:[
+     {t:'Lista',d:'"Klientët": kodi, emri, gjendja (kredi/debit). Kërkimi sipër filtron menjëherë.'},
+     {t:'Kartela',d:'Kliko emrin: shitjet, arkëtimet, gjendja; printimi i situatës si te furnitorët.'},
+     {t:'Fatura shitjeje',d:'"Fatura Shitjeje" → "+ Faturë e re": klienti, produkti (nga lotet e paketuar), sasia, çmimi → Draft/Konfirmuar.'},
+     {t:'Numërimi',d:'Fatura e shitjes ka numrin e vet (INV-) dhe lidhet me porosinë e ngarkesën.'},
+     {t:'Arkëtimi',d:'Pagesa e klientit krijohet me mandat arkëtimi MA- (kapitulli tjetër).'}],
+    warn:'Fatura e konfirmuar e shitjes zbrit stokun nga lotet e paketuar — kontrollo sasinë para konfirmimit.'},
+   {id:'pagesat-klient',mod:'cashreceipts',icon:'🧾',title:'Mandatet e arkëtimit (MA-) & arka',intro:'Paratë që hyjnë: arkëtime nga klientët dhe lëvizjet e arkës.',steps:[
+     {t:'Mandat i ri',d:'"Arka" → "+ Mandat arkëtimi": klienti, shuma, mënyra (Arkë/Bankë), data → Ruaj.'},
+     {t:'Printimi',d:'Kartela e MA- → "Printo / PDF": fleta e arkëtimit për firmim të klientit.'},
+     {t:'Lidhja',d:'Mandati lidhet me faturën (opsionale) dhe ul gjendjen e klientit kur konfirmohet.'},
+     {t:'Arka',d:'Lëvizjet e arkës (hyrje-dalje) regjistrohen me mandate; gjendja e ditës shihet te raporti Arka-Banka.'}],
+    tip:'Pagesat nga banka mos i shkruaj me dorë: importo extract-in — mandatet krijohen vetë.'},
+   {id:'porosite',mod:'orders',icon:'📋',title:'Porositë e klientëve',intro:'Porosia hap zinxhirin e eksportit: mostër → përpunim → paketim → ngarkesë.',steps:[
+     {t:'Porosi e re',d:'"Porositë" → "+ Porosi e re": klienti, produkti, sasia, data e dërgesës, kushtet.'},
+     {t:'Formulari operacional',d:'Kartela e porosisë → "Plotëso formularin": transporti, kontejneri, numrat e vulave — për dosjen e eksportit.'},
+     {t:'Printimi',d:'"Printo / PDF" jep formularin zyrtar A4 me të dhënat tona dhe të klientit.'},
+     {t:'Zinxhiri',d:'Porosia lidhet me mostrën, proceset, paketimet dhe ngarkesën — të gjitha në kartelë.'}]},
+   {id:'perpunimi',mod:'processing',icon:'⚙',title:'Përpunimi & makineritë',intro:'Hyrja-dalja e përpunimit, rendimenti dhe makineritë.',steps:[
+     {t:'Procesi',d:'"Përpunimi": lotet hyrëse, sasia e dalur, humbja % — rendimenti llogaritet vetë.'},
+     {t:'Makineritë',d:'Regjistri i makinerive (linja, tharëse): orët, ndalimet — për raporte të brendshme.'},
+     {t:'Dalja',d:'Përpunimi krijon lotin e daljes (gjysmëprodukt) me lidhje te lotet hyrëse.'}],
+    warn:'Humbja mbi % e rënë dakord shfaqet me të kuqe — kontrolloje para ruajtjes.'},
+   {id:'paketimi',mod:'packaging',icon:'▧',title:'Paketimi & etiketa përfundimtare',intro:'Krijimi i paketave nga lotet burimorë dhe etiketat për klientin.',steps:[
+     {t:'Paketim i ri',d:'"Paketimi & Etiketa" → "+ Paketim i ri": lotet burimorë (1 ose më shumë), shablloni, thasët dhe pesha e qepës.'},
+     {t:'Përzierja',d:'Me disa lote burimorë etiketa tregon "♺ përzierje e N lotëve" — gjurmueshmëria ruhet e plotë.'},
+     {t:'Kodet',d:'Paketimi merr lotin e brendshëm BioBes dhe kodin e klientit (customer lot).'},
+     {t:'Etiketa përfundimtare',d:'Kartela e paketimit → "Printo modelin" (80×60 ose A4) dhe "Eksporto XLSX për BarTender".'},
+     {t:'Stoku',d:'Sasia e paketuar kalon nga loti i lëndës së parë te paketimi — shitja faturahet nga paketimi.'}],
+    fields:[
+     {k:'Lotet burimorë',v:'Llotet e lëndës së parë që harxhon paketimi.'},
+     {k:'Shablloni',v:'Modeli i etiketës (Etiketë klienti, e brendshme…).'},
+     {k:'Thasë × kg qepe',v:'Numri i thasëve dhe pesha neto e një qepe.'}],
+    tip:'Për të njëjtin klient përdor gjithmonë të njëjtin shabllon — etiketa del gati pa corregjime.'},
+   {id:'ngarkesat',mod:'shipments',icon:'🚚',title:'Ngarkesat & dosjet e eksportit',intro:'Dërgesa: paketat, transporti dhe dokumentet e dosjes së eksportit.',steps:[
+     {t:'Ngarkesë e re',d:'"Dosjet Eksport" → "+ Ngarkesë e re": porosia, paketat, mjeti, data, numri CMR.'},
+     {t:'Dosja e eksportit',d:'Sistemi përgatit setin: porosia, mostra, procesi, packing list, etiketat — secili me printim A4.'},
+     {t:'Packing list',d:'Kartela e ngarkesës → "Printo / PDF": paletat, thasët, neto/bruto sipas paketave.'},
+     {t:'Statusi',d:'Draft → Konfirmuar në nisje; ngarkesa e konfirmuar zbrit paketat nga stoku.'}],
+    warn:'Ngarkesë e konfirmuar pa faturë shitjeje = diferenca stoku në raporte — faturaje po atë ditë.'},
+   {id:'banka',mod:'banking',icon:'🏦',title:'Banka & extract-i CSV',intro:'Llogaritë bankare, veprimet dhe importi i extract-it javor (LEKE/EURO).',steps:[
+     {t:'Llogaritë',d:'"Banka": llogaritë me IBAN dhe gjendje; veprimet bankare sipas llogarisë.'},
+     {t:'Importi CSV',d:'Butoni "Extract bankar (CSV)" → zgjidh skedarin CSV të bankës (java LEKE ose EURO) → hapet wizard-i.'},
+     {t:'Wizard-i',d:'Çdo rresht propozohet: pagesë furnitori, arkëtim klienti, shpenzim ose tjetër; emrat dhe shumat matohen automatikisht.'},
+     {t:'Krijimi i shpejtë',d:'Fermer/klient i panjohur në extract: "+ Shto si furnitor" / "+ Shto si klient" me një klik nga vetë rreshti.'},
+     {t:'Konfirmimi',d:'Rreshtat e konfirmuar krijojnë veprimin bankar dhe dokumentet MP-/MA- vetë; dyfishimet kapen dhe anashkalohen.'},
+     {t:'Printimi',d:'Extract-i i periudhës printohet A4 me "Printo extract-in".'}],
+    tip:'Importoje extract-in një herë në javë: të njohurat nuk dyfishohen kurrë.'},
+   {id:'shpenzimet',mod:'expenses',icon:'💸',title:'Shpenzimet (SHP-)',intro:'Shpenzimet e klassit 6: transporti, ambalazhi, paga, shërbime.',steps:[
+     {t:'Shpenzim i ri',d:'"Shpenzimet" → "+ Shpenzim i ri": kategoria, furnitori/paguesi, shuma, TVSH.'},
+     {t:'Pagesa',d:'Nga kartela: "Pagaj" me arkë ose bankë — krijohet pagesa përkatëse automatikisht.'},
+     {t:'Dokumenti',d:'SHP- shfaqet te lista e shpenzimeve dhe te VK; nuk hyn në kartelën e furnitorit si borxh malli.'},
+     {t:'Raporti',d:'"Eksporto XLSX" ose printimi sipas kategorive për kontabilistin.'}],
+    warn:'SHP- nuk shfaqet te situata e furnitorit në Alpha — është shpenzim i brendshëm.'},
+   {id:'kontabiliteti',mod:'accounting',icon:'∑',title:'Kontabiliteti & gjendjet fillimtare',intro:'Llogaritë, ditari dhe regjistrimet automatike nga dokumentet.',steps:[
+     {t:'Plani i llogarive',d:'"Kontabiliteti": llogaritë, ditaret dhe regjistrimet e postuara (për kontabilistin).'},
+     {t:'Regjistrimet',d:'Dokumentet e konfirmuara (blerje, shitje, pagesë) krijojnë regjistrimet vetë.'},
+     {t:'Gjendjet fillimtare',d:'Admin: "Gjendjet fillimtare": stoku dhe balancat hyrëse në nisjen e sistemit.'},
+     {t:'Eksporti',d:'"Eksporto XLSX" i ditarit për Alpha-n ose kontabilistin.'}],
+    warn:'Gjendjet fillimtare futen VETËM një herë në nisje — ndryshimet e mëvonshme dokumentohen.'},
+   {id:'raportet',mod:'reports',icon:'📊',title:'Raportet: menaxhim dhe Alpha',intro:'Numrat e ditës/javës/vitit dhe raportet zyrtare Alpha — të printueshme.',steps:[
+     {t:'Menaxhimi',d:'"Raportet": blerjet, shitjet, marzha, stoku WAC, pagesat — me periudhën Sot / Java / Muaji / Viti.'},
+     {t:'Alpha zyrtare',d:'Në të njëjtën faqe, seksioni Alpha: Raport Magazine, Kontabiliteti, Arka-Banka — me filtrat dhe printimin si në Alpha.'},
+     {t:'Printimi dhe XLSX',d:'Çdo raport ka "🖨 Printo/PDF" (A4) dhe "XLSX" për Excel.'},
+     {t:'Zoom',d:'Butonat − / + ndryshojnë madhësinë e pamjes; "Landscape" për raportet e gjera.'},
+     {t:'Kartelat 360°',d:'Kartela e artikullit dhe e palës japin debi/kredi/xhiro sipas periudhës.'}],
+    tip:'Raportet e Alpha-s sillen njëjtë si më parë — ky manual nuk i ndryshon ato.'},
+   {id:'kartelat',mod:'trace',icon:'🗂',title:'Ku shfaqet çdo dokument',intro:'Harta e dokumenteve: cila kartelë dhe cili raport e tregon secilin dokument.',steps:[
+     {t:'MP- (pagesë furnitori)',d:'Kartela e furnitorit + situata e furnitorit në Alpha + financa + VK "Postuar".'},
+     {t:'MA- (arkëtim klienti)',d:'Kartela e klientit + situata e klientit në Alpha + VK.'},
+     {t:'SHP- (shpenzim)',d:'Vetëm lista e Shpenzimeve + VK.'},
+     {t:'Veprim vetëm bankar',d:'Lista e Bankës + printimi i extract-it + VK J-BANK.'},
+     {t:'PS- / FB- / SH-',d:'Blerje & Peshime, faturat përkatëse dhe raporti i magazinës Alpha.'}],
+    tip:'Nëse një dokument nuk duket ku e pret, kontrollo statusin: Draft nuk hyn në gjendje.'},
+   {id:'gjurmueshmeria',mod:'trace',icon:'⌘',title:'Gjurmueshmëria: nga fusha te klienti',intro:'Zinxhiri lot → mostër → përpunim → paketim → porosi → ngarkesë.',steps:[
+     {t:'Zinxhiri',d:'Peshimi → loti → mostra → procesi → paketimi → porosia → ngarkesa → fatura: çdo hallkë lidhet me tjetrin.'},
+     {t:'Nga loti',d:'Kartela e lotit tregon të gjitha lidhjet: peshimin, mostrat, paketimet, transferimet.'},
+     {t:'Nga klienti',d:'Kartela e ngarkesës kthen prapa te lotet burimorë (seksioni "Gjurmueshmëria").'},
+     {t:'QR',d:'QR i etiketës hap faqen e lotit me historikun e plotë — për klientin dhe inspektorin.'}],
+    tip:'Te ankesa e klientit nise nga kartela e ngarkesës: zinxhiri del në 1 minutë.'},
+   {id:'perdoruesit',mod:'settings',icon:'🔐',title:'Përdoruesit & të drejtat',intro:'Përdoruesit, rolet dhe matrica e të drejtave për modul.',steps:[
+     {t:'Përdoruesit',d:'Admin: "Shifjet" → përdoruesit: shto, çaktivizo, ndrysho fjalëkalimin.'},
+     {t:'Rolet',d:'ROLE-ADMIN (gjithçka) dhe ROLE-USER me matricë të drejtash për modul: shiko / ndrysho / fshi / printo.'},
+     {t:'Matrica',d:'Te "Të drejtat": kutizat për çdo modul dhe veprim — si në ERP-të desktop.'},
+     {t:'Manuali sipas të drejtave',d:'Kapitujt e manualit filtrohen nga të drejtat: përdoruesi sheh vetëm modulet e veta.'}],
+    warn:'Ndryshimi i të drejtave vlen që nga hyrja tjetër e atij përdoruesi.'},
+   {id:'sinkronizimi',mod:'settings',icon:'🔄',title:'Sinkronizimi & pajisjet e shumta',intro:'Ruajtja në server dhe sinkronizimi mes kompjuterave.',steps:[
+     {t:'Serveri',d:'Të dhënat ruhen në server (biobes-api) dhe sinkronizohen në çdo pajisje ku hyn me përdoruesin tënd.'},
+     {t:'Treguesi',d:'Badge lart tregon gjendjen e sinkronizimit; i kuq = lidhja u shkëput — puna vazhdon lokalisht.'},
+     {t:'Konfliktet',d:'Nëse dy pajisje ndryshojnë të njëjtën gjë, serveri mban ruajtjen e fundit — lajmëro administratorin.'},
+     {t:'Çfarë sinkronizohet',d:'Peshimet, lotet, faturat, pagesat, banka, shpenzimet, cilësimet dhe shënimet e manualit.'}],
+    warn:'Mos fshi cache-in e browser-it (Clear data) pa miratimin e administratorit.'},
+   {id:'manuali',mod:null,icon:'📖',title:'Si përdoret ky manual',intro:'Kërkimi, shënimet e kompanisë, printimi/PDF dhe turni.',steps:[
+     {t:'Kërkimi',d:'Kutia sipër: shkruaj një fjalë (p.sh. "etiketë", "extract", "lot") — lista dhe teksti filtrohen menjëherë.'},
+     {t:'Kapitujt',d:'Kolona majtas: kliko kapitullin për ta lexuar. Kapitujt e moduleve pa të drejta nuk shfaqen.'},
+     {t:'Shënimet e kompanisë',d:'Admini shton shënim për çdo kapitull (kutia e verdhë) — p.sh. rregulla të brendshme të kompanisë.'},
+     {t:'Printimi / PDF',d:'"🖨 Printo manualin" hap dialogun e printimit VETËM me manualin (A4, me përmbajtje dhe hapa). Zgjidh "Save as PDF" për skedar.'},
+     {t:'Turni',d:'"▶ Turni interaktiv" 3 minuta: ndriçon butonët kryesorë në ekranin real.'}],
+    tip:'Printoje manualin dhe mbaje pranë peshores: fletët A4 kanë të gjithë kapitujt me hapa.'},
+   {id:'fjalori',mod:null,icon:'📚',title:'Fjalor i termave',intro:'Shpjegim i shkurtër i kodeve dhe termave që përdor sistemi.',steps:[
+     {t:'PS-',d:'Dokumenti i peshimit / hyrjes së mallit (1 furnitor + 1 produkt).'},
+     {t:'GR-',d:'Seanca e peshimit të grupuar: disa PS- të lidhura në një fletë.'},
+     {t:'FB- / MP-',d:'Faturë blerjeje / pagesë furnitori (mandat pagese).'},
+     {t:'MA- / SHP-',d:'Mandat arkëtimi nga klienti / dokument shpenzimi.'},
+     {t:'Lot',d:'Sasi me origjinë; kodi B1<zonë>-<blerës>-<periudha>/<ndarja>.'},
+     {t:'Tara',d:'Pesha e ambalazhit që zbritet nga brutoja për të gjetur neton.'},
+     {t:'WAC',d:'Kostoja mesatare e ponderuar e stokut (vlera në raporte).'},
+     {t:'Draft / Konfirmuar',d:'Në pritje / i vlefshëm — vetëm e konfirmuara hyn në gjendje dhe raporte.'}]},
+   {id:'faq',mod:null,icon:'❓',title:'Pyetje të shpeshta (FAQ)',intro:'Zgjidhje të shpejta për gabimet më të zakonshme në terren.',steps:[
+     {t:'Kuponi nuk lexohet?',d:'Bëj foto të pastër pa hije dhe riprovo; ose shkruaj peshat me dorë — OCR është ndihmë, jo detyrim.'},
+     {t:'Regjistrova peshimin dy herë?',d:'Hap peshimin e dytë → "⋮ Veprime" → Anulo ose Fshi (me të drejta). Loti i gabuar mbyllet automatikisht.'},
+     {t:'Etiketa nuk del 80×60?',d:'Në dialogun e printimit zgjidh printerin e etiketave; ose përdor "Printo në A4" dhe prite etiketën.'},
+     {t:'Printi i manualit hap gjithë faqen?',d:'Versioni i ri printon VETËM manualin. Nëse dialogu tregon ende app-in: shtyp Ctrl+F5 një herë dhe riprovo.'},
+     {t:'Kush ndryshon shënimet e manualit?',d:'Vetëm administratori (me të drejtën e cilësimeve).'},
+     {t:'Humba të dhënat pas fshirjes së cache-it?',d:'Nëse ishe i sinkronizuar: hyr sërish — të dhënat rikthehen nga serveri.'}]}
   ];
+
   const TOUR=[
    {page:'dashboard',sel:'#manualHelpBtn',t:'Butoni i manualit 📖',d:'Kudo që jeni, ky buton hap manualin e sistemit. Mbajeni mend — është shpëtimi juaj!'},
    {page:'dashboard',sel:'.kpi',t:'Paneli i parë',d:'Këta tregues përmbledhin punën e sotme: peshime, lote, pagesa. Klikoni njërin për detaje.'},
@@ -10037,14 +10153,17 @@ try{const basePO=printOnly;printOnly=function(elementId,title){if(elementId!=='r
     return '<h2 style="margin:0 0 4px">'+c.icon+' '+esc(c.title)+'</h2>'
      +(c.intro?'<p class="hint" style="margin:0 0 10px">'+esc(c.intro)+'</p>':'')
      +'<ol style="margin:0 0 10px;padding-left:20px">'+c.steps.map(s=>'<li style="margin:0 0 8px"><b>'+esc(s.t)+'.</b> '+esc(s.d)+'</li>').join('')+'</ol>'
+     +(c.fields&&c.fields.length?'<div class="card" style="padding:8px 10px;margin:0 0 10px"><b>Fushat e formularit:</b><ul style="margin:6px 0 0;padding-left:18px">'+c.fields.map(f=>'<li style="margin:0 0 4px"><b>'+esc(f.k)+'</b> — '+esc(f.v)+'</li>').join('')+'</ul></div>':'')
+     +(c.warn?'<div class="card" style="background:#fdecea;border-color:#e5b5b2;padding:8px 10px;margin:0 0 10px">⚠ <b>Kujdes:</b> '+esc(c.warn)+'</div>':'')
      +(c.tip?'<div class="card" style="background:#edf7f1;border-color:#bfe3cf;padding:8px 10px;margin:0 0 10px">💡 <b>Këshillë:</b> '+esc(c.tip)+'</div>':'')
      +(notes?'<div class="card" style="background:#fff8e8;border-color:#e8d59b;padding:8px 10px;margin:0 0 8px"><b>Shënim i kompanisë:</b><br>'+esc(notes)+'</div>':'')
      +(isAdmin()?'<details style="margin-top:6px"><summary style="cursor:pointer;color:#326d86">✎ Shto/ndrysho shënimin e kompanisë</summary><textarea id="mbNote" style="width:100%;min-height:70px;margin:6px 0">'+esc(notes)+'</textarea><br><button class="btn small" onclick="manualSaveNote(\''+c.id+'\')">Ruaj shënimin</button></details>':'');
   }
+  const ctext=c=>(c.title+' '+c.intro+' '+(c.warn||'')+' '+(c.tip||'')+' '+(c.fields||[]).map(f=>f.k+' '+f.v).join(' ')+' '+c.steps.map(s=>s.t+' '+s.d).join(' ')).toLowerCase();
   function sidebarHtml(q){
     const list=CH.filter(vis);
     const qq=(q||'').trim().toLowerCase();
-    const filt=qq?list.filter(c=>(c.title+' '+c.intro+' '+c.steps.map(s=>s.t+' '+s.d).join(' ')).toLowerCase().includes(qq)):list;
+    const filt=qq?list.filter(c=>ctext(c).includes(qq)):list;
     return filt.map(c=>'<button class="btn small" style="display:block;width:100%;text-align:left;margin:0 0 4px" onclick="openManual(\''+c.id+'\')">'+c.icon+' '+esc(c.title)+'</button>').join('')||'<div class="empty">Asnjë kapitull s\'u gjet</div>';
   }
   window.openManual=function(id){
@@ -10058,7 +10177,7 @@ try{const basePO=printOnly;printOnly=function(elementId,title){if(elementId!=='r
   window.manualSearch=function(q){
     const side=document.getElementById('mbSide');if(side)side.innerHTML=sidebarHtml(q);
     const qq=(q||'').trim().toLowerCase();
-    if(qq){const hit=CH.filter(vis).find(c=>(c.title+' '+c.steps.map(s=>s.t+' '+s.d).join(' ')).toLowerCase().includes(qq));
+    if(qq){const hit=CH.filter(vis).find(c=>ctext(c).includes(qq));
       const body=document.getElementById('mbBody');if(body&&hit)body.innerHTML=chapterHtml(hit);}
   };
   window.manualSaveNote=function(id){
@@ -10067,30 +10186,52 @@ try{const basePO=printOnly;printOnly=function(elementId,title){if(elementId!=='r
     toast('Shënimi u ruajt');openManual(id);
   };
   window.manualPrint=function(){
-    const list=CH.filter(vis);
-    const html='<div id="manualSheet"><h1 style="margin:0 0 2px;font-family:Georgia,serif">Manuali i përdorimit — BioBes</h1>'
-      +'<div style="font-size:11px;color:#445;margin-bottom:10px">Shtypur më '+esc(new Date().toLocaleString('sq-AL'))+' · '+list.length+' kapituj</div>'
-      +list.map(c=>'<section style="margin:0 0 12px;page-break-inside:avoid"><h2 style="font-size:14px;margin:0 0 4px">'+c.icon+' '+esc(c.title)+'</h2>'
-        +(c.intro?'<p style="font-size:10.5px;margin:0 0 4px;color:#445">'+esc(c.intro)+'</p>':'')
-        +'<ol style="margin:0;padding-left:16px;font-size:10.5px">'+c.steps.map(s=>'<li style="margin:0 0 3px"><b>'+esc(s.t)+'.</b> '+esc(s.d)+'</li>').join('')+'</ol>'
-        +(c.tip?'<p style="font-size:10px;margin:3px 0 0;color:#276846">💡 '+esc(c.tip)+'</p>':'')
-        +((state.manualNotes||{})[c.id]?'<p style="font-size:10px;margin:3px 0 0;color:#8a6d1a">Shënim: '+esc(state.manualNotes[c.id])+'</p>':'')
-        +'</section>').join('')+'</div>';
-    let host=document.getElementById('mbPrintHost');if(!host){host=document.createElement('div');host.id='mbPrintHost';host.style.cssText='position:fixed;left:-10000px;top:0;width:190mm';document.body.appendChild(host)}
-    host.innerHTML=html;
-    printOnly('manualSheet','Manuali i përdorimit BioBes');
-    setTimeout(()=>{try{host.innerHTML=''}catch(e){}},2000);
+    const list=CH.filter(vis);if(!list.length)return toast('Asnjë kapitull i disponueshëm');
+    const toc=list.map((c,x)=>'<tr><td style="width:7mm;color:#667;text-align:right;padding-right:2mm">'+(x+1)+'</td><td>'+c.icon+' '+esc(c.title)+'</td><td style="color:#667">'+c.steps.length+' hapa</td></tr>').join('');
+    const sheet='<div id="manualSheet">'
+      +'<div style="border-bottom:2px solid #1d5c38;padding-bottom:6px;margin-bottom:10px"><h1 style="margin:0;font-family:Georgia,serif;font-size:20px">Manuali i përdorimit — BioBes ERP</h1>'
+      +'<div style="font-size:10px;color:#445;margin-top:3px">Shtypur më '+esc(new Date().toLocaleString('sq-AL'))+' · '+list.length+' kapituj · Për përdorim të brendshëm</div></div>'
+      +'<section class="mb-toc"><h2 style="font-size:13px;margin:0 0 4px">Përmbajtja</h2><table style="border:0">'+toc+'</table></section>'
+      +list.map((c,x)=>'<section><h2>'+(x+1)+'. '+c.icon+' '+esc(c.title)+'</h2>'
+        +(c.intro?'<p class="mbi">'+esc(c.intro)+'</p>':'')
+        +'<ol>'+c.steps.map(s=>'<li><b>'+esc(s.t)+'.</b> '+esc(s.d)+'</li>').join('')+'</ol>'
+        +(c.fields&&c.fields.length?'<table class="mbf"><tr><th style="width:34mm">Fusha</th><th>Çfarë shkruhet / përse</th></tr>'+c.fields.map(f=>'<tr><td><b>'+esc(f.k)+'</b></td><td>'+esc(f.v)+'</td></tr>').join('')+'</table>':'')
+        +(c.warn?'<p class="mbw">⚠ '+esc(c.warn)+'</p>':'')
+        +(c.tip?'<p class="mbt">💡 '+esc(c.tip)+'</p>':'')
+        +((state.manualNotes||{})[c.id]?'<p class="mbn">Shënim i kompanisë: '+esc(state.manualNotes[c.id])+'</p>':'')
+        +'</section>').join('')
+      +'<div style="text-align:center;color:#667;margin-top:14px">— Fundi i manualit —</div></div>';
+    let host=document.getElementById('mbPrintHost');if(!host){host=document.createElement('div');host.id='mbPrintHost';document.body.appendChild(host)}
+    host.innerHTML=sheet;
+    let st=document.getElementById('mbPrintCSS');if(!st){st=document.createElement('style');st.id='mbPrintCSS';document.head.appendChild(st)}
+    st.textContent='#mbPrintHost{position:fixed;left:-10000px;top:0;width:190mm}'
+      +'@media print{'
+      +'body.mb-printing{background:#fff!important}'
+      +'body.mb-printing > *:not(#mbPrintHost){display:none!important}'
+      +'#mbPrintHost{position:static!important;left:0!important;top:0!important;width:100%!important;display:block!important}'
+      +'@page{size:A4 portrait;margin:14mm}'
+      +'#manualSheet{font-family:system-ui,"Segoe UI",Arial;color:#111;font-size:10.5px;line-height:1.45}'
+      +'#manualSheet h1{font-size:20px}'
+      +'#manualSheet h2{font-size:13px;margin:10px 0 4px;border-bottom:1px solid #bcd7c6;padding-bottom:2px;page-break-after:avoid}'
+      +'#manualSheet li{margin:0 0 3px;page-break-inside:avoid}'
+      +'#manualSheet ol{margin:4px 0;padding-left:16px}'
+      +'#manualSheet section.mb-toc{page-break-after:always}'
+      +'#manualSheet table{border-collapse:collapse;width:100%;font-size:9.5px}'
+      +'#manualSheet td,#manualSheet th{border:0.2mm solid #9ab;padding:2px 4px;text-align:left;vertical-align:top}'
+      +'#manualSheet table[style*=border] td,#manualSheet table[style*=border] th{border:0}'
+      +'#manualSheet .mbf{margin:4px 0}'
+      +'#manualSheet .mbw{color:#a12622;background:#fdecea;border:0.2mm solid #e5b5b2;padding:3px 5px;margin:4px 0}'
+      +'#manualSheet .mbt{color:#276846;margin:4px 0}'
+      +'#manualSheet .mbn{color:#8a6d1a;background:#fff8e8;padding:3px 5px;margin:4px 0}'
+      +'#manualSheet .mbi{color:#445;margin:0 0 4px}'
+      +'}';
+    const done=()=>{document.body.classList.remove('mb-printing');window.removeEventListener('afterprint',done);setTimeout(()=>{try{host.innerHTML=''}catch(e){}},400)};
+    window.addEventListener('afterprint',done);
+    document.body.classList.add('mb-printing');
+    setTimeout(()=>{try{window.focus();window.print()}catch(e){done();toast('Printimi dështoi: '+e.message)}},60);
+    setTimeout(done,120000);
   };
-  try{const basePO=printOnly;printOnly=function(elementId,title){if(elementId!=='manualSheet')return basePO.apply(this,arguments);
-    let el=document.getElementById(elementId);if(!el)return toast('Manuali nuk u gjet');
-    let css='@page{size:A4 portrait;margin:14mm} html,body{background:#fff;margin:0;padding:0;font-family:system-ui,Segoe UI,Arial;color:#111} #manualSheet{width:100%} #manualSheet h1{font-size:19px} #manualSheet h2{font-size:13px;border-bottom:1px solid #bcd7c6;padding-bottom:2px} #manualSheet section{page-break-inside:avoid}';
-    let old=document.getElementById('biobesPrintFrame');if(old)old.remove();
-    let frame=document.createElement('iframe');frame.id='biobesPrintFrame';frame.title='Dokumenti për printim';frame.style.cssText='position:fixed;width:0;height:0;border:0;right:0;bottom:0';document.body.appendChild(frame);
-    frame.contentDocument.open();frame.contentDocument.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title||'Manual')+'</title><style>'+css+'</style></head><body>'+el.outerHTML+'<\/body></html>');frame.contentDocument.close();
-    frame.contentWindow.addEventListener('afterprint',()=>frame.remove(),{once:true});
-    setTimeout(()=>{if(frame.isConnected){try{frame.contentWindow.focus();frame.contentWindow.print()}catch(e){}}},350);
-    setTimeout(()=>{if(frame.isConnected)frame.remove()},60000);
-  };window.printOnly=printOnly}catch(e){console.error('manual print',e)}
+
   /* ---------- turni interaktiv ---------- */
   let ti=-1;
   function tourEnd(ok){ti=-1;const ov=document.getElementById('mbTour');if(ov)ov.remove();
