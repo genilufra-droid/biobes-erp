@@ -545,7 +545,7 @@ weightCard=function(id){let x=state.weighings.find(y=>y.id===id);if(!x)return;mo
 exportWeightDocumentXlsx=function(id){let x=state.weighings.find(y=>y.id===id),sup=by('suppliers',x.supplier),p=by('products',x.product),wid=x.weighingWarehouse||state.lots.find(l=>l.weighing===x.id)?.warehouse||defaultWarehouseId(),wh=by('warehouses',wid),data=x.bagRows||x.weights.map((g,i)=>({bags:i===0?x.bags:0,gross:g,tare:x.tares?.[i]||0})),rows=[];rows.push(xr(1,xc('A1','BioBes',4)+xc('B1','FLETË-PESHIMI',3)+xc('D1','Dokumenti: '+x.id,2),30));rows.push(xr(2,xc('A2','Bimë medicinale dhe aromatike\nNIPT: L43904401I · Fier, Shqipëri',1)+xc('B2',(wh.name||'MAGAZINA').toUpperCase(),4)+xc('D2','Data: '+x.date+'\nStatusi: '+x.status,1),30));rows.push(xr(3,xc('A3','PIKA E PESHIMIT: '+(wh.name||'Magazina').toUpperCase(),2),24));rows.push(xr(4,xc('A4','Furnitori: '+sup.name,2)+xc('C4','Kodi FR: '+sup.code,2),21));rows.push(xr(5,xc('A5','Produkti: '+p.code+' — '+p.name,2)+xc('C5','Adresa/Zona: '+(sup.address||sup.region||''),2),21));rows.push(xr(6,xc('A6','Personi përgjegjës: '+(x.receiver||''),2)+xc('C6','Zbritja faturuese: '+(x.discount||0)+'%',2),21));rows.push(xr(7,xc('A7','NR. THASËVE',2)+xc('B7','PESHA BRUTO KG',2)+xc('C7','AMBALAZHI KG',2)+xc('D7','PESHA NETO KG',2),30));let r=8;data.forEach(d=>{rows.push(xr(r,xc('A'+r,d.bags||'',1)+xc('B'+r,d.gross,7,'n')+xc('C'+r,d.tare,7,'n')+xc('D'+r,d.gross-d.tare,7,'n'),20));r++});rows.push(xr(r,xc('A'+r,x.bags,6,'n')+xc('B'+r,x.gross,8,'n')+xc('C'+r,x.tare,8,'n')+xc('D'+r,x.net,8,'n'),24));let totalRow=r;r+=2;rows.push(xr(r,xc('A'+r,'Personi përgjegjës\nEmër / Firmë\n__________________',9)+xc('C'+r,'Furnitori / Dorëzuesi\nEmër / Firmë\n__________________',9),55));r++;rows.push(xr(r,xc('A'+r,'Dokument i gjeneruar nga BioBes ERP',0)+xc('D'+r,x.id+' · '+x.date,0),16));let merges=[`A1:A2`,`B1:C1`,`B2:C2`,`A3:D3`,`A4:B4`,`C4:D4`,`A5:B5`,`C5:D5`,`A6:B6`,`C6:D6`,`A${r-1}:B${r-1}`,`C${r-1}:D${r-1}`];let sheet=`<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews><cols><col min="1" max="1" width="20" customWidth="1"/><col min="2" max="4" width="22" customWidth="1"/></cols><sheetData>${rows.join('')}</sheetData><mergeCells count="${merges.length}">${merges.map(m=>`<mergeCell ref="${m}"/>`).join('')}</mergeCells><printOptions horizontalCentered="1"/><pageMargins left="0.3" right="0.3" top="0.35" bottom="0.35" header="0" footer="0"/><pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0"/></worksheet>`;advancedXlsx(x.id+'-FLETE-PESHIMI-'+(wh.code||'MAG')+'.xlsx',sheet,'D'+r,false,7)}
 </script>
 <script>
-function confirmExistingWeight(id){let x=state.weighings.find(y=>y.id===id);if(!x)return;if(x.status==='Konfirmuar')return toast('Peshimi është konfirmuar më parë');if(x.status==='Anuluar')return toast('Peshimi i anuluar nuk mund të konfirmohet');if(!x.supplier||!x.product||!x.weighingWarehouse||!x.bagRows?.length)return toast('Dokumenti nuk është i plotë');if(!(x.gross>0)||!((+x.net||0)>0))return toast('Peshimi ka peshë të pavlefshme (bruto/tara) dhe nuk konfirmohet');if(!confirm('Të konfirmohet peshimi? Do të krijohet loti dhe draft-fatura e blerjes.'))return;let lot=state.lots.find(l=>l.weighing===id);if(!lot){let p=by('products',x.product),sup=by('suppliers',x.supplier),wid=x.weighingWarehouse||defaultWarehouseId(),rack=state.racks.find(r=>r.warehouse===wid),r=coreConfirmWeighing(id,{id:uid('L'),code:`B1${sup.code||sup.id}-${p.code}-${String(new Date(x.date).getFullYear()).slice(-2)}`,supplier:x.supplier,product:x.product,warehouse:wid,rack:rack?.id||'',unitCost:0});if(!r.ok)return toast(r.error);lot=r.record;}state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Konfirmim peshimi',ref:id,text:`${id} u konfirmua; u krijua loti ${lot.code}`});syncPurchaseDrafts();save();closeModal();render();toast('U konfirmua. Draft-fatura u krijua te Faturat e Blerjes')}
+function confirmExistingWeight(id){let x=state.weighings.find(y=>y.id===id);if(!x)return;if(x.status==='Konfirmuar')return toast('Peshimi është konfirmuar më parë');if(x.status==='Anuluar')return toast('Peshimi i anuluar nuk mund të konfirmohet');if(!x.supplier||!x.product||!x.weighingWarehouse||!x.bagRows?.length)return toast('Dokumenti nuk është i plotë');if(!(x.gross>0)||!((+x.net||0)>0))return toast('Peshimi ka peshë të pavlefshme (bruto/tara) dhe nuk konfirmohet');if(!confirm('Të konfirmohet peshimi? Do të krijohet loti dhe draft-fatura e blerjes.'))return;let lot=state.lots.find(l=>l.weighing===id);if(!lot){let p=by('products',x.product),sup=by('suppliers',x.supplier),wid=x.weighingWarehouse||defaultWarehouseId(),rack=state.racks.find(r=>r.warehouse===wid),r=coreConfirmWeighing(id,{id:uid('L'),code:(window.lotCodeAuto?window.lotCodeAuto(sup.id):'')||`B1${sup.code||sup.id}-${p.code}-${String(new Date(x.date).getFullYear()).slice(-2)}`,lotParts:window.__lcLastParts||undefined,supplier:x.supplier,product:x.product,warehouse:wid,rack:rack?.id||'',unitCost:0});if(!r.ok)return toast(r.error);lot=r.record;}state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Konfirmim peshimi',ref:id,text:`${id} u konfirmua; u krijua loti ${lot.code}`});syncPurchaseDrafts();save();closeModal();render();toast('U konfirmua. Draft-fatura u krijua te Faturat e Blerjes')}
 weightActions=function(id){let x=state.weighings.find(y=>y.id===id),confirmCard=x.status==='Draft'?`<div class="app" onclick="confirmExistingWeight('${id}')" style="border-color:#63a987"><i>✓</i><b>Konfirmo</b><small>Krijo lot dhe draft-faturë</small></div>`:'';modal('Veprime — '+id,`<div class="apps" style="grid-template-columns:repeat(2,minmax(120px,1fr))">${confirmCard}<div class="app" onclick="closeModal();setTimeout(()=>weightCard('${id}'),80)"><i>◉</i><b>Hap</b></div><div class="app" onclick="closeModal();setTimeout(()=>printWeight('${id}'),80)"><i>▤</i><b>Printo</b></div><div class="app" onclick="closeModal();setTimeout(()=>editWeight('${id}'),80)"><i>✎</i><b>Modifiko</b></div><div class="app" onclick="closeModal();setTimeout(()=>duplicateWeight('${id}'),80)"><i>⧉</i><b>Dubliko</b></div><div class="app" onclick="closeModal();setTimeout(()=>cancelWeight('${id}'),80)"><i>⊘</i><b>Anulo</b></div><div class="app" onclick="closeModal();setTimeout(()=>deleteWeight('${id}'),80)" style="color:#b63c46"><i>⌫</i><b>Fshi</b></div></div>`,`<button class="btn" onclick="closeModal()">Mbyll</button>`)}
 const weightCardBeforeConfirm=weightCard;weightCard=function(id){weightCardBeforeConfirm(id);let x=state.weighings.find(y=>y.id===id);if(x?.status==='Draft')modalFoot.insertAdjacentHTML('afterbegin',`<button class="btn primary" onclick="confirmExistingWeight('${id}')">✓ Konfirmo & krijo lotin</button>`)}
 </script>
@@ -2032,7 +2032,7 @@ const backupPermissionBase=backup;backup=function(){if(!requirePermission('backu
 function atomicTransaction(label,fn){let snapshot=clone(state);try{let r=fn();if(r&&r.ok===false)throw new Error(r.error||label+' dështoi');return r}catch(e){state=snapshot;securityAudit?.('TRANSACTION_ROLLBACK',label+': '+e.message);return coreResult(false,e.message)}}
 function coreCancelDocument(type,id,reason){if(!String(reason||'').trim())return coreResult(false,'Arsyeja e anulimit është e detyrueshme');let map={weighing:'weighings',purchase:'purchaseInvoices',sale:'salesInvoices',shipment:'shipments',payment:'payments',receipt:'customerPayments',bank:'bankTransactions'},a=state[map[type]]||[],x=a.find(z=>z.id===id);if(!x)return coreResult(false,'Dokumenti nuk u gjet');if(x.status==='Anuluar')return coreResult(true,'',x);return atomicTransaction('Anulim '+type+' '+id,()=>{let moves=stockMoves().filter(m=>m.sourceId===id&&!m.reversalOf);moves.forEach(m=>{let lot=by('lots',m.lot),qty=-(+m.qty||0);coreMove({key:'REV:'+m.key,type:qty>=0?'IN':'OUT',source:'reversal',sourceId:id,lot:m.lot,product:m.product,warehouse:m.warehouse,qty,unitCost:m.unitCost,reversalOf:m.id,date:new Date().toISOString().slice(0,10),testRunId:x.testRunId});if(lot?.id&&qty){let _preAv=lotAvail(lot);lot.net=(+lot.net||0)+qty;lot.availableNet=_preAv+qty}});let entries=ensureAccounting().entries.filter(e=>e.sourceRef===id&&e.status==='Postuar'&&!e.reversalOf);entries.forEach(e=>{if(ensureAccounting().entries.some(z=>z.reversalOf===e.id))return;ensureAccounting().entries.push({id:uid('JE'),number:'VK-REV-'+String(ensureAccounting().entries.length+1).padStart(5,'0'),sourceKey:'reversal:'+e.sourceKey,date:new Date().toISOString().slice(0,10),journal:e.journal,description:'Kundërveprim '+id,sourceRef:id,reversalOf:e.id,status:'Postuar',testRunId:x.testRunId,lines:e.lines.map(l=>({account:l.account,debit:l.credit,credit:l.debit}))})});x.status='Anuluar';x.cancelReason=reason;x.cancelledAt=new Date().toISOString();state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Anulim me kundërveprim',ref:id,text:reason});return coreResult(true,'',x)})}
 /* The remaining operational forms now enter through the shared core. */
-saveWeighRows=function(confirmIt){try{let rows=getWeighRows(),file=$file('wFile'),data={id:nextSeqId('PS',(state.weighings||[]),1,new Date().getFullYear()),date:$val('wDate',new Date().toISOString().slice(0,10)),supplier:$val('wSupplier'),product:$val('wProduct'),weighingWarehouse:$val('wWarehouse',defaultWarehouseId()),receiver:$val('wReceiver','Admin'),discount:$num('wDiscount',0),bagRows:rows,status:'Draft'};let execute=(payload,type,name)=>{let r=atomicTransaction('Peshim',()=>{let z=coreCreateWeighing(data);if(!z.ok)return z;if(payload)Object.assign(z.record,{attachmentData:payload,attachmentType:type,attachment:name});if(confirmIt){let p=by('products',data.product),sup=by('suppliers',data.supplier),rack=(state.racks||[]).find(x=>x.warehouse===data.weighingWarehouse),lot=coreConfirmWeighing(z.record.id,{id:uid('L'),code:`B1${sup.code}-${p.code}-${String(new Date(data.date).getFullYear()).slice(-2)}`,supplier:sup.id,product:p.id,warehouse:data.weighingWarehouse,rack:rack?.id||'',unitCost:0,testRunId:data.testRunId});if(!lot.ok)return lot}return z});if(!r.ok)return toast(r.error);save();closeModal();render();toast(confirmIt?'Peshimi dhe hyrja e stokut u konfirmuan':'Drafti u ruajt')};if(file)readAsData(file,x=>execute(x,file.type,file.name));else execute('','','')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
+saveWeighRows=function(confirmIt){try{let rows=getWeighRows(),file=$file('wFile'),data={id:nextSeqId('PS',(state.weighings||[]),1,new Date().getFullYear()),date:$val('wDate',new Date().toISOString().slice(0,10)),supplier:$val('wSupplier'),product:$val('wProduct'),weighingWarehouse:$val('wWarehouse',defaultWarehouseId()),receiver:$val('wReceiver','Admin'),discount:$num('wDiscount',0),bagRows:rows,status:'Draft'};let execute=(payload,type,name)=>{let r=atomicTransaction('Peshim',()=>{let z=coreCreateWeighing(data);if(!z.ok)return z;if(payload)Object.assign(z.record,{attachmentData:payload,attachmentType:type,attachment:name});if(confirmIt){let p=by('products',data.product),sup=by('suppliers',data.supplier),rack=(state.racks||[]).find(x=>x.warehouse===data.weighingWarehouse),lot=coreConfirmWeighing(z.record.id,{id:uid('L'),code:(window.lotCodeAuto?window.lotCodeAuto(sup.id):'')||`B1${sup.code}-${p.code}-${String(new Date(data.date).getFullYear()).slice(-2)}`,lotParts:window.__lcLastParts||undefined,supplier:sup.id,product:p.id,warehouse:data.weighingWarehouse,rack:rack?.id||'',unitCost:0,testRunId:data.testRunId});if(!lot.ok)return lot}return z});if(!r.ok)return toast(r.error);save();closeModal();render();toast(confirmIt?'Peshimi dhe hyrja e stokut u konfirmuan':'Drafti u ruajt')};if(file)readAsData(file,x=>execute(x,file.type,file.name));else execute('','','')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
 addShipment=function(){try{let data={id:nextSeqId('NG',(state.shipments||[]),1,new Date().getFullYear()),date:$val('shDate',new Date().toISOString().slice(0,10)),order:$val('shOrder'),customer:$val('shCustomer'),plate:$val('shPlate'),carrier:$val('shCarrier'),seal:$val('shSeal'),net:$num('shNet',0),gross:$num('shGross',0),bags:$num('shBags',0),pallets:$num('shPallets',0)},r=atomicTransaction('Krijim ngarkese',()=>coreCreateShipment(data));if(!r.ok)return toast(r.error);['Commercial Invoice','Packing List','CMR','Certifikatë fitosanitare','Certifikatë origjine','EUR.1'].forEach((t,i)=>state.documents.push({id:uid('D')+'-'+i,shipment:r.record.id,type:t,number:'',date:r.record.date,status:i<2?'Draft':'Mungon'}));save();closeModal();render();toast('Ngarkesa u krijua si Planifikuar')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
 saveReceipt=function(){try{let data={id:$val('rNo').trim(),date:$val('rDate',new Date().toISOString().slice(0,10)),customer:$val('rCustomer'),invoice:$val('rInvoice'),method:$val('rMethod','Cash'),amount:$num('rAmount',0),currency:$val('rCurrency','ALL'),rate:$num('rRate',1),description:$val('rDescription'),createdAt:new Date().toISOString(),createdBy:(typeof activeUser==='function'?activeUser()?.id:null)||(typeof currentRole==='function'?currentRole():'admin')},r=atomicTransaction('Arkëtim klienti',()=>coreCustomerReceipt(data));if(!r.ok)return toast(r.error);if(r.record.status==='Konfirmuar'){try{coreAccountingSync(r.record.testRunId||'')}catch(_e){}}state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Mandat arkëtimi',ref:r.record.id,text:`${fmt2(r.record.amount)} ${r.record.currency}`});save();closeModal();render();setTimeout(()=>receiptCard(r.record.id,true),80);toast('Mandati i arkëtimit u ruajt')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
 function coreBankTransaction(data,confirmIt){if(!data.id||!data.bankAccount||!(data.amount>0))return coreResult(false,'Banka dhe shuma pozitive janë të detyrueshme');if(bankTransactions().some(x=>x.id===data.id))return coreResult(false,'Numri i veprimit bankar ekziston');let x={...data,status:confirmIt?'Konfirmuar':'Draft'};bankTransactions().push(x);if(confirmIt)createBankAccountingDraft(x);return coreResult(true,'',x)}
@@ -6275,7 +6275,7 @@ function confirmExistingWeightNoBags(id){
   if(!lot){
     let p=by('products',x.product), sup=by('suppliers',x.supplier);
     let wid=x.weighingWarehouse||defaultWarehouseId(), rack=state.racks.find(r=>r.warehouse===wid);
-    let r=coreConfirmWeighing(id,{id:uid('L'),code:'B1'+(sup.code||sup.id)+'-'+p.code+'-'+String(new Date(x.date).getFullYear()).slice(-2),supplier:x.supplier,product:x.product,warehouse:wid,rack:(rack&&rack.id)||'',unitCost:0});
+    let r=coreConfirmWeighing(id,{id:uid('L'),code:(window.lotCodeAuto?window.lotCodeAuto(sup.id):'')||'B1'+(sup.code||sup.id)+'-'+p.code+'-'+String(new Date(x.date).getFullYear()).slice(-2),lotParts:window.__lcLastParts||undefined,supplier:x.supplier,product:x.product,warehouse:wid,rack:(rack&&rack.id)||'',unitCost:0});
     if(!r||!r.ok) return toast((r&&r.error)||'Konfirmimi dështoi');
     lot=r.record;
   }else{
@@ -7745,7 +7745,7 @@ function sdWarehouseName(id){let w=by('warehouses',id);return w&&w.id?(w.code?w.
 function sdRackName(id){let r=by('racks',id);return r&&r.id?r.code+(r.name?' '+r.name:''):'—'}
 function sdProductLabel(id){let p=by('products',id);return p&&p.id?(p.code?p.code+' — ':'')+p.name:'—'}
 function sdSupplierLabel(id){let s=by('suppliers',id);return s&&s.id?(s.code?s.code+' — ':'')+s.name:''}
-function sdLotCode(sup,prod,date){let s=by('suppliers',sup),p=by('products',prod),base='B1'+(s&&(s.code||s.id)||'FH')+'-'+(p&&p.code||'000')+'-'+String(new Date(date||today()).getFullYear()).slice(-2);if(!(state.lots||[]).some(l=>l&&l.code===base))return base;let i=2,c;do{c=base+'/'+i;i++}while((state.lots||[]).some(l=>l&&l.code===c));return c}
+function sdLotCode(sup,prod,date){let __z=window.lotCodeAuto?window.lotCodeAuto(sup):'';if(__z)return __z;let s=by('suppliers',sup),p=by('products',prod),base='B1'+(s&&(s.code||s.id)||'FH')+'-'+(p&&p.code||'000')+'-'+String(new Date(date||today()).getFullYear()).slice(-2);if(!(state.lots||[]).some(l=>l&&l.code===base))return base;let i=2,c;do{c=base+'/'+i;i++}while((state.lots||[]).some(l=>l&&l.code===c));return c}
 function sdProductCost(prod){let p=by('products',prod)||{};try{if(typeof historicalProductCost==='function'){let c=+historicalProductCost(prod,today());if(c>0)return c}}catch(e){}return +p.purchasePrice||0}
 function sdLotWac(lotId){let l=by('lots',lotId);if(!l||!l.id)return 0;if(+l.unitCost>0)return +l.unitCost;try{let q=0,v=0;stockMoves().forEach(m=>{if(m&&m.product===l.product&&m.status!=='Anuluar'&&+m.qty>0&&+m.unitCost>0){q+=+m.qty;v+=(+m.qty)*(+m.unitCost)}});if(q>0)return r2(v/q)}catch(e){}return sdProductCost(l.product)}
 function sdAvailableLots(warehouse,product){return (state.lots||[]).filter(l=>l&&l.id&&(!warehouse||l.warehouse===warehouse)&&(!product||l.product===product)&&!/anul|bllok/i.test(String(l.status||''))&&lotAvail(l)>0.0005)}
@@ -9718,6 +9718,184 @@ try{const basePO=printOnly;printOnly=function(elementId,title){if(elementId!=='r
   if(typeof rtApply==='function')rtApply();
 }catch(e){console.error('rack-print-btn',e)}},0)}})();
 </script>
+<script id="biobes-lot-code-v1">
+/* Kodi i lotit sipas skemës zyrtare BioBES (SHPJEGIMI I KODIT):
+   B + shifra e llojit (0-9) + zona (M01-M12 / K00-K17 / S01-S12 / W01… / A01…)
+   + ndarja e blerësit (0-9) + periudha e vjeljes (I/II/III) + ndarja e produktit (/1-/9).
+   Shembull: B1K07-4-II/3
+   - Regjistrat e zonave/personave mbushen nga dokumenti dhe menaxhohen nga ekrani i menaxhimit.
+   - Furnitori mund të ketë zonën + ndarjen e vet (paracaktim); te peshimi çdo pjesë ndryshohet.
+   - Nëse asnjë zonë s'është caktuar, mbetet skema e vjetër (përputhshmëri prapa). */
+(function(){
+  const LLOTJET={0:'Hyrje konvencionale',1:'Hyrje organike',2:'Dalje organike',3:'Dalje konvencionale',4:'Mbetje',5:'Kalim nga bio në konvencionale',6:'Gjendja aktuale e produktit',7:'Kthim në origjinë',8:'Kalim në organik',9:'Kalim për vaj (konvencional)'};
+  const KINDS={M:'Zona të kultivuara konvencionale (qarqe)',K:'Zona të kultivuara organike',S:'Mbledhje spontane konvencionale (qarqe)',W:'Mbledhje spontane organike',A:'Blerje nga të tretë (persona)'};
+  function seed(){
+    if(state.lotZones&&state.lotZones.length)return;
+    const qarku=['Berat','Dibër','Durrës','Elbasan','Fier','Gjirokastër','Korçë','Kukës','Lezhë','Shkodër','Tiranë','Vlorë'];
+    const Z=[];const add=(code,kind,name)=>Z.push({id:'LZ-'+code,kind:kind,code:code,name:name,active:true});
+    qarku.forEach((q,i)=>{const nn=String(i+1).padStart(2,'0');add('M'+nn,'M','Qarku '+q);add('S'+nn,'S','Mbledhje spontane konvencionale — Qarku '+q)});
+    add('K00','K','Produkt i kaluar në konvencional nga organikja');
+    [['K01','Mertish Lushnje — Komuna Gradisht (Shenja e Dhimitrit)'],['K02','Sopëz Lushnje — Komuna Gradishtë (P. Caire Qeve)'],['K03','Progri — Bashkia Peqin'],['K04','Poliçan — Bashkia Poliçan, rrethi Berat'],['K05','Sopes Gradishtë — Bashkia Divjakë'],['K06','Matjanaj Lushnje — Bashkia Lushnje (Përcellim)'],['K07','Lekaj Lushnje — Bashkia Lushnje (Dardha e Rrapit)'],['K08','Remas — Bashkia Divjakë (Blloku i Zarikut)'],['K09','Xeng, Dushk Peqin'],['K10','Ervis Velo, Mertish'],['K11','Gazment Gjermeni, Pushimi i Shoferit'],['K12','Hilli Velo, Mertish'],['K13','Lorenc Peqini, Sopës'],['K14','Zenun Korreshi, Lushnje'],['K15','Mina Stasa, Remas Lushnje'],['K16','Vangjel Maka, Kemishtaj'],['K17','Jetror Katillari, Vale, Skrapar']].forEach(x=>add(x[0],'K',x[1]));
+    add('W01','W','Çepan, Skrapar');add('W03','W','Dushk Peqin, Lushnje');add('W04','W','Tepelenë');
+    [['A01','Dashnor Lame'],['A02','Gjovalin Popaj'],['A03','Zyber Gjoni'],['A04','Avni Progmi'],['A05','Ilir Shtylla'],['A06','Myrto Cankaj'],['A07','Ardjan Lulaj'],['A08','ATC'],['A09','Alban Brahimi'],['A10','Edis Osmani'],['A11','Ersoj Strana'],['A12','Bert Xhaja'],['A13','Arion Gorka'],['A14','Agro Map'],['A15','Odisea Mastora']].forEach(x=>add(x[0],'A',x[1]));
+    state.lotZones=Z;
+    state.lotPeriods=[{code:'I',name:'Periudha e parë e vjeljes'},{code:'II',name:'Periudha e dytë e vjeljes'},{code:'III',name:'Periudha e tretë e vjeljes'}];
+    save();
+  }
+  window.lotZonesEnsure=seed;
+  window.lotZoneList=function(kind){seed();return (state.lotZones||[]).filter(z=>z&&z.active!==false&&(!kind||z.kind===kind))};
+  window.lotCodeBuild=function(p){return 'B'+(p.type||'0')+(p.zone||'')+'-'+(p.buyer||'0')+'-'+(p.period||'I')+'/'+(p.split||'1')};
+  function uniq(code){if(!(state.lots||[]).some(l=>l&&l.code===code))return code;let i=2,c;do{c=code+'-'+i;i++}while((state.lots||[]).some(l=>l&&l.code===c));return c}
+  /* Pjesët nga formulari i peshimit (nëse është i hapur), përndryshe nga furnitori */
+  function partsFromForm(){
+    const f=document.getElementById('lcZone');if(!f)return null;
+    if(document.getElementById('lcManual')&&document.getElementById('lcManual').checked){
+      const raw=(document.getElementById('lcCode')||{}).value||'';
+      return {manual:true,code:raw.trim()};
+    }
+    let zone=(f.value||'').trim();
+    if(zone){const z=(state.lotZones||[]).find(x=>x.code.toLowerCase()===zone.toLowerCase())||(state.lotZones||[]).find(x=>(x.name||'').toLowerCase()===zone.toLowerCase());zone=z?z.code:''}
+    if(!zone)return null;
+    return {type:((document.getElementById('lcType')||{}).value||'1').trim(),zone:zone,buyer:((document.getElementById('lcBuyer')||{}).value||'0').trim(),period:((document.getElementById('lcPeriod')||{}).value||'I').trim(),split:((document.getElementById('lcSplit')||{}).value||'1').trim()};
+  }
+  window.lotCodePartsFor=function(supId){
+    if(window.__lcSnap){const v=window.__lcSnap;window.__lcSnap=null;return v}
+    const p=partsFromForm();if(p!==null||document.getElementById('lcZone'))return p;
+    seed();
+    const s=by('suppliers',supId)||{};
+    if(!s.lotZone)return null;
+    return {type:'1',zone:s.lotZone,buyer:s.lotBuyer!=null?String(s.lotBuyer):'0',period:'I',split:'1'};
+  };
+  window.lotCodeAuto=function(supId){
+    seed();
+    const p=window.lotCodePartsFor(supId);
+    window.__lcLastParts=p&&!p.manual?p:null;
+    if(!p)return '';
+    if(p.manual)return p.code||'';
+    return uniq(window.lotCodeBuild(p));
+  };
+  /* ---------- fushat te formulari i peshimit ---------- */
+  function zoneOpts(sel){return Object.keys(KINDS).map(k=>'<optgroup label="'+esc(KINDS[k])+'">'+window.lotZoneList(k).map(z=>'<option value="'+esc(z.code)+'"'+(z.code===sel?' selected':'')+'>'+esc(z.code+' — '+z.name)+'</option>').join('')+'</optgroup>').join('')}
+  function refreshPreview(){
+    const pv=document.getElementById('lcPreview');if(!pv)return;
+    const man=document.getElementById('lcManual');const ci=document.getElementById('lcCode');
+    if(man&&man.checked){pv.textContent=(ci&&ci.value.trim())||'—';return}
+    const p=window.lotCodePartsFor((document.getElementById('wSupplier')||{}).value);
+    pv.textContent=p?window.lotCodeBuild(p):'(skema e vjetër — caktoni zonën)';
+  }
+  function injectFields(){
+    if(document.getElementById('lcZone'))return refreshPreview();
+    const anchor=(document.getElementById('wSupplier')||{}).closest?document.getElementById('wSupplier').closest('.field'):null;
+    if(!anchor)return;
+    const sup=by('suppliers',(document.getElementById('wSupplier')||{}).value)||{};
+    const div=document.createElement('div');div.className='field full';div.id='lcBox';
+    div.innerHTML='<label>Kodi i lotit (skema BioBES) — <span id="lcPreview" style="font-weight:800;color:#176b49"></span></label>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+      +'<input id="lcType" list="lcTypeList" style="width:170px" value="1" oninput="lcRefresh()" title="Lloji i veprimit">'
+      +'<datalist id="lcTypeList">'+Object.keys(LLOTJET).map(k=>'<option value="'+k+'" label="'+esc(LLOTJET[k])+'"></option>').join('')+'</datalist>'
+      +'<input id="lcZone" list="lcZoneList" style="width:250px" placeholder="Zona / fermeri…" oninput="lcRefresh()" title="Zona ose personi">'
+      +'<datalist id="lcZoneList">'+window.lotZoneList().map(z=>'<option value="'+esc(z.code)+'" label="'+esc(z.name)+'"></option>').join('')+'</datalist>'
+      +'<input id="lcBuyer" list="lcBuyerList" style="width:52px" value="'+String(sup.lotBuyer||'0')+'" oninput="lcRefresh()" title="Ndarja e blerësit 0-9">'
+      +'<datalist id="lcBuyerList">'+[0,1,2,3,4,5,6,7,8,9].map(d=>'<option value="'+d+'"></option>').join('')+'</datalist>'
+      +'<input id="lcPeriod" list="lcPeriodList" style="width:64px" value="I" oninput="lcRefresh()" title="Periudha e vjeljes">'
+      +'<datalist id="lcPeriodList">'+(state.lotPeriods||[{code:'I'},{code:'II'},{code:'III'}]).map(x=>'<option value="'+esc(x.code)+'"></option>').join('')+'</datalist>'
+      +'<input id="lcSplit" list="lcSplitList" style="width:56px" value="1" oninput="lcRefresh()" title="Ndarja e produktit 1-9">'
+      +'<datalist id="lcSplitList">'+[1,2,3,4,5,6,7,8,9].map(d=>'<option value="'+d+'"></option>').join('')+'</datalist>'
+      +'<label style="width:auto;display:flex;gap:4px;align-items:center"><input type="checkbox" id="lcManual" onchange="lcRefresh()"> me dorë</label>'
+      +'<input id="lcCode" style="width:150px;display:none" placeholder="p.sh. B1K07-4-II/3" oninput="lcRefresh()">'
+      +'<button type="button" class="btn small" onclick="lotZonesManager()">+ Shto zonë/fermer</button>'
+      +'</div>';
+    anchor.insertAdjacentElement('afterend',div);
+    const wS=document.getElementById('wSupplier');
+    if(wS&&!wS.dataset.lcHook){wS.dataset.lcHook='1';wS.addEventListener('change',()=>{const s=by('suppliers',wS.value)||{};const z=document.getElementById('lcZone');if(z)z.value=s.lotZone||'';const b=document.getElementById('lcBuyer');if(b)b.value=String(s.lotBuyer||'0');refreshPreview()})}
+    refreshPreview();
+  }
+  window.lcRefresh=function(){
+    const man=document.getElementById('lcManual');const ci=document.getElementById('lcCode');
+    if(ci)ci.style.display=man&&man.checked?'':'none';
+    refreshPreview();
+  };
+  try{const wfB=window.weighForm;window.weighForm=function(){const r=wfB.apply(this,arguments);setTimeout(()=>{try{if(document.getElementById('wSupplier'))injectFields()}catch(e){}},0);return r}}catch(e){console.error('lot-code weighForm',e)}
+  try{const lwB=window.loadWeightIntoForm;window.loadWeightIntoForm=function(){const r=lwB.apply(this,arguments);setTimeout(()=>{try{if(document.getElementById('wSupplier'))injectFields()}catch(e){}},0);return r}}catch(e){}
+  /* ---------- kapja e pjesëve para se formulari të mbyllet ---------- */
+  try{const swB=window.saveWeighRows;window.saveWeighRows=function(ci){try{if(ci&&document.getElementById('lcZone'))window.__lcSnap=partsFromForm()}catch(e){}return swB.apply(this,arguments)}}catch(e){console.error('lot-code saveWeighRows',e)}
+  /* ---------- ekrani i menaxhimit të zonave/personave ---------- */
+  window.lotZonesManager=function(){
+    if(!requirePermission('warehouse','edit'))return;
+    seed();
+    const rows=(state.lotZones||[]).map(z=>[z.code,KINDS[z.kind]||z.kind,esc(z.name),'<button class="btn small" onclick="lotZoneEdit(\''+z.id+'\')">Ndrysho</button> <button class="btn small" onclick="lotZoneDelete(\''+z.id+'\')">Fshi</button>']);
+    modal('Zonat dhe personat e kodeve të loteve',
+      '<div class="form-grid"><div class="field"><label>Lloji</label><select id="lzKind">'+Object.keys(KINDS).map(k=>'<option value="'+k+'">'+k+' — '+esc(KINDS[k])+'</option>').join('')+'</select></div>'
+      +'<div class="field"><label>Kodi</label><input id="lzCode" placeholder="p.sh. A16"></div>'
+      +'<div class="field full"><label>Emri / përshkrimi</label><input id="lzName" placeholder="p.sh. Fermer i ri, Lushnje"></div>'
+      +'<div class="field full"><button class="btn primary" onclick="lotZoneAdd()">+ Shto në regjistër</button></div></div>'
+      +tableCard(['Kodi','Grupi','Emri',''],rows),
+      '<button class="btn" onclick="closeModal()">Mbyll</button>');
+  };
+  window.lotZoneAdd=function(){
+    const kind=(document.getElementById('lzKind')||{}).value||'A';
+    const code=((document.getElementById('lzCode')||{}).value||'').trim().toUpperCase();
+    const name=((document.getElementById('lzName')||{}).value||'').trim();
+    if(!code||!name)return toast('Kodi dhe emri janë të detyrueshme');
+    seed();
+    if((state.lotZones||[]).some(z=>z.code===code))return toast('Ky kod ekziston tashmë në regjistër');
+    state.lotZones.push({id:'LZ-'+code+'-'+Date.now(),kind:kind,code:code,name:name,active:true});save();
+    toast('Zona '+code+' u shtua');lotZonesManager();
+    const z=document.getElementById('lcZone');if(z){const cur=z.value;z.innerHTML='<option value="">Zona / fermeri…</option>'+zoneOpts(cur);refreshPreview()}
+  };
+  window.lotZoneEdit=function(id){
+    const z=(state.lotZones||[]).find(x=>x.id===id);if(!z)return;
+    modal('Ndrysho zonën '+z.code,'<div class="form-grid"><div class="field"><label>Kodi</label><input id="lzeCode" value="'+esc(z.code)+'"></div><div class="field full"><label>Emri</label><input id="lzeName" value="'+esc(z.name)+'"></div></div>',
+      '<button class="btn" onclick="lotZonesManager()">Anulo</button><button class="btn primary" onclick="lotZoneSave(\''+id+'\')">Ruaj</button>');
+  };
+  window.lotZoneSave=function(id){
+    const z=(state.lotZones||[]).find(x=>x.id===id);if(!z)return;
+    const code=((document.getElementById('lzeCode')||{}).value||'').trim().toUpperCase();
+    const name=((document.getElementById('lzeName')||{}).value||'').trim();
+    if(!code||!name)return toast('Kodi dhe emri janë të detyrueshme');
+    if((state.lotZones||[]).some(x=>x.code===code&&x.id!==id))return toast('Kodi ekziston tashmë');
+    const old=z.code;z.code=code;z.name=name;
+    (state.suppliers||[]).forEach(s=>{if(s.lotZone===old)s.lotZone=code});
+    save();toast('Zona u përditësua');lotZonesManager();
+  };
+  window.lotZoneDelete=function(id){
+    const z=(state.lotZones||[]).find(x=>x.id===id);if(!z)return;
+    if((state.suppliers||[]).some(s=>s.lotZone===z.code))return toast('Zona është caktuar te një furnitor — hiqeni atë herë të parë');
+    if((state.lots||[]).some(l=>(l.code||'').indexOf(z.code)>=0))return toast('Zona përdoret në kode lotesh ekzistuese — nuk fshihet');
+    state.lotZones=state.lotZones.filter(x=>x.id!==id);save();toast('Zona u fshi');lotZonesManager();
+  };
+  /* ---------- butoni te kartela e furnitorit: zona + ndarja e blerësit ---------- */
+  window.lotZoneSupplierForm=function(id){
+    if(!requirePermission('suppliers','edit'))return;
+    const s=by('suppliers',id);if(!s||!s.id)return toast('Furnitori nuk u gjet');
+    seed();
+    modal('Kodi i zonës së furnitorit — '+s.name,
+      '<p class="hint">Zona dhe ndarja e blerësit përdoren si paracaktim kur krijohet loti nga peshimet e këtij furnitori (skema BioBES).</p>'
+      +'<div class="form-grid"><div class="field full"><label>Zona / personi</label><select id="szZone"><option value="">— pa zonë (skema e vjetër) —</option>'+zoneOpts(s.lotZone||'')+'</select></div>'
+      +'<div class="field"><label>Ndarja e blerësit (0-9)</label><select id="szBuyer">'+[0,1,2,3,4,5,6,7,8,9].map(d=>'<option value="'+d+'"'+(String(s.lotBuyer||'0')===String(d)?' selected':'')+'>'+d+'</option>').join('')+'</select></div></div>',
+      '<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="lotZoneSupplierSave(\''+id+'\')">Ruaj</button>');
+  };
+  window.lotZoneSupplierSave=function(id){
+    const s=by('suppliers',id);if(!s||!s.id)return;
+    s.lotZone=(document.getElementById('szZone')||{}).value||'';
+    s.lotBuyer=(document.getElementById('szBuyer')||{}).value||'0';
+    save();closeModal();toast('Zona e furnitorit u ruajt');
+    try{supplierCard(id)}catch(e){}
+  };
+  try{const scB=window.supplierCard;window.supplierCard=function(id){scB.apply(this,arguments);setTimeout(()=>{try{
+    const foot=document.getElementById('modalFoot');if(!foot||foot.querySelector('#szZoneBtn'))return;
+    const b=document.createElement('button');b.type='button';b.className='btn';b.id='szZoneBtn';
+    b.setAttribute('onclick',"lotZoneSupplierForm('"+id+"')");b.textContent='⌗ Kodi i zonës';
+    foot.insertBefore(b,foot.querySelector('button')?foot.querySelector('button').nextSibling:null);
+    if(typeof rtApply==='function')rtApply();
+  }catch(e){}},0)}}catch(e){console.error('lot-code supplierCard',e)}
+  /* ---------- butoni te toolbar-i i Magazina & Raftet ---------- */
+  try{const wvB=views.warehouse;views.warehouse=function(){return wvB.apply(this,arguments).replace('<button class="btn" onclick="transferLotForm()">','<button class="btn" onclick="lotZonesManager()">⌗ Zonat e loteve</button><button class="btn" onclick="transferLotForm()">')}}catch(e){}
+  /* seed i vonuar: state mund të inicializohet pas këtij script-i */
+  try{if(typeof state!=='undefined'&&state)seed()}catch(e){}
+  document.addEventListener('DOMContentLoaded',()=>{try{seed()}catch(e){}});
+})();
+</script>
 <script id="biobes-rights-matrix-v1">
 /* BioBes ERP — Të drejtat me kuti (checkbox) për çdo modul, si në Vyapar/Odoo — v1
    Modeli:   rights.modules = { sales:['view','create','edit','confirm','cancel','delete','print'], ... }  (v2)
@@ -9803,7 +9981,7 @@ const G=[
  ['entityForm',a=>a[0]==='product'?'products':'suppliers','create'],['addProduct','products','create'],['addSupplier','suppliers','create'],['editEntity',typeMod,'edit'],['saveEditProduct','products','edit'],['saveEditSupplier','suppliers','edit'],['deleteEntity',typeMod,'delete'],['supplierEditForm','suppliers','edit'],['saveSupplierEdit','suppliers','edit'],['exportSuppliersXls','suppliers','print'],['exportProductsXls','products','print'],['productFormV2','products',idEdit],['saveProductV2','products',idEdit],['supplierCard','suppliers','view'],['productCard','products','view'],['openProductArticleCard','products','view'],
  ['simpleForm',typeMod,'create'],['addSimple',typeMod,'create'],
  /* magazina / lotet */
- ['transferLotForm','warehouse','edit'],['openLotTransfer','warehouse','edit'],['saveLotTransfer','warehouse','edit'],['inventoryForm','warehouse','edit'],['confirmInventory','warehouse','edit'],['inventoryStockConfig','warehouse','edit'],['saveInventoryStockConfig','warehouse','edit'],['rackCard','warehouse','view'],['printLotLabel','lots','print'],['lotCard','lots','view'],['rackCardPrint','warehouse','print'],['bankCsvQuickSupplier','suppliers','create'],['bankCsvQuickCustomer','customers','create'],
+ ['transferLotForm','warehouse','edit'],['openLotTransfer','warehouse','edit'],['saveLotTransfer','warehouse','edit'],['inventoryForm','warehouse','edit'],['confirmInventory','warehouse','edit'],['inventoryStockConfig','warehouse','edit'],['saveInventoryStockConfig','warehouse','edit'],['rackCard','warehouse','view'],['printLotLabel','lots','print'],['lotCard','lots','view'],['rackCardPrint','warehouse','print'],['bankCsvQuickSupplier','suppliers','create'],['bankCsvQuickCustomer','customers','create'],['lotZonesManager','warehouse','edit'],['lotZoneAdd','warehouse','edit'],['lotZoneEdit','warehouse','edit'],['lotZoneSave','warehouse','edit'],['lotZoneDelete','warehouse','edit'],['lotZoneSupplierForm','suppliers','edit'],['lotZoneSupplierSave','suppliers','edit'],
  /* përpunimi */
  ['processForm','processing','create'],['addProcess','processing','create'],['machineEditForm','processing','edit'],['saveMachineEdit','processing','edit'],['machineStatusForm','processing','edit'],['saveMachineStatus','processing','edit'],['machineDelete','processing','delete'],['machineDeleteConfirm','processing','delete'],['createProcessFromOrder','processing','create'],['processCard','processing','view'],['machineCard','processing','view'],
  /* paketimi */
