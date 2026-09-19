@@ -9344,9 +9344,10 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
         W.rows=parsed.rows.map((r,i)=>{
           const key=importKey(W.accountId,r);
           const dup=seen.has(key)||inFile.has(key);inFile.add(key);
-          const cands=dup?[]:matchCandidates(r);
-          return{row:r,key:key,dup:dup,include:!dup,type:guessType(r),
-            match:cands[0]||null,candidates:cands,matchWhy:cands[0]?cands[0].why:''};
+          const cands=dup?[]:matchCandidates(r);const gt=guessType(r);
+          return{row:r,key:key,dup:dup,include:!dup,type:gt,
+            match:cands[0]||null,candidates:cands,matchWhy:cands[0]?cands[0].why:'',
+            plan:planDefault(Object.assign({},r,{type:gt}),cands[0]||null)};
         });
         bankCsvRenderReview();
       }catch(e){console.warn(VERSION,e&&e.message);toast('Gabim gjatë leximit: '+e.message)}
@@ -9385,7 +9386,12 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
         +'<td style="padding:4px 6px;max-width:340px"><span title="'+esc(r.row.description)+'">'+esc(r.row.description.slice(0,64))+(r.row.description.length>64?'…':'')+'</span></td>'
         +'<td style="padding:4px 6px;text-align:right;white-space:nowrap;color:'+(r.row.amount<0?'#b63c46':'#1e7e34')+'"><b>'+fmt2(Math.abs(r.row.amount))+'</b></td>'
         +'<td style="padding:4px 6px"><select onchange="bankCsvType('+i+',this.value)">'+Object.keys({customerReceipt:1,supplierPayment:1,transfer:1,fee:1,tax:1,otherIn:1,otherOut:1}).map(t=>'<option value="'+t+'" '+(r.type===t?'selected':'')+'>'+typeLabel(t)+'</option>').join('')+'</select></td>'
-        +'<td style="padding:4px 6px">'+(r.dup?'<span class="hint">ekziston tashmë (u kapërcye)</span>':'<select onchange="bankCsvMatch('+i+',this.value)">'+opts+'</select>'+(r.match&&r.matchWhy?'<br><span class="hint">pse: '+esc(r.matchWhy)+'</span>':''))+'</td></tr>';
+        +'<td style="padding:4px 6px">'+(r.dup?'<span class="hint">ekziston tashmë (u kapërcye)</span>':'<select onchange="bankCsvMatch('+i+',this.value)">'+opts+'</select>'+(r.match&&r.matchWhy?'<br><span class="hint">pse: '+esc(r.matchWhy)+'</span>':'')
+        +'<div style="margin-top:5px;border-top:1px dashed #dfe6e2;padding-top:4px"><span class="hint">Regjistrim:</span><br><select onchange="bankCsvPlan('+i+',&quot;kind&quot;,this.value)">'+Object.keys(PLAN_LABEL).map(k=>'<option value="'+k+'" '+(((r.plan)||{}).kind===k?'selected':'')+'>'+PLAN_LABEL[k]+'</option>').join('')+'</select>'
+        +((((r.plan)||{}).kind==='payment')?'<br><select style="margin-top:2px" onchange="bankCsvPlan('+i+',&quot;party&quot;,this.value)"><option value="">— zgjidh furnitorin —</option>'+partyOpts('payment',(r.plan||{}).party)+'</select>':'')
+        +((((r.plan)||{}).kind==='receipt')?'<br><select style="margin-top:2px" onchange="bankCsvPlan('+i+',&quot;party&quot;,this.value)"><option value="">— zgjidh klientin —</option>'+partyOpts('receipt',(r.plan||{}).party)+'</select>':'')
+        +((((r.plan)||{}).kind==='expense')?'<br><select style="margin-top:2px" onchange="bankCsvPlan('+i+',&quot;cat&quot;,this.value)"><option value="">— zgjidhni kategorinë —</option>'+catOpts((r.plan||{}).cat)+'</select>':'')
+        +'<br><span class="hint">'+PLAN_CHIP[((r.plan)||{}).kind||'bank']+'</span></div>')+'</td></tr>';
     });
     h+='</tbody></table></div></div>';
     box.innerHTML=h;syncButtons();
@@ -9412,6 +9418,36 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
     if(on&&!isAdmin())return toast('Vetëm administratori mund të pranojë mospërputhjen');
     W.override=!!on;syncButtons()};
 
+  /* ---------- 3b) përhapja automatike: një regjistrim → kudo ---------- */
+  const EX=()=>window.__biobesExpenses||null;
+  function catOpts(sel){try{const cs=(EX()&&EX().categories?EX().categories(true):[])||[];
+    return cs.map(c=>'<option value="'+esc(c.id)+'" '+(sel===c.id?'selected':'')+'>'+esc(c.id+' — '+c.name)+'</option>').join('')}catch(e){return ''}}
+  function partyOpts(kind,sel){const list=kind==='payment'?(state.suppliers||[]):(state.customers||[]);
+    return list.map(x=>'<option value="'+esc(x.id)+'" '+(sel===x.id?'selected':'')+'>'+esc(x.name)+'</option>').join('')}
+  function planDefault(row,match){
+    if(match){
+      if(match.kind==='payment'||match.kind==='receipt')return{kind:'none'};
+      if(match.kind==='supplier')return{kind:'payment',party:match.id};
+      if(match.kind==='customer')return{kind:'receipt',party:match.id};
+      if(match.kind==='purchase'){const f=(typeof purchaseInvoices==='function'?purchaseInvoices():[]).find(x=>x.id===match.id);return{kind:'payment',party:f?f.supplier:'',invoice:match.id}}
+      if(match.kind==='sale'){const f=(typeof salesInvoices==='function'?salesInvoices():[]).find(x=>x.id===match.id);return{kind:'receipt',party:f?f.customer:'',invoice:match.id}}
+      return{kind:'none'};
+    }
+    if(row.type==='supplierPayment'){const sp=supplierByName(row.counterpart.name);if(sp)return{kind:'payment',party:sp.id}}
+    if(row.type==='customerReceipt'){const cu=customerByName(row.counterpart.name);if(cu)return{kind:'receipt',party:cu.id}}
+    if(row.type==='tax'||row.type==='fee')return{kind:'expense',cat:''};
+    return{kind:'bank'};
+  }
+  const PLAN_LABEL={bank:'Vetëm veprim bankar',none:'Vetëm lidhje me dokumentin',payment:'Pagesë MP- + kartela + VK',receipt:'Mandat MA- + kartela + VK',expense:'Shpenzim + VK'};
+  const PLAN_CHIP={bank:'Krijon: vetëm veprimin bankar',none:'Krijon: asgjë të re (lidh vetëm)',payment:'Krijon: mandat-pagesë · kartela e furnitorit · VK',receipt:'Krijon: mandat-arkëtim · kartela e klientit · VK',expense:'Krijon: shpenzim · VK'};
+  window.bankCsvPlan=function(i,k,v){if(!W||!W.rows[i])return;const pl=W.rows[i].plan||(W.rows[i].plan={kind:'bank'});
+    if(k==='kind'){pl.kind=v;
+      if(v==='payment'&&!pl.party){const sp=supplierByName(W.rows[i].row.counterpart.name);pl.party=sp?sp.id:''}
+      if(v==='receipt'&&!pl.party){const cu=customerByName(W.rows[i].row.counterpart.name);pl.party=cu?cu.id:''}
+      if(v==='expense'&&pl.cat===undefined)pl.cat=''}
+    else pl[k]=v;
+    bankCsvRenderReview()};
+
   /* ---------- 4) ruajtja ---------- */
   function nextBankTxId(){const y=new Date().getFullYear();let n=(typeof bankTransactions==='function'?bankTransactions():[]).length+1,id;
     do{id='VB-'+y+'-'+String(n).padStart(5,'0');n++}while((typeof bankTransactions==='function'?bankTransactions():[]).some(x=>x.id===id));return id}
@@ -9432,8 +9468,12 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
     if(!acc)return toast('Zgjidhni llogarinë bankare');
     const c=W.parsed.checks,bad=c.balanceOk===false||c.debitOk===false||c.creditOk===false;
     if(bad&&!W.override)return toast('Vlerat e extract-it nuk përputhen — shënoni pranomin e mospërputhjes');
+    const bad2=W.rows.filter(r=>r.include&&!r.dup&&r.plan&&r.plan.kind==='expense'&&!r.plan.cat);
+    if(bad2.length)return toast('Zgjidhni kategorinë e shpenzimit për '+bad2.length+' rresht(a) me plan "Shpenzim"');
+    const bad3=W.rows.filter(r=>r.include&&!r.dup&&r.plan&&(r.plan.kind==='payment'&&!r.plan.party||r.plan.kind==='receipt'&&!r.plan.party));
+    if(bad3.length)return toast('Zgjidhni subjektin për '+bad3.length+' rresht(a) me plan pagesë/mandat');
     const list=typeof bankTransactions==='function'?bankTransactions():[];
-    const created=[],confirmed=[];
+    const created=[],confirmed=[],spread=[];
     W.rows.filter(r=>r.include&&!r.dup).forEach(r=>{
       const meta=bankTypeMeta(r.type)||['out','','468'];
       const link=resolveMatch(r);
@@ -9449,11 +9489,43 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
       if(r.partyOverride)x.bankCounterpart=r.partyOverride;
       list.push(x);created.push(x);
       if(confirmMatched&&link){x.status='Konfirmuar';try{createBankAccountingDraft(x)}catch(e){console.warn(VERSION,e&&e.message)}confirmed.push(x)}
+      /* përhapja: dokumentet e reja nga i njëjti rresht */
+      const pl=r.plan||{kind:'bank'};x.postedPlan=pl.kind;
+      const amt=r2(Math.abs(r.row.amount)),role=(typeof currentRole==='function'?currentRole():'admin');
+      if(!r.dup&&pl.kind==='payment'&&pl.party){
+        const dupPay=(state.payments||[]).some(pp=>pp.supplier===pl.party&&pp.date===x.date&&Math.abs((+pp.amount||0)-amt)<0.01);
+        if(!dupPay){const d={id:nextSeqId('MP',state.payments,1),date:x.date,supplier:pl.party,method:'Bankë',amount:amt,currency:x.currency,
+          exchangeRate:x.rate||1,note:'Nga extract '+(W.fileName||'')+(x.reference?', ref '+x.reference:''),invoice:pl.invoice||'',
+          status:confirmMatched?'Konfirmuar':'Draft',createdAt:new Date().toISOString(),createdBy:role};
+          const res=(typeof atomicTransaction==='function')?atomicTransaction('Pagesë nga extract',()=>coreSupplierPayment(d)):coreSupplierPayment(d);
+          if(res&&res.ok!==false){x.postedDoc=d.id;spread.push(d.id);
+            state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Mandat pagesë',ref:d.id,text:fmt2(amt)+' '+x.currency+', furnitori '+((by('suppliers',pl.party)||{}).name||pl.party)+' (nga extracti)'});
+            if(confirmMatched){try{coreAccountingSync('')}catch(e){console.warn(VERSION,e&&e.message)}}}}
+      }else if(!r.dup&&pl.kind==='receipt'&&pl.party){
+        const dupRec=(typeof customerPayments==='function'?customerPayments():[]).some(pp=>pp.customer===pl.party&&pp.date===x.date&&Math.abs((+pp.amount||0)-amt)<0.01);
+        if(!dupRec){const d={id:nextSeqId('MA',customerPayments(),1),date:x.date,customer:pl.party,invoice:pl.invoice||'',method:'Bankë',amount:amt,currency:x.currency,
+          rate:x.rate||1,description:'Nga extract '+(W.fileName||'')+(x.reference?', ref '+x.reference:''),
+          status:confirmMatched?'Konfirmuar':'Draft',createdAt:new Date().toISOString(),createdBy:role};
+          const res=(typeof atomicTransaction==='function')?atomicTransaction('Arkëtim nga extract',()=>coreCustomerReceipt(d)):coreCustomerReceipt(d);
+          if(res&&res.ok!==false){x.postedDoc=d.id;spread.push(d.id);
+            state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Mandat arkëtim',ref:d.id,text:fmt2(amt)+' '+x.currency+', klienti '+((by('customers',pl.party)||{}).name||pl.party)+' (nga extracti)'});
+            if(confirmMatched){try{coreAccountingSync('')}catch(e){console.warn(VERSION,e&&e.message)}}}}
+      }else if(!r.dup&&pl.kind==='expense'&&pl.cat&&EX()){
+        const ex=EX();
+        const d={id:uid('EX'),number:ex.nextNumber(x.date),date:x.date,category:pl.cat,item:'',supplierId:'',
+          payee:r.partyOverride||r.row.counterpart.name||x.bankCounterpart||'',invoiceNo:x.reference||'',
+          description:(r.row.description||'').slice(0,200),method:'bank',bankAccount:acc.id,vatRate:0,deductible:false,
+          net:amt,vat:0,total:amt,status:'Draft',createdAt:new Date().toISOString(),createdBy:role,updatedAt:new Date().toISOString()};
+        const verr=ex.validate(d,d.id);
+        if(verr){toast('Shpenzimi u kapërcye: '+verr)}
+        else{ex.docs().push(d);x.postedDoc=d.id;spread.push(d.number);
+          if(confirmMatched){try{(window.confirmExpense||ex.confirm)(d.id)}catch(e){console.warn(VERSION,e&&e.message)}}}
+      }
     });
     state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Import extract bankar',ref:acc.code,
       text:W.fileName+': '+created.length+' veprime bankare ('+confirmed.length+' të konfirmuara me VK), '+W.rows.filter(r=>r.dup).length+' dublikate të kapërcyera'+(bad?' · mospërputhje e pranuar nga admini':'')});
     save();closeModal();render();
-    toast(created.length+' veprime u ruajtën'+(confirmed.length?' dhe '+confirmed.length+' u konfirmuan me VK':'')+' · Banka → Veprimet Bankare');
+    toast(created.length+' veprime u ruajtën'+(confirmed.length?' dhe '+confirmed.length+' u konfirmuan me VK':'')+(spread.length?' · u përhapën '+spread.length+' dokumente (MP/MA/SHP)':'')+' · Banka → Veprimet Bankare');
     W=null;
   };
 
