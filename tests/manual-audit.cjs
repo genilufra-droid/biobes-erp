@@ -26,6 +26,12 @@ const {open}=require('./helpers.cjs'),assert=require('node:assert/strict');
    assert.ok(depth.grp&&depth.grp.steps.length>=6,'kapitulli i peshimit të grupuar mangët');
    assert.ok(depth.warn>=8,'kapitujt pa kuti kujdesje: '+depth.warn);
    assert.ok(depth.fields>=4,'kapitujt me fusha formulari shumë pak: '+depth.fields);
+   const shots=await ev(()=>({n:Object.keys(window.MB_SHOTS||{}).length,keys:Object.keys(window.MB_SHOTS||{})}));
+   assert.ok(shots.n>=6,'pamjet e ekranit mangët: '+shots.n);
+   await ev(()=>openManual('peshimet'));await p.waitForTimeout(300);
+   assert.equal(await p.locator('#mbBody details summary:has-text("pamjen e ekranit")').count(),1,'kutia 📷 mungon te kapitulli i peshimit');
+   const img=await ev(()=>{const d=document.querySelector('#mbBody details');return d?d.querySelector('img').src.slice(0,23):''});
+   assert.equal(img,'data:image/jpeg;base64,','foto nuk është e ngulitur');
  });
 
  await step('Kërkimi filtron kapitujt dhe gjen "extract" te Banka',async()=>{
@@ -71,6 +77,7 @@ const {open}=require('./helpers.cjs'),assert=require('node:assert/strict');
    assert.equal(st.cls,true,'trupi nuk ka klasën mb-printing gjatë printimit');
    assert.match(st.host,/Manuali i përdorimit/);assert.match(st.host,/Përmbajtja/);
    assert.ok(st.host.length>6000,'fleta e manualit shumë e shkurtër: '+st.host.length);
+   assert.match(st.host,/<img/,'fotot e ekranit mungojnë në printin e manualit');
    assert.match(st.css,/@page\{size:A4 portrait/);
    await p.emulateMedia({media:'print'});
    const vis=await ev(()=>{const kids=[...document.body.children].filter(x=>!['mbPrintHost'].includes(x.id)&&!['STYLE','SCRIPT','LINK'].includes(x.tagName));
