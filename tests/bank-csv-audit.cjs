@@ -70,6 +70,17 @@ const CSV_POST=HEAD+
 const CSV_POST2=HEAD+
  '1,07.02.2026,"60185134322 FLAMUR GURI FERMER (0000785821)","P260207POST05 LIKUJDIM PJESSHEM 60185134322",,P260207POST05,Payment,07.02.2026,"-80000 ALL",-5080000\n'+
  FOOT(-5000000,-5080000,0,-80000);
+
+/* Formati i gushtit 2026: kodi dhe emri i përfituesit në KOLONA TË VEÇANTA
+   ("Reference Number" | "Beneficairy/Ordering name and account number"), qeli bosh me hapësira. */
+const CSV_SPLIT='Account: ,Account Name: ,Period: ,,,,,,,\n'
+ +'AL78202220060000000021158942,,"15.08.2026-""27.08.2026""",,,,,,,\n'
+ +'No,Value Date,Reference Number,Beneficairy/Ordering name and account number,Description,Reference,Transaction Type,Processing Date,Amount,Amount Total\n'
+ +',,,,,,,,,\n'
+ +'1,21.08.2026,60196215483,"AFRIM STRANA FERMER  (0002127523)","P260821AF36OP14 LIKUJDIM I PJESSHEM PER BLERJE BIME SH AROMATIKE 60196215483",P260821AF36OP14,Payment,21.08.2026,"-300000 ALL",-24018864.61\n'
+ +'2,20.08.2026,"                ","AL97214221060220281738020113 KOCI T AND L SHPK","P260820ACVAOP08 LIKUJDIM I PJESSHEM BORXHI PRAPAMBE TUR.60196151466",P260820ACVAOP08,XBEN,20.08.2026,"-170000 ALL",-23718864.61\n'
+ +'3,20.08.2026," ","mb financ BIOBES 1004215      ","mb financ BIOBES 1004215      ",314025,XBEN,20.08.2026,"13360 ALL",-23548864.61\n'
+ +'Previous Balance,Current Balance:,Debit sum:,Credit sum:\n-23718864.61,-24018864.61,13360,-470000\n';
 const CSV_ALL=HEAD+ALL_ROWS+FOOT(ALL_PREV,ALL_CUR,156250,-1449925);
 /* i prishur: shuma e rreshtit 3 ndryshon → bilanci nuk mbyllet */
 const CSV_BAD=HEAD+ALL_ROWS.replace('"-517825 ALL"','"-517820 ALL"')+FOOT(ALL_PREV,ALL_CUR,156250,-1449925);
@@ -87,6 +98,7 @@ const CSV_TWO=HEAD+
 (async()=>{
  fs.mkdirSync('.audit',{recursive:true});
  fs.writeFileSync('.audit/bank-real.csv',CSV_REAL);
+ fs.writeFileSync('.audit/bank-split.csv',CSV_SPLIT);
  fs.writeFileSync('.audit/bank-post.csv',CSV_POST);fs.writeFileSync('.audit/bank-post2.csv',CSV_POST2);
  fs.writeFileSync('.audit/bank-missing.csv',CSV_MISSING);
  fs.writeFileSync('.audit/bank-all.csv',CSV_ALL);fs.writeFileSync('.audit/bank-bad.csv',CSV_BAD);
@@ -246,6 +258,24 @@ const CSV_TWO=HEAD+
    assert.deepEqual(t,[{cp:'KOCI T AND L SHPK',miss:false,rec:true},
      {cp:'BIOBES financim i brendshëm',miss:false,rec:false},
      {cp:'AFRIM STRANA FERMER',miss:false,rec:false}]);
+ });
+ await step('Formati me kolona të ndara (gushti): emri i përfituesit lexohet nga kolona e emrit, jo kodi',async()=>{
+   await ev(()=>{try{closeModal()}catch(e){}});
+   await ev(()=>bankCsvWizard());await p.waitForTimeout(500);
+   await p.setInputFiles('#bcFile','.audit/bank-split.csv');await p.waitForTimeout(900);
+   const st=await ev(()=>{const W=window.__biobesBankCsv.state();return{checks:W.parsed.checks,
+     cp:W.rows.map(r=>({nm:r.row.counterpart.name,acc:r.row.counterpart.account,ib:r.row.counterpart.iban,miss:r.row.partyMissing}))}});
+   assert.equal(st.checks.balanceOk,true);assert.equal(st.checks.chainOk,true);
+   assert.deepEqual(st.cp[0],{nm:'AFRIM STRANA FERMER',acc:'60196215483',ib:'0002127523',miss:false});
+   assert.deepEqual(st.cp[1],{nm:'KOCI T AND L SHPK',acc:'',ib:'AL97214221060220281738020113',miss:false});
+   assert.equal(st.cp[2].nm,'mb financ BIOBES 1004215');assert.equal(st.cp[2].miss,false);
+   const rev=await p.locator('#bcReview').innerText();
+   assert.match(rev,/AFRIM STRANA FERMER/);assert.doesNotMatch(rev,/Kundërpalë[\s\S]{0,40}60196215483\n/);
+   await p.locator('#bcSave').click();await p.waitForTimeout(900);
+   const t=await ev(()=>{const x=bankTransactions().filter(y=>(y.source||'').includes('bank-split'))[0];
+     return{cp:x.bankCounterpart,subj:bankPartyName(x)}});
+   assert.equal(t.cp,'AFRIM STRANA FERMER');
+   assert.match(t.subj,/AFRIM STRANA FERMER/,'lista e Bankës tregon emrin, jo kodin');
  });
  await step('Printimi nga wizard-i: fleta A4 landscape me 18 rreshta, kreu dhe fundi i bankës',async()=>{
    await ev(()=>{window.__printCalls=[];const o=window.printOnly;window.printOnly=function(id,t){window.__printCalls.push([id,t]);return o.apply(this,arguments)}});
