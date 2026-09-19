@@ -18,7 +18,14 @@ const {open}=require('./helpers.cjs'),assert=require('node:assert/strict');
      body:(document.getElementById('mbBody')||{}).innerText||''}));
    assert.match(info.t,/Manuali i sistemit/);
    assert.ok(info.n>=15,'kapitujt e dukshëm janë vetëm '+info.n);
-   assert.match(info.body,/Fillimi i shpejtë/);
+   assert.match(info.body,/Hyrja dhe orientimi/);
+   const depth=await ev(()=>{const M=window.__biobesManual.chapters;return {n:M.length,steps:M.reduce((s,c)=>s+c.steps.length,0),
+     grp:M.find(c=>c.id==='peshim-grup'),warn:M.filter(c=>c.warn).length,fields:M.filter(c=>c.fields&&c.fields.length).length}});
+   assert.ok(depth.n>=26,'kapituj shumë pak: '+depth.n);
+   assert.ok(depth.steps>=140,'hapa gjithsej shumë pak: '+depth.steps);
+   assert.ok(depth.grp&&depth.grp.steps.length>=6,'kapitulli i peshimit të grupuar mangët');
+   assert.ok(depth.warn>=8,'kapitujt pa kuti kujdesje: '+depth.warn);
+   assert.ok(depth.fields>=4,'kapitujt me fusha formulari shumë pak: '+depth.fields);
  });
 
  await step('Kërkimi filtron kapitujt dhe gjen "extract" te Banka',async()=>{
@@ -26,7 +33,7 @@ const {open}=require('./helpers.cjs'),assert=require('node:assert/strict');
    const side=await ev(()=>(document.getElementById('mbSide')||{}).innerText||'');
    const body=await ev(()=>(document.getElementById('mbBody')||{}).innerText||'');
    assert.match(side,/Banka/);assert.ok(!/Fjalor/i.test(side),'kërkimi duhet të ngushtojë listën');
-   assert.match(body,/Extract-i CSV/);
+   assert.match(body,/extract-i CSV/i);
    await ev(()=>openManual('fillimi'));await p.waitForTimeout(250);
  });
 
@@ -54,14 +61,25 @@ const {open}=require('./helpers.cjs'),assert=require('node:assert/strict');
    assert.equal(await ev(()=>!!(state.manualTourDone||{})[(activeUser()||{}).id]),true,'përfundimi nuk u shënua');
  });
 
- await step('Printimi i manualit: iframe me @page A4 portrait dhe të gjithë kapitujt',async()=>{
-   await ev(()=>manualPrint());await p.waitForTimeout(200);
-   const fr=await ev(()=>{const f=document.getElementById('biobesPrintFrame');if(!f)return null;
-     return {css:(f.contentDocument.querySelector('style')||{}).textContent||'',len:f.contentDocument.body.innerHTML.length,
-       has:f.contentDocument.body.innerHTML.includes('Manuali i përdorimit')}});
-   assert.ok(fr,'iframe-i i printimit mungon');
-   assert.match(fr.css,/@page\{size:A4 portrait/);
-   assert.equal(fr.has,true);assert.ok(fr.len>4000,'përmbajtja e printimit shumë e shkurtër: '+fr.len);
+ await step('Printimi i manualit: vetëm fleta A4 (app-i fshihet), me përmbajtje dhe të gjithë kapitujt',async()=>{
+   await ev(()=>{window.__mp=0;window.__op=window.print;window.print=()=>{window.__mp++}});
+   await ev(()=>manualPrint());await p.waitForTimeout(300);
+   const st=await ev(()=>({cls:document.body.classList.contains('mb-printing'),calls:window.__mp,
+     host:(document.getElementById('mbPrintHost')||{}).innerHTML||'',
+     css:(document.getElementById('mbPrintCSS')||{}).textContent||''}));
+   assert.equal(st.calls,1,'window.print nuk u thirr një herë: '+st.calls);
+   assert.equal(st.cls,true,'trupi nuk ka klasën mb-printing gjatë printimit');
+   assert.match(st.host,/Manuali i përdorimit/);assert.match(st.host,/Përmbajtja/);
+   assert.ok(st.host.length>6000,'fleta e manualit shumë e shkurtër: '+st.host.length);
+   assert.match(st.css,/@page\{size:A4 portrait/);
+   await p.emulateMedia({media:'print'});
+   const vis=await ev(()=>{const kids=[...document.body.children].filter(x=>!['mbPrintHost'].includes(x.id)&&!['STYLE','SCRIPT','LINK'].includes(x.tagName));
+     return {hidden:kids.every(x=>getComputedStyle(x).display==='none'),host:getComputedStyle(document.getElementById('mbPrintHost')).display}});
+   await p.emulateMedia({media:'screen'});
+   assert.equal(vis.hidden,true,'gjatë printimit elementi i app-it nuk fshihet');
+   assert.equal(vis.host,'block','fleta e manualit nuk shfaqet në print');
+   await ev(()=>{window.dispatchEvent(new Event('afterprint'));window.print=window.__op});await p.waitForTimeout(600);
+   assert.equal(await ev(()=>document.body.classList.contains('mb-printing')),false,'klasa e printimit nuk u pastrua');
  });
 
  await step('Përdorues i kufizuar: sheh vetëm kapitujt e moduleve me të drejtë + shënimin, pa textarea',async()=>{
@@ -74,7 +92,7 @@ const {open}=require('./helpers.cjs'),assert=require('node:assert/strict');
    await ev(()=>{try{closeModal()}catch(e){};go('dashboard')});await p.waitForTimeout(600);
    await ev(()=>{try{closeModal()}catch(e){};openManual()});await p.waitForTimeout(400);
    const side=await ev(()=>(document.getElementById('mbSide')||{}).innerText||'');
-   assert.match(side,/Fillimi i shpejtë/);assert.match(side,/Blerje & Peshime/);
+   assert.match(side,/Hyrja dhe orientimi/);assert.match(side,/Blerje & Peshime/);
    assert.ok(!/Banka/.test(side),'kapitulli i bankës s\'duhet të shfaqet pa të drejtë');
    assert.ok(!/Raportet/.test(side));
    await ev(()=>openManual('fillimi'));await p.waitForTimeout(300);
