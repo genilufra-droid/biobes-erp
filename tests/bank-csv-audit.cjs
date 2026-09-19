@@ -368,6 +368,30 @@ const CSV_TWO=HEAD+
    assert.ok(Math.abs(after.bal2-before.bal2)<0.01,'drafti nuk e prek kartelën');
    assert.ok(!after.vks.some(k=>k&&k.includes(after.pays[0].id)),'drafti nuk krijon VK');
  });
+ await step('"+ Shto si furnitor/klient" nga rreshti i bankës: krijon subjektin dhe e lidh rreshtin',async()=>{
+   await ev(()=>{state.bankTransactions=[];save();try{closeModal()}catch(e){};bankCsvWizard()});await p.waitForTimeout(500);
+   await p.setInputFiles('#bcFile','.audit/bank-split.csv');await p.waitForTimeout(900);
+   assert.ok(await p.locator('#modal button:has-text("+ Shto si furnitor")').count()>=2,'butonat e krijimit të shpejtë mungojnë');
+   assert.ok(await p.locator('#modal button:has-text("+ Shto si klient")').count()>=2);
+   const sup0=await ev(()=>state.suppliers.length),cus0=await ev(()=>state.customers.length);
+   await p.locator('#modal button:has-text("+ Shto si furnitor")').first().click();await p.waitForTimeout(400);
+   assert.equal(await ev(()=>(document.querySelector('.quick-create-bg #qcName')||{}).value||''),'AFRIM STRANA FERMER','emri nuk u paraplotësua');
+   await p.locator('#qcSave').click();await p.waitForTimeout(500);
+   const st=await ev(()=>{const W=window.__biobesBankCsv.state(),s=state.suppliers[state.suppliers.length-1];
+     return {n:state.suppliers.length,name:s.name,iban:s.iban||'',kind:W.rows[0].plan.kind,party:W.rows[0].plan.party,
+       match:W.rows[0].match&&W.rows[0].match.id,
+       sel:[...document.querySelectorAll('#bcReview select')].map(x=>x.value).find(v=>v&&v.indexOf('supplier:')===0)||''}});
+   assert.equal(st.n,sup0+1);assert.equal(st.name,'AFRIM STRANA FERMER');assert.equal(st.iban,'0002127523');
+   assert.equal(st.kind,'payment');assert.ok(st.party);assert.equal(st.match,st.party);
+   assert.equal(st.sel,'supplier:'+st.party,'select-i i çiftimit nuk e tregon subjektin e ri');
+   await p.locator('#modal button:has-text("+ Shto si klient")').nth(1).click();await p.waitForTimeout(400);
+   assert.equal(await ev(()=>(document.querySelector('.quick-create-bg #qcName')||{}).value||''),'KOCI T AND L SHPK');
+   await p.locator('#qcSave').click();await p.waitForTimeout(500);
+   const st2=await ev(()=>{const W=window.__biobesBankCsv.state();return {c:state.customers.length,kind:W.rows[1].plan.kind,party:W.rows[1].plan.party}});
+   assert.equal(st2.c,cus0+1);assert.equal(st2.kind,'receipt');assert.ok(st2.party);
+   await ev(()=>closeModal());
+ });
+
  await step('ROLE-USER pa të drejtën edit në Banka: butoni fshehet dhe wizard-i refuzohet',async()=>{
    await ev(async()=>{const h=await hashPassword('Prove-2026!');state.users.push({id:'U-BC',username:'bc-user',name:'Bankier',role:'ROLE-USER',active:true,
      passwordHash:h.hash,passwordSalt:h.salt,passwordIterations:h.iterations,mustChangePassword:false,rights:{v:2,modules:{banking:['view'],dashboard:['view']}}});
