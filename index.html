@@ -9189,6 +9189,7 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
   function parseCounterpart(cell){
     let s=trim(cell),iban='',acc='';
     let m=s.match(/\(([^)]+)\)\s*$/);if(m){iban=m[1];s=s.slice(0,m.index).trim()}
+    m=s.match(/^([A-Z]{2}\d{12,})\s+(.*)$/);if(m){iban=iban||m[1];s=m[2].trim()}
     m=s.match(/^(\d{6,})\s+(.*)$/);if(m){acc=m[1];s=m[2].trim()}
     return{name:s.replace(/\s+/g,' '),account:acc,iban:iban};
   }
@@ -9237,8 +9238,19 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
     const sum=r2(res.rows.reduce((a,r)=>a+r.amount,0));
     const debit=r2(res.rows.filter(r=>r.amount>0).reduce((a,r)=>a+r.amount,0));
     const credit=r2(res.rows.filter(r=>r.amount<0).reduce((a,r)=>a+r.amount,0));
-    res.checks={sum:sum,debit:debit,credit:credit,
-      balanceOk:isNaN(res.footer.prev)||isNaN(res.footer.current)?null:Math.abs(res.footer.prev+sum-res.footer.current)<0.05,
+    /* zinxhiri: saldi i rreshtit = saldi i rreshtit pasues + shuma e vet (extract me renditje zbritëse) */
+    let chainOk=null;const runs=res.rows.map(r=>r.running);
+    if(runs.every(v=>!isNaN(v))&&res.rows.length>1){chainOk=true;
+      for(let i=0;i<res.rows.length-1;i++){if(Math.abs(runs[i]-(runs[i+1]+res.rows[i].amount))>=0.05){chainOk=false;break}}}
+    const fPrev=res.footer.prev,fCur=res.footer.current;
+    const headOk=(!isNaN(fCur)&&!isNaN(runs[0])&&Math.abs(fCur-runs[0])<0.05)
+      &&(res.rows.length<2||isNaN(fPrev)||Math.abs(fPrev-(runs[0]-res.rows[0].amount))<0.05);
+    const flatOk=isNaN(fPrev)||isNaN(fCur)?null:Math.abs(fPrev+sum-fCur)<0.05;
+    let balanceOk;
+    if(isNaN(fPrev)||isNaN(fCur))balanceOk=(chainOk===false)?false:(chainOk===true?true:null);
+    else if(flatOk===true||(chainOk===true&&headOk))balanceOk=true;
+    else balanceOk=false;
+    res.checks={sum:sum,debit:debit,credit:credit,chainOk:chainOk,headOk:headOk||null,balanceOk:balanceOk,
       debitOk:isNaN(res.footer.debit)?null:Math.abs(res.footer.debit-debit)<0.05,
       creditOk:isNaN(res.footer.credit)?null:Math.abs(res.footer.credit-credit)<0.05};
     res.ok=true;return res;
@@ -9256,7 +9268,7 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
   function guessType(row){
     const t=(row.transaction||'').toUpperCase();
     if(/TAX|TATIM/.test(t))return 'tax';
-    if(/FEE|KOMISION|CARD|KART|SERVIC/.test(t))return 'fee';
+    if(/FEE|KOMISION|CARD|KART|SERVIC|CARP|PENALT|GJOB/.test(t))return 'fee';
     if(/TRANSFER/.test(t))return 'transfer';
     if(row.amount<0)return supplierByName(row.counterpart.name)?'supplierPayment':'otherOut';
     return customerByName(row.counterpart.name)?'customerReceipt':'otherIn';
@@ -9345,6 +9357,7 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
     let bad=c.balanceOk===false||c.debitOk===false||c.creditOk===false;
     let h='<div class="card" style="margin-top:12px"><h3>'+esc(W.fileName||'extract')+' — '+(m.accountName?esc(m.accountName)+' · ':'')+(m.account?esc(m.account)+' · ':'')+(acc.currency?esc(acc.currency):'')+'</h3>'
       +'<p class="hint">'+W.rows.length+' veprime të lexuara · <b>'+incN+'</b> për t’u ruajtur · <b>'+matchN+'</b> me çiftim të propozuar · <b>'+dupN+'</b> dublikate të kapërcyera</p>'
+      +'<p style="margin:4px 0"><button type="button" class="btn" onclick="bankCsvPrintParsed()">🖨 Printo A4 landscape</button> <span class="hint">i gjithë extract-i në një fletë, si origjinali i bankës</span></p>'
       +(acc.currency&&acc.currency!=='ALL'?'<p style="margin:6px 0"><label>Kursi i aplikuar (ALL për 1 '+esc(acc.currency)+') për shkrimet në kontabilitet: <input id="bcRate" style="width:90px" value="'+(W.rate||1)+'" onchange="bankCsvRate(this.value)"></label></p>':'')
       +'<p style="margin:6px 0">'+chk(c.balanceOk,'Bilanci: Previous + Σ = Current',fmt2(c.sum))
       +chk(c.debitOk,'Debit sum',fmt2(c.debit))+chk(c.creditOk,'Credit sum',fmt2(c.credit))+'</p>'
@@ -9426,6 +9439,94 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
     W=null;
   };
 
+  /* ---------- 6) printimi: extract-i në NJË faqe A4 landscape ---------- */
+  const compName=()=>{try{if(typeof company==='function')return (company()||{}).name||''}catch(e){}
+    try{if(typeof companyInfo==='function')return (companyInfo()||{}).name||''}catch(e){}
+    return (state&&state.settings&&(state.settings.companyName||state.settings.company))||''};
+  const dmyS=iso=>{iso=trim(iso);return /^\d{4}-\d{2}-\d{2}$/.test(iso)?iso.slice(8,10)+'.'+iso.slice(5,7)+'.'+iso.slice(0,4):iso};
+  const TX_TEXT={supplierPayment:'Payment',customerReceipt:'Payment',transfer:'TRANSFER',fee:'FEE',tax:'TAX',otherIn:'Payment',otherOut:'Payment'};
+  function stmtCss(){return '@page{size:A4 landscape;margin:6mm} html,body{background:#fff;margin:0;padding:0;font-family:system-ui,Segoe UI,Arial;color:#111}'
+    +'table.bs{border-collapse:collapse;width:100%;table-layout:fixed;font-size:7.5px;line-height:1.12}'
+    +'table.bs th,table.bs td{border:1px solid #888;padding:1px 2px;vertical-align:top;word-wrap:break-word;overflow:hidden}'
+    +'table.bs th{background:#e8e8e8;font-size:7px;text-align:left}td.num,th.num{text-align:right;white-space:nowrap}'
+    +'table.bshead{margin-bottom:2px}table.bshead td{padding:0 2px;font-size:8px}table.bshead b{font-size:8px}'
+    +'tr{page-break-inside:avoid}.bsfoot td{font-weight:700;background:#f0f0f0;font-size:7.5px}'
+    +'.bstitle{font-family:Georgia,serif;font-size:11px;margin:0 0 2px}.bssub{font-size:7.5px;color:#334;margin:0 0 3px}'}
+  function sheetWrap(title,sub,headCells,cols,rowsHtml,footCells){
+    /* kreu i llogarisë në tabelën e vet: te table-layout:fixed gjerësitë i përcakton rreshti i PARË,
+       prandaj tabela e veprimeve duhet ta nisë menjëherë me 9 kolonat e veta */
+    return '<div id="bankStmtSheet"><p class="bstitle">'+esc(title)+'</p><p class="bssub">'+esc(sub)+'</p>'
+      +'<table class="bs bshead"><tr>'+headCells.map(h=>'<td style="width:'+(100/headCells.length)+'%"><b>'+esc(h[0])+':</b> '+esc(h[1])+'</td>').join('')+'</tr></table>'
+      +'<table class="bs" id="bankStmtTable"><thead><tr>'+cols.map(c=>'<th class="'+(c.num?'num':'')+'" style="width:'+c.w+'">'+esc(c.h)+'</th>').join('')+'</tr></thead><tbody>'
+      +rowsHtml+'</tbody><tfoot><tr class="bsfoot">'+footCells.map(f=>'<td class="'+(f.num?'num':'')+'" colspan="'+(f.cs||1)+'">'+esc(f.t)+'</td>').join('')+'</tr></tfoot></table></div>';
+  }
+  const STMT_COLS=[{h:'No',w:'3%'},{h:'Value Date',w:'7%'},{h:'Reference Number / Beneficiary, Ordering name and account number',w:'22%'},{h:'Description',w:'34%'},{h:'Reference',w:'9%'},{h:'Transaction',w:'6%'},{h:'Processing Date',w:'7%'},{h:'Amount',w:'6%',num:true},{h:'Amount Total',w:'6%',num:true}];
+  function rowHtml(cells){return '<tr>'+cells.map((c,i)=>'<td class="'+(STMT_COLS[i].num?'num':'')+'">'+esc(c)+'</td>').join('')+'</tr>'}
+  function bankStmtPrint(html,title){
+    let host=$g('bankStmtHost');if(!host){host=document.createElement('div');host.id='bankStmtHost';host.style.cssText='position:fixed;left:-10000px;top:0;width:277mm';document.body.appendChild(host)}
+    host.innerHTML=html;
+    printOnly('bankStmtSheet',title);
+    setTimeout(()=>{try{host.innerHTML=''}catch(e){}},2500);
+  }
+  window.bankCsvPrintParsed=function(){
+    if(!requirePermission('banking','print'))return;
+    if(!W||!W.parsed||!W.parsed.ok)return toast('Lexoni fillimisht një extract');
+    const P=W.parsed,cur=((typeof bankAccounts==='function'?bankAccounts():[]).find(a=>a.id===W.accountId)||{}).currency||'';
+    const rows=P.rows.map(r=>rowHtml([String(r.no),r.valueDate?dmyS(r.valueDate):'',r.partyRaw,(r.description+(r.extra?' '+r.extra:'')),r.reference,r.transaction,r.processingDate?dmyS(r.processingDate):'',fmt2(r.amount)+(cur?' '+cur:''),isNaN(r.running)?'':fmt2(r.running)])).join('');
+    const html=sheetWrap((compName()||'BIOBES')+' — Extract bankar (replicë e origjinalit)',
+      'Skedari: '+(W.fileName||'')+' · shtypur '+new Date().toLocaleString('sq-AL'),
+      [['Account',P.meta.account||''],['Account Name',P.meta.accountName||''],['Period',P.meta.period||'']],STMT_COLS,rows,
+      [{t:'Previous Balance: '+fmt2(P.footer.prev),cs:2},{t:'Current Balance: '+fmt2(P.footer.current),cs:2},{t:'Debit sum: '+fmt2(P.checks.debit),cs:2,num:true},{t:'Credit sum: '+fmt2(P.checks.credit),cs:2,num:true},{t:'',cs:1}]);
+    bankStmtPrint(html,'Extract bankar '+(P.meta.account||''));
+  };
+  window.bankPrintStatement=function(){
+    if(!requirePermission('banking','print'))return;
+    const accounts=(typeof bankAccounts==='function'?bankAccounts():[]);
+    if(!accounts.length)return toast('Nuk ka llogari bankare');
+    modal('Extract për printim — 1 faqe A4 landscape',
+      '<div class="form-grid"><div class="field"><label>Llogaria bankare</label><select id="bspAccount">'+accounts.map(a=>'<option value="'+esc(a.id)+'">'+esc(a.code+' — '+a.bank+' — '+a.currency)+'</option>').join('')+'</select></div>'
+      +'<div class="field"><label>Nga data</label><input id="bspFrom" type="date"></div><div class="field"><label>Deri më datë</label><input id="bspTo" type="date"></div></div>'
+      +'<p class="hint">Tabela renditet si extract-i i bankës (më e reja lart) me saldën rrjedhëse; fundi tregon Previous/Current Balance dhe shumat Debit/Credit. Deri në ~45 rreshta për faqe.</p>',
+      '<button class="btn" onclick="closeModal()">Mbyll</button><button class="btn primary" onclick="bankPrintStatementGo()">🖨 Printo A4 landscape</button>');
+    setTimeout(()=>{try{globalizeAllSelects($g('modalBody'))}catch(e){}},30);
+  };
+  window.bankPrintStatementGo=function(){
+    const acc=(typeof bankAccounts==='function'?bankAccounts():[]).find(a=>a.id===(($g('bspAccount')||{}).value||''));
+    if(!acc)return toast('Zgjidhni llogarinë');
+    const from=($g('bspFrom')||{}).value||'',to=($g('bspTo')||{}).value||'';
+    const inPer=x=>(!from||x.valueDate>=from)&&(!to||x.valueDate<=to);
+    const all=(typeof bankTransactions==='function'?bankTransactions():[]).filter(x=>x.bankAccount===acc.id);
+    const per=all.filter(inPer).slice().sort((a,b)=>a.valueDate<b.valueDate?-1:a.valueDate>b.valueDate?1:(a.createdAt||'')<(b.createdAt||'')?-1:1);
+    if(!per.length)return toast('Nuk ka veprime në këtë periudhë');
+    const cut=from||per[0].valueDate;
+    let base=+acc.openingBalance||0;all.forEach(x=>{if(x.valueDate<cut)base+=(x.direction==='in'?x.amount:-x.amount)});base=r2(base);
+    let run=base;const asc=per.map(x=>{run=r2(run+(x.direction==='in'?x.amount:-x.amount));return{x:x,run:run}});
+    const desc=asc.slice().reverse();
+    const rows=desc.map((e,i)=>{const x=e.x;
+      const cp=x.bankCounterpart||(x.partyType==='supplier'?(by('suppliers',x.party)||{}).name:(x.partyType==='customer'?(by('customers',x.party)||{}).name:''))||'';
+      const iban=x.bankIban||(x.partyType==='supplier'?(by('suppliers',x.party)||{}).iban:(x.partyType==='customer'?(by('customers',x.party)||{}).iban:''))||'';
+      const party=(cp+(iban?' ('+iban+')':''))||'—';
+      return rowHtml([String(i+1),dmyS(x.valueDate),party,x.description||'',x.reference||'',TX_TEXT[x.type]||x.type,dmyS(x.date),(x.direction==='in'?fmt2(x.amount):'-'+fmt2(x.amount))+' '+x.currency,fmt2(e.run)])}).join('');
+    const deb=r2(per.filter(x=>x.direction==='in').reduce((a,x)=>a+x.amount,0));
+    const cred=r2(-per.filter(x=>x.direction==='out').reduce((a,x)=>a+x.amount,0));
+    const html=sheetWrap((compName()||'BIOBES')+' — Extract bankar',
+      'Llogaria: '+acc.code+' — '+acc.bank+' ('+acc.currency+') · periudha: '+((from?dmyS(from):'…')+' – '+(to?dmyS(to):'…'))+' · shtypur '+new Date().toLocaleString('sq-AL'),
+      [['Account',acc.iban||acc.code],['Account Name',compName()||''],['Period',(from?dmyS(from):'…')+' - '+(to?dmyS(to):'…')]],STMT_COLS,rows,
+      [{t:'Previous Balance: '+fmt2(base),cs:2},{t:'Current Balance: '+fmt2(run),cs:2},{t:'Debit sum: '+fmt2(deb),cs:2,num:true},{t:'Credit sum: '+fmt2(cred),cs:2,num:true},{t:'',cs:1}]);
+    closeModal();bankStmtPrint(html,'Extract bankar '+acc.code);
+  };
+  try{const basePO=printOnly;window.printOnly=function(elementId,title){
+    if(elementId!=='bankStmtSheet')return basePO.apply(this,arguments);
+    let el=$g(elementId);if(!el)return toast('Fleta nuk u gjet');
+    let css=stmtCss();
+    let old=$g('biobesPrintFrame');if(old)old.remove();
+    let frame=document.createElement('iframe');frame.id='biobesPrintFrame';frame.title='Extract-i për printim';frame.style.cssText='position:fixed;width:0;height:0;border:0;right:0;bottom:0';document.body.appendChild(frame);
+    frame.contentDocument.open();frame.contentDocument.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title||'Extract')+'</title><style>'+css+'</style></head><body>'+el.outerHTML+'<\/body></html>');frame.contentDocument.close();
+    frame.contentWindow.addEventListener('afterprint',()=>frame.remove(),{once:true});
+    setTimeout(()=>{if(frame.isConnected){try{frame.contentWindow.focus();frame.contentWindow.print()}catch(e){}}},350);
+    setTimeout(()=>{if(frame.isConnected)frame.remove()},60000);
+  }}catch(e){console.warn(VERSION,'printOnly',e&&e.message)}
+
   /* ---------- 5) butoni në Banka ---------- */
   const bankBase=views.banking;
   views.banking=function(){
@@ -9434,12 +9535,12 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
       if(h.indexOf('bankCsvOpenBtn')<0){
         const mark='Llogaritë Bankare</button></div>';
         const i=h.indexOf(mark);
-        if(i>=0)h=h.slice(0,i+mark.length-6)+'<button type="button" class="btn" id="bankCsvOpenBtn" data-right="banking:edit" onclick="bankCsvWizard()">⬆ Extract bankar (CSV)</button></div>'+h.slice(i+mark.length);
+        if(i>=0)h=h.slice(0,i+mark.length-6)+'<button type="button" class="btn" id="bankCsvOpenBtn" data-right="banking:edit" onclick="bankCsvWizard()">⬆ Extract bankar (CSV)</button><button type="button" class="btn" id="bankStmtPrintBtn" data-right="banking:print" onclick="bankPrintStatement()">🖨 Extract për printim (A4 landscape)</button></div>'+h.slice(i+mark.length);
       }
     }catch(e){console.warn(VERSION,e&&e.message)}
     return h;
   };
-  window.__biobesBankCsv={version:VERSION,parse:window.bankCsvParse,matchCandidates:matchCandidates,guessType:guessType,importKey:importKey,state:()=>W};
+  window.__biobesBankCsv={version:VERSION,parse:window.bankCsvParse,matchCandidates:matchCandidates,guessType:guessType,importKey:importKey,state:()=>W,css:stmtCss};
 })();
 </script>
 

@@ -4,7 +4,7 @@
 const {open}=require('./helpers.cjs');const assert=require('node:assert/strict');
 const fs=require('node:fs');
 let passed=0,failed=0;
-async function step(name,fn){try{await fn();passed++;console.log('ok   -',name)}catch(e){failed++;console.log('FAIL -',name,'\n      ',String((e&&e.message)||e).split('\n')[0])}}
+async function step(name,fn){try{await fn();passed++;console.log('ok   -',name)}catch(e){failed++;console.log('FAIL -',name,'\n      ',String((e&&e.message)||e).split('\n').slice(0,5).join('\n       '))}}
 
 const HEAD=`Account,Account Name:,Period
 AL8920212100600000000211989,EMANUEL CELAJ FERMER,11 01 2026
@@ -23,6 +23,34 @@ const ALL_ROWS=
  row(4,'13.01.2026','BANKA POSTALE SHPK (0051048490)','P260113KOM01 KOMISION MUAJOR I MBANJES SE LLOGARISE','','P260113KOM01','CARD FEE','13.01.2026','-1200',-24277729.46)+
  row(5,'12.01.2026','60184840675 PERSON I PANJOHUR FERMER (0001397971)','P260112AOIAOP14 LIKUIDIM PER BLERJE BIMES H AROMATIKE 60184840675','','P260112AOIAO','Payment','12.01.2026','-400000',-24276529.46);
 const ALL_SUM=-1293675, ALL_PREV=-23876529.46, ALL_CUR=-25170204.46;
+
+/* Extract REAL nga Posta Banka (LEK), i rindërtuar nga PDF-ja 3-fletëshe e pronarit:
+   renditje zbritëse (më e reja lart), saldi rrjedhës = balanca pas rreshtit, footer Previous/Current
+   NUK ndjek rregullën Previous + Σ = Current → kontrolli duhet të kalojë me zinxhirin e saldove. */
+const REAL_ROWS=[
+ [1,'16.01.2026','60185125000 ANA SHTYLLA FERMER (0001360346)','P260116ACY3OP14 LIKUJDIM TOTAL BLERJEVE NE 2025 BI ME AROMATIKE DHE MJEKESORE.60185125000','','P260116ACY3O','Payment','16.01.2026','-530900',-25170204.46],
+ [2,'16.01.2026','60185134322 ZDRAVA 07 SHPK (0000785821)','P260116ADSHOP14 LIKUJDIM TOTAL FAT NR 4445/2026 DATE 16.1.2026 DOLLAP CANTASH METALIKE., KONSTRUKSION METALIK','','P260116ADSHOP','Payment','16.01.2026','-106000',-24639304.46],
+ [3,'15.01.2026','60185040352 EMANUEL CELA( FERMER) (0001416259)','P260115AC5WOP14 LIKUJDIM TOTAL BLERJE NE 2024 DHE TE PJESSHEM NE 2025 BIME AROMATIKE DHE MJEKESORE','','P260115AC5WOP','Payment','15.01.2026','-2500000',-24533304.46],
+ [4,'15.01.2026','60185116033 TOMOR NAZIM MALAJ(FERMER) (0001353719)','P260115AJVYOP14 LIKUJDIM IPJESSHEM PER BLERJE BIMES H AROMATIKE DHE MJEKESORE.60185116033','','P260115AJVYOP1','Payment','15.01.2026','-500000',-22033304.46],
+ [5,'15.01.2026','60185064633 ILIR SHTYLLA (FERMER) (0001349421)','P260115AFTKOP14 LIKUIM TOTAL FAT BLERJE BIMESH ARO MATIKE DHE MJEKESORE.60185064633','','P260115AFTKOP','Payment','15.01.2026','-1715650',-21533304.46],
+ [6,'15.01.2026','60185104275 EMILY-TRAVEL SHPK (0020275036)','P260115AIG5OP14 BLERJE 40000 EURO ME KURS 96.3 ..60185104275','','P260115AIG5OP1','Payment','15.01.2026','3852000',-19817654.46],
+ [7,'15.01.2026','60185040414 FIRE PROTECTION SHPK (0051048490)','P260115ADCHOP14 LIKUJDIM TOTAL FATURES NR 641/2025 DATE 23/7/2025.','9A9F2FC2-4905-4231-96D2-68CAF212FD77','P260115ADCHOP','Payment','15.01.2026','-12000',-23669654.46],
+ [8,'15.01.2026','AL84902117974551230205192744 K-AKS SH.P.K','P260115AHVBOP08 LIKUJDIM TOTAL FAT NR 8/2026 DATE 8.1.2026.','D4EB96A4-2434-4D3B-86B9-2455F94152ED','P260115AHVBOP','XBEN','15.01.2026','-156250',-23657654.46],
+ [9,'14.01.2026','40239868623 DREJTORIA PERGJITHSHME TATIMEVE (0101100016)','P260114AGGVOP14 L43904401I26000026-A TATIMI MBI TE ARDHURAT E KORPORATES60184981382','','P260114AGGVOP','TAX','14.01.2026','-237410',-23501404.46],
+ [10,'14.01.2026','40239868582 DREJTORIA PERGJITHSHME TATIMEVE (0101100016)','P260114AGEPOP14 L43904401I1900002512 KONTRIBUTET E SIGURIMEVE SHOQERORE DHE SHENDETESORE60184981382','','P260114AGEPOP','TAX','14.01.2026','-517825',-23263994.46],
+ [11,'13.01.2026','60184950755 XHULIANO AGOLLI FERMER (0002087351)','P260113AI9ROP14 LIKUJDIM I PJESHSEM PER BLERJE BIME SH AROMATIKE DHE MJEKESORE.60184950755','','P260113AI9ROP1','Payment','13.01.2026','-300000',-22746169.46],
+ [12,'13.01.2026','60184895988 VALENTINA KOCI (FERMER) (0001375071)','P260113ABPNOP14 LIKUJDIMI PJESSHEM PER BLERJE BIMES H AROMATIKE DHE MJEKESORE.60184895988','','P260113ABPNOP','Payment','13.01.2026','-300000',-22446169.46],
+ [13,'13.01.2026','60184903060 METAL-KONSTRUKSION VATA SHPK (0001679627)','P260113ABXUOP14 LIKUJDIM TOTAL FATURES NR 4/2026 DATE 8.1.2026.','29E2DEE5-7128-41BF-AFC6-1E09F6EC7EE3','P260113ABXUOP','Payment','13.01.2026','-16800',-22146169.46],
+ [14,'13.01.2026','60184921724 A-BI-ESSE SHPK (0101400854)','P260113AE0TOP14 PARADHENIE FATURES NR 1172/2026 DATE 13.1.2026.','D5E53B1B-E97F-4D82-BA4C-7FC3F5B80ED5','P260113AE0TOP','Payment','13.01.2026','-96510.26',-22129369.46],
+ [15,'13.01.2026','40239811727 DEGA THESARIT VLORE (0605030797)','P260113ACEAOP14 1016022KOMISARIATI I POLICISE 71154 10GJOBA TE POLICISE RRUG2601082400 AB360JY 0','','P260113ACEAOP','CARPENALT','13.01.2026','-1000',-22032859.2],
+ [16,'14.01.2026','AL97214221060220763307020115 D.S.M.E','P260113AJEIOP08 LIKUJDIM TOTAL FATURES NR 1173/2026 DATE 13.1.2026 SHERBIM KONSULENCE MUAJI DHETOR','','P260113AJEIOP0','XBEN','14.01.2026','-30000',-22031859.2],
+ [17,'12.01.2026','60184829227 ARDIAN LULAJ (FERMER) (0001627543)','P260112AL9GOP14 LIKUJDIM PER BLERJE BIMES SH AROMATIKE DHE MJEKESORE 60184829227','','P260112AL9GOP','Payment','12.01.2026','-400000',-22001859.2],
+ [18,'12.01.2026','60184840675 SAIMIR KAZANXHIU (FERMER) (0001397971)','P260112AOIAOP14 LIKUJDIM PER BLERJE BIMES H AROMATIKE DHE MJEKESORE 60184840675','','P260112AOIAOP','Payment','12.01.2026','-200000',-21601859.2]
+];
+const CSV_REAL='Account,Account Name:,Period\nAL78202220060000000021158942,EMANUEL CELAJ FERMER,"11.01.2026-""18.01.2026""\n\n'
+ +'No,Value Date,Reference Numbe Beneficiary/Ordering name and account number,Description,,Reference,Transacti,Processing Date,Amount,Amount Total\n'
+ +REAL_ROWS.map(r=>`${r[0]},${r[1]},"${r[2]}","${r[3]}",${r[4]},${r[5]},${r[6]},${r[7]},"${r[8]} ALL",${r[9]}`).join('\n')
+ +'\nPrevious Balance,Current Balance:,Debit sum:,Credit sum:\n-24639304.46,-25170204.46,,\n';
 const CSV_ALL=HEAD+ALL_ROWS+FOOT(ALL_PREV,ALL_CUR,156250,-1449925);
 /* i prishur: shuma e rreshtit 3 ndryshon → bilanci nuk mbyllet */
 const CSV_BAD=HEAD+ALL_ROWS.replace('"-517825 ALL"','"-517820 ALL"')+FOOT(ALL_PREV,ALL_CUR,156250,-1449925);
@@ -39,6 +67,7 @@ const CSV_TWO=HEAD+
 
 (async()=>{
  fs.mkdirSync('.audit',{recursive:true});
+ fs.writeFileSync('.audit/bank-real.csv',CSV_REAL);
  fs.writeFileSync('.audit/bank-all.csv',CSV_ALL);fs.writeFileSync('.audit/bank-bad.csv',CSV_BAD);
  fs.writeFileSync('.audit/bank-eur.csv',CSV_EUR);fs.writeFileSync('.audit/bank-two.csv',CSV_TWO);
  const {browser,page:p,errors}=await open(false);
@@ -147,6 +176,68 @@ const CSV_TWO=HEAD+
    assert.equal(t.length,2);assert.ok(t.every(x=>x.rate===100));assert.deepEqual(t.map(x=>x.amt),[1250.5,800]);
  });
 
+ await step('Extract REAL i Postës Banka (18 veprime, renditje zbritëse): kontrollet kalojnë PA override; 17 të reja + 1 dublikat i kapërcyer',async()=>{
+   await ev(()=>bankCsvWizard());await p.waitForTimeout(600);
+   await p.setInputFiles('#bcFile','.audit/bank-real.csv');await p.waitForTimeout(1100);
+   const st=await ev(()=>{const W=window.__biobesBankCsv.state();return{n:W.rows.length,checks:W.parsed.checks,meta:W.parsed.meta,
+     types:W.rows.map(r=>r.type),ib8:W.rows[7].row.counterpart.iban,nm8:W.rows[7].row.counterpart.name}});
+   assert.equal(st.n,18);
+   assert.equal(st.checks.chainOk,true,'zinxhiri i saldove: secili = pasuesi + shuma e vet');
+   assert.equal(st.checks.balanceOk,true,'footer Previous/Current pranohet me renditjen zbritëse');
+   assert.equal(st.checks.debitOk,null);assert.equal(st.checks.creditOk,null);
+   assert.equal(st.checks.sum,-3768345.26);
+   assert.match(st.meta.period,/11\.01\.2026/);
+   assert.equal(st.ib8,'AL84902117974551230205192744','IBAN në krye të kundërpalës lexohet si IBAN');
+   assert.equal(st.nm8,'K-AKS SH.P.K');
+   assert.equal(st.types[8],'tax');assert.equal(st.types[9],'tax');assert.equal(st.types[14],'fee');assert.equal(st.types[5],'otherIn');
+   assert.equal(await p.locator('#bcSave').isDisabled(),false,'ruajtja NUK bllokohet për extract-in real');
+   assert.equal(await p.locator('#bcOverride').count(),0,'nuk kërkohet pranim mospërputhjeje');
+   /* rreshti 1 i extract-it real ështe i njëjti veprim si rreshti 1 i bank-all.csv (referencë+datë+shumë) → kapërcehet */
+   const dups=await ev(()=>window.__biobesBankCsv.state().rows.filter(r=>r.dup).length);
+   assert.equal(dups,1,'deduplikim mes skedarëve: rreshti i parë njihet si i hedhur');
+   await p.locator('#bcSave').click();await p.waitForTimeout(1000);
+   const n=await ev(()=>bankTransactions().filter(x=>(x.source||'').includes('bank-real')).length);
+   assert.equal(n,17,'18 veprime - 1 dublikat = 17 Draft të reja');
+ });
+ await step('Printimi nga wizard-i: fleta A4 landscape me 18 rreshta, kreu dhe fundi i bankës',async()=>{
+   await ev(()=>{window.__printCalls=[];const o=window.printOnly;window.printOnly=function(id,t){window.__printCalls.push([id,t]);return o.apply(this,arguments)}});
+   await ev(()=>bankCsvWizard());await p.waitForTimeout(500);
+   await p.setInputFiles('#bcFile','.audit/bank-real.csv');await p.waitForTimeout(1000);
+   await p.locator('#bcReview').getByRole('button',{name:/Printo A4 landscape/}).click();
+   await p.waitForTimeout(400);
+   assert.deepEqual(await ev(()=>window.__printCalls.at(-1)),['bankStmtSheet','Extract bankar AL78202220060000000021158942']);
+   const sheet=await ev(()=>{const h=document.getElementById('bankStmtHost');const s=h&&h.querySelector('#bankStmtSheet');
+     return s?{rows:s.querySelectorAll('#bankStmtTable tbody tr').length,css:window.__biobesBankCsv.css(),foot:s.querySelector('.bsfoot').textContent,head:s.querySelector('.bshead').textContent}:null});
+   assert.ok(sheet);assert.equal(sheet.rows,18);
+   assert.match(sheet.css,/size:A4 landscape/);
+   assert.match(sheet.head,/AL78202220060000000021158942/);assert.match(sheet.head,/EMANUEL CELAJ FERMER/);
+   const foot=sheet.foot.replace(/,/g,'');
+   assert.match(foot,/-25170204\.46/);assert.match(foot,/-24639304\.46/);
+   assert.match(foot,/Debit sum: 3852000\.00/);assert.match(foot,/Credit sum: -7620345\.26/);
+   await ev(()=>closeModal());
+ });
+
+ await step('Printimi nga Banka për periudhë: rreshtat e ruajtur, saldi rrjedhës dhe fundi Previous/Current të saktë',async()=>{
+   await ev(()=>{try{closeModal()}catch(e){}});await ev(()=>go('banking'));await p.waitForTimeout(700);
+   assert.equal(await p.locator('#bankStmtPrintBtn').count(),1);
+   await p.locator('#bankStmtPrintBtn').click();await p.waitForTimeout(500);
+   await p.locator('#bspFrom').fill('2026-01-12');await p.locator('#bspTo').fill('2026-01-16');
+   await p.locator('#modalFoot').getByRole('button',{name:/Printo A4 landscape/}).click();
+   await p.waitForTimeout(400);
+   const sheet=await ev(()=>{const h=document.getElementById('bankStmtHost');const s=h&&h.querySelector('#bankStmtSheet');if(!s)return null;
+     const acc=bankAccounts().find(a=>a.id==='BA1');const all=bankTransactions().filter(x=>x.bankAccount===acc.id);
+     const per=all.filter(x=>x.valueDate>='2026-01-12'&&x.valueDate<='2026-01-16');
+     let b=+acc.openingBalance||0;all.forEach(x=>{if(x.valueDate<'2026-01-12')b+=(x.direction==='in'?x.amount:-x.amount)});
+     let run=b;per.slice().sort((a,c)=>a.valueDate<c.valueDate?-1:a.valueDate>c.valueDate?1:0).forEach(x=>run+=(x.direction==='in'?x.amount:-x.amount));
+     return{rows:s.querySelectorAll('#bankStmtTable tbody tr').length,foot:s.querySelector('.bsfoot').textContent,
+       firstDate:s.querySelector('#bankStmtTable tbody tr td:nth-child(2)').textContent,n:per.length,cur:run};});
+   assert.ok(sheet);assert.equal(sheet.rows,sheet.n);assert.equal(sheet.rows,22);
+   assert.equal(sheet.firstDate,'16.01.2026','më e reja lart si extract-i i bankës');
+   const cur=parseFloat(sheet.foot.match(/Current Balance: ([^A-Z]+)/)[1].replace(/[^\d.-]/g,''));
+   assert.ok(Math.abs(cur-sheet.cur)<0.01,'Current Balance = saldo pas periudhës ('+sheet.cur+')');
+   const prev=parseFloat(sheet.foot.match(/Previous Balance: ([^A-Z]+)/)[1].replace(/[^\d.-]/g,''));
+   assert.ok(Math.abs(prev-0)<0.01,'Previous Balance = saldo para periudhës (0, hapja e llogarisë)');
+ });
  await step('ROLE-USER pa të drejtën edit në Banka: butoni fshehet dhe wizard-i refuzohet',async()=>{
    await ev(async()=>{const h=await hashPassword('Prove-2026!');state.users.push({id:'U-BC',username:'bc-user',name:'Bankier',role:'ROLE-USER',active:true,
      passwordHash:h.hash,passwordSalt:h.salt,passwordIterations:h.iterations,mustChangePassword:false,rights:{v:2,modules:{banking:['view'],dashboard:['view']}}});
@@ -156,6 +247,7 @@ const CSV_TWO=HEAD+
    await p.waitForFunction(()=>!document.getElementById('loginLock'));await p.waitForTimeout(600);
    await ev(()=>go('banking'));await p.waitForTimeout(700);
    assert.equal(await p.locator('#bankCsvOpenBtn').count(),0,'butoni i importit nuk shfaqet pa të drejtën edit');
+   assert.equal(await p.locator('#bankStmtPrintBtn').count(),0,'butoni i printimit nuk shfaqet pa të drejtën print');
    await ev(()=>{window.__t=[];const bb=toast;toast=m=>{window.__t.push(m);return bb(m)}});
    await ev(()=>bankCsvWizard());await p.waitForTimeout(400);
    assert.match(await ev(()=>window.__t.at(-1)),/Nuk keni të drejtë/);
