@@ -9114,6 +9114,335 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
 })();
 </script>
 
+<script id="biobes-bank-csv-v1">
+/* ==========================================================================
+   EXTRACT-I BANKAR (CSV) → VEPRIME BANKARE  (2026-09-19)
+   --------------------------------------------------------------------------
+   Kërkesa: extract-i i bankës ("posta e bankës") vjen si CSV për llogaritë në
+   ALL / EUR / USD dhe sot veprimet hidhen manualisht në Banka.
+
+   Zgjidhja (vetëm index.html, Alpha e paprekur):
+   1) Banka → butoni "⬆ Extract bankar (CSV)": zgjedh llogarinë/monedhën dhe
+      skedarin; leximi bëhet vetëm në pajisjen e përdoruesit.
+   2) Parser tolerant me strukturën e extract-it: kreu (Account / Account Name /
+      Period), rreshtat e veprimeve (No, Value Date, Reference Number +
+      Beneficiary, Description, [kolonë shtesë], Reference, Transaction,
+      Processing Date, Amount, Amount Total) dhe fundi (Previous Balance,
+      Current Balance, Debit sum, Credit sum).
+   3) Kontrolli i brendshëm: Previous + Σ veprimeve = Current dhe shumat
+      Debit/Credit. Nëse nuk përputhen, ruajtja bllokohet derisa admini ta
+      pranojë shprehimisht mospërputhjen.
+   4) Çdo rresht bëhet veprim bankar Draft me llojin e nxjerrë nga kolona
+      Transaction dhe shenja e shumës (pagesë furnitori / arkëtim klienti /
+      taksë / komision / tjetër). Dublikatet (referencë+datë+shumë) kapërcehen
+      në ri-importe.
+   5) Çiftimi me dokumentet: propozim me pikëzim — kodi i referencës bankare kur
+      gjendet te dokumentet, përndryshe shumë + datë (±5 ditë) + emri i subjektit;
+      përdoruesi pranon, ndryshon ose lë "Pa lidhje". Pas konfirmimit të të
+      çiftuarve krijohet VK Draft në J-BANK si për veprimet manuale.
+   6) Rreshtat e paçiftuar ruhen si Draft me llojin "Hyrje/Dalje tjetër".
+   ========================================================================== */
+(function(){
+  const VERSION='biobes-bank-csv-v1';
+  const $g=id=>document.getElementById(id);
+  const trim=v=>String(v==null?'':v).trim();
+  const r2=v=>Math.round((+v||0)*100)/100;
+
+  /* ---------- 1) leximi i skedarit dhe parseri ---------- */
+  function decode(buf){
+    let t=new TextDecoder('utf-8').decode(buf);
+    if(t.indexOf('\uFFFD')>=0){try{t=new TextDecoder('windows-1252').decode(buf)}catch(e){}}
+    return t;
+  }
+  function detectDelim(text){
+    const head=text.split(/\r?\n/).slice(0,12).join('\n');
+    const c=(head.match(/,/g)||[]).length,s=(head.match(/;/g)||[]).length,t=(head.match(/\t/g)||[]).length;
+    return s>c&&s>=t?';':(t>c&&t>s?'\t':',');
+  }
+  function splitLine(line,delim){
+    const out=[];let cur='',q=false;
+    for(let i=0;i<line.length;i++){const ch=line[i];
+      if(q){if(ch==='"'){if(line[i+1]==='"'){cur+='"';i++}else q=false}else cur+=ch}
+      else if(ch==='"')q=true;
+      else if(ch===delim){out.push(cur);cur=''}
+      else cur+=ch}
+    out.push(cur);return out.map(x=>x.trim());
+  }
+  function parseDateDMY(s){
+    s=trim(s);let m=s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})/);
+    if(m)return m[3]+'-'+String(+m[2]).padStart(2,'0')+'-'+String(+m[1]).padStart(2,'0');
+    m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return m[1]+'-'+m[2]+'-'+m[3];
+    return '';
+  }
+  function parseAmount(s){
+    if(s==null)return NaN;
+    let v=String(s).replace(/\u00A0/g,' ').replace(/\b(ALL|EUR|USD|LEK|EURO|DOLLAR|\$|€)\b/gi,'').replace(/[^\d.,()-]/g,'').trim();
+    if(!v)return NaN;
+    let neg=/^\(/.test(v)||/-/.test(v);v=v.replace(/[()-]/g,'');
+    const hasC=v.indexOf(',')>=0,hasD=v.indexOf('.')>=0;
+    if(hasC&&hasD)v=v.lastIndexOf(',')>v.lastIndexOf('.')?v.replace(/\./g,''):v.replace(/,/g,'');
+    else if(hasC)v=/,\d{1,2}$/.test(v)?v.replace(',','.'):(v.includes(',')&&/,\d{3}(\d{3})*$/.test(v)&&!/,\d{1,2}$/.test(v)?v.replace(/,/g,''):v.replace(',','.'));
+    else if(hasD&&!/\.\d{1,2}$/.test(v)&&/\.\d{3}(\d{3})+$/.test(v))v=v.replace(/\./g,'');
+    const n=parseFloat(v);if(isNaN(n))return NaN;
+    return neg?-n:n;
+  }
+  function parseCounterpart(cell){
+    let s=trim(cell),iban='',acc='';
+    let m=s.match(/\(([^)]+)\)\s*$/);if(m){iban=m[1];s=s.slice(0,m.index).trim()}
+    m=s.match(/^(\d{6,})\s+(.*)$/);if(m){acc=m[1];s=m[2].trim()}
+    return{name:s.replace(/\s+/g,' '),account:acc,iban:iban};
+  }
+  window.bankCsvParse=function(text){
+    const res={ok:false,meta:{},rows:[],footer:{},checks:{}};
+    if(!trim(text))return Object.assign(res,{error:'Skedari është bosh'});
+    const delim=detectDelim(text);
+    const lines=text.split(/\r?\n/).map(l=>l.replace(/\ufeff/g,'')).filter(l=>trim(l)!=='');
+    let hi=-1,header=null;
+    for(let i=0;i<Math.min(lines.length,40);i++){const c=splitLine(lines[i],delim);
+      if(trim(c[0]).toLowerCase()==='no'&&/value\s*date/i.test(c[1]||'')){hi=i;header=c;break}}
+    if(hi<0)return Object.assign(res,{error:'Nuk u gjet rreshti i kolonave ("No", "Value Date", …). Kontrolloni që skedari është extract-i i bankës.'});
+    for(let i=0;i<hi;i++){const c=splitLine(lines[i],delim);
+      if(/^account$/i.test(trim(c[0]))){const val=splitLine(lines[i+1]||'',delim);
+        res.meta.account=trim(val[0]);res.meta.accountName=trim(val[1]);res.meta.period=trim(val.slice(2).filter(Boolean).join(' '));break}}
+    const idx={};
+    header.forEach((h,i)=>{const k=trim(h).toLowerCase();
+      if(k.startsWith('reference num'))idx.party=i;
+      else if(k==='description')idx.desc=i;
+      else if(k.startsWith('reference')&&idx.ref===undefined&&i>3)idx.ref=i;
+      else if(k.startsWith('transacti'))idx.tx=i;
+      else if(k.startsWith('processing'))idx.proc=i;
+      else if(k==='amount')idx.amount=i;
+      else if(k.startsWith('amount total'))idx.total=i;});
+    if(idx.party===undefined||idx.amount===undefined)return Object.assign(res,{error:'Kolona thelbësore mungojnë (Reference Number / Amount)'});
+    if(idx.ref===undefined)idx.ref=idx.party+3;
+    let fi=-1;
+    for(let i=hi+1;i<lines.length;i++){const c=splitLine(lines[i],delim);
+      if(/previous\s*balance/i.test(trim(c[0]))){fi=i;break}}
+    const end=fi<0?lines.length:fi;
+    for(let i=hi+1;i<end;i++){
+      const c=splitLine(lines[i],delim);
+      if(!/^\d{1,4}$/.test(trim(c[0])))continue;
+      const amount=parseAmount(c[idx.amount]);
+      if(isNaN(amount))continue;
+      const extra=idx.ref>idx.party+1?c.slice(idx.party+1,idx.ref).join(' ').trim():'';
+      res.rows.push({no:+trim(c[0]),valueDate:parseDateDMY(c[1]||''),partyRaw:trim(c[idx.party]||''),
+        counterpart:parseCounterpart(c[idx.party]||''),description:trim(c[idx.desc]||''),
+        docCode:(trim(c[idx.desc]||'').match(/^[A-Z0-9]{6,20}/)||[''])[0],
+        extra:extra,reference:trim(c[idx.ref]||''),transaction:trim(c[idx.tx]||''),
+        processingDate:parseDateDMY(c[idx.proc]||''),amount:r2(amount),running:parseAmount(c[idx.total])});
+    }
+    if(!res.rows.length)return Object.assign(res,{error:'Nuk u gjet asnjë rresht veprimi në skedar'});
+    if(fi>=0){const v=splitLine(lines[fi+1]||'',delim);
+      res.footer={prev:parseAmount(v[0]),current:parseAmount(v[1]),debit:parseAmount(v[2]),credit:parseAmount(v[3])}}
+    const sum=r2(res.rows.reduce((a,r)=>a+r.amount,0));
+    const debit=r2(res.rows.filter(r=>r.amount>0).reduce((a,r)=>a+r.amount,0));
+    const credit=r2(res.rows.filter(r=>r.amount<0).reduce((a,r)=>a+r.amount,0));
+    res.checks={sum:sum,debit:debit,credit:credit,
+      balanceOk:isNaN(res.footer.prev)||isNaN(res.footer.current)?null:Math.abs(res.footer.prev+sum-res.footer.current)<0.05,
+      debitOk:isNaN(res.footer.debit)?null:Math.abs(res.footer.debit-debit)<0.05,
+      creditOk:isNaN(res.footer.credit)?null:Math.abs(res.footer.credit-credit)<0.05};
+    res.ok=true;return res;
+  };
+
+  /* ---------- 2) lloji dhe çiftimi ---------- */
+  const normName=s=>trim(s).toUpperCase().replace(/[^A-ZÇË0-9 ]/g,'').replace(/\b(SHPK|SHA|SH\.P\.K|FERMER|LLC|LTD)\b/g,'').replace(/\s+/g,' ');
+  function nameSim(a,b){a=normName(a);b=normName(b);if(!a||!b)return 0;if(a===b)return 1;
+    if(a.includes(b)||b.includes(a))return 0.9;
+    const A=new Set(a.split(' ').filter(x=>x.length>2)),B=new Set(b.split(' ').filter(x=>x.length>2));
+    if(!A.size||!B.size)return 0;let inter=0;A.forEach(x=>{if(B.has(x))inter++});
+    return inter/Math.max(A.size,B.size);}
+  function supplierByName(name){let best=null,sc=0.55;(state.suppliers||[]).forEach(s=>{const v=nameSim(s.name,name);if(v>sc){sc=v;best=s}});return best}
+  function customerByName(name){let best=null,sc=0.55;(state.customers||[]).forEach(s=>{const v=nameSim(s.name,name);if(v>sc){sc=v;best=s}});return best}
+  function guessType(row){
+    const t=(row.transaction||'').toUpperCase();
+    if(/TAX|TATIM/.test(t))return 'tax';
+    if(/FEE|KOMISION|CARD|KART|SERVIC/.test(t))return 'fee';
+    if(/TRANSFER/.test(t))return 'transfer';
+    if(row.amount<0)return supplierByName(row.counterpart.name)?'supplierPayment':'otherOut';
+    return customerByName(row.counterpart.name)?'customerReceipt':'otherIn';
+  }
+  const docNumOf=d=>[d&&d.id,d&&d.number,d&&d.invoiceNumber,d&&d.supplierInvoiceNo].map(trim).filter(Boolean);
+  function matchCandidates(row){
+    const out=[];const amt=Math.abs(row.amount);const codes=[row.reference,row.docCode].map(x=>trim(x).toUpperCase()).filter(Boolean);
+    const push=(kind,doc,label,extra)=>{
+      let score=0,why=[];
+      if(codes.some(c=>docNumOf(doc).some(n=>n.toUpperCase()===c))){score+=100;why.push('kodi i referencës bankare')}
+      const damt=Math.abs(+doc.amount!=null&&doc.amount!==undefined?doc.amount:(doc.total!=null?doc.total:NaN));
+      if(!isNaN(damt)&&Math.abs(damt-amt)<0.01){score+=60;why.push('shuma e njëjtë')}
+      const dd=doc.date||doc.valueDate||'';
+      if(dd&&row.valueDate){const diff=Math.abs((new Date(dd)-new Date(row.valueDate))/86400000);if(diff<=5){score+=15;why.push('data brenda ±5 ditëve')}}
+      const partyName=doc.partyName||'';
+      if(partyName){const v=nameSim(partyName,row.counterpart.name);if(v>=0.55){score+=25;why.push('emri i subjektit ('+Math.round(v*100)+'%)')}}
+      if(score>=60)out.push({kind:kind,id:doc.id,label:label,score:score,why:why.join(' + ')});
+      else if(extra)out.push(extra);
+    };
+    const sup=supplierByName(row.counterpart.name),cus=customerByName(row.counterpart.name);
+    if(row.amount<0){
+      (state.payments||[]).forEach(p=>push('payment',Object.assign({},p,{partyName:(by('suppliers',p.supplier)||{}).name}),
+        p.id+' — '+((by('suppliers',p.supplier)||{}).name||p.supplier)+' — '+fmt2(p.amount)+' ALL ('+p.date+')'));
+      (typeof purchaseInvoices==='function'?purchaseInvoices():[]).forEach(f=>push('purchase',Object.assign({},f,{partyName:(by('suppliers',f.supplier)||{}).name}),
+        f.id+' — '+((by('suppliers',f.supplier)||{}).name||f.supplier)+' — '+fmt2(f.total)+' '+f.currency+' ('+f.date+')'));
+      if(sup&&!out.length)out.push({kind:'supplier',id:sup.id,label:'Vetëm furnitori: '+sup.name,score:30,why:'emri i subjektit'});
+    }else{
+      (typeof customerPayments==='function'?customerPayments():[]).forEach(p=>push('receipt',Object.assign({},p,{partyName:(by('customers',p.customer)||{}).name}),
+        p.id+' — '+((by('customers',p.customer)||{}).name||p.customer)+' — '+fmt2(p.amount)+' ALL ('+p.date+')'));
+      (typeof salesInvoices==='function'?salesInvoices():[]).forEach(f=>push('sale',Object.assign({},f,{partyName:(by('customers',f.customer)||{}).name}),
+        (f.invoiceNumber||f.id)+' — '+((by('customers',f.customer)||{}).name||f.customer)+' — '+fmt2(f.total)+' '+f.currency+' ('+f.date+')'));
+      if(cus&&!out.length)out.push({kind:'customer',id:cus.id,label:'Vetëm klienti: '+cus.name,score:30,why:'emri i subjektit'});
+    }
+    out.sort((a,b)=>b.score-a.score);
+    return out.slice(0,6);
+  }
+  const importKey=(accountId,row)=>[accountId,row.valueDate,row.reference||row.docCode,r2(row.amount)].join('|');
+
+  /* ---------- 3) wizard-i i importit ---------- */
+  let W=null;   /* gjendja e wizard-it */
+  window.bankCsvWizard=function(){
+    if(!requirePermission('banking','edit'))return;
+    const accounts=(typeof bankAccounts==='function'?bankAccounts():[]).filter(a=>a.active!==false);
+    if(!accounts.length)return toast('Krijoni fillimisht një llogari bankare aktive');
+    W={parsed:null,accountId:(accounts[0]||{}).id||'',rows:[],override:false,fileName:'',rate:1};
+    modal('Extract bankar (CSV) — importi i veprimeve të bankës',
+      '<div class="form-grid"><div class="field"><label>Llogaria bankare / monedha</label><select id="bcAccount" onchange="bankCsvAccountChanged(this.value)">'
+      +accounts.map(a=>'<option value="'+esc(a.id)+'">'+esc(a.code+' — '+a.bank+' — '+a.currency)+'</option>').join('')
+      +'</select><span class="hint">Zgjidhni llogarinë të cilës i përket skedari (CSV vjen sipas llogarisë/monedhës).</span></div>'
+      +'<div class="field"><label>Skedari CSV i extract-it</label><input type="file" id="bcFile" accept=".csv,.txt,text/csv" onchange="bankCsvReadFile(this)"><span class="hint">Leximi bëhet vetëm në pajisjen tuaj; asgjë nuk ruhet pa e konfirmuar.</span></div></div>'
+      +'<div id="bcReview"></div>',
+      '<button class="btn" onclick="closeModal()">Mbyll</button><button class="btn" id="bcSave" onclick="bankCsvSaveDrafts()" disabled>Ruaj si Draft</button><button class="btn primary" id="bcConfirm" onclick="bankCsvSaveDrafts(true)" disabled>Ruaj + konfirmo të çiftuarat</button>');
+    setTimeout(()=>{try{globalizeAllSelects($g('modalBody'))}catch(e){}},30);
+  };
+  window.bankCsvAccountChanged=function(id){if(W)W.accountId=id;bankCsvRenderReview()};
+  window.bankCsvReadFile=function(input){
+    const f=input&&input.files&&input.files[0];if(!f||!W)return;
+    const rd=new FileReader();
+    rd.onload=()=>{try{
+        const parsed=window.bankCsvParse(decode(rd.result));
+        W.parsed=parsed;W.fileName=f.name;W.override=false;
+        if(!parsed.ok){W.rows=[];bankCsvRenderReview();return toast(parsed.error)}
+        const seen=new Set((typeof bankTransactions==='function'?bankTransactions():[]).map(x=>x.importKey).filter(Boolean));
+        const inFile=new Set();
+        W.rows=parsed.rows.map((r,i)=>{
+          const key=importKey(W.accountId,r);
+          const dup=seen.has(key)||inFile.has(key);inFile.add(key);
+          const cands=dup?[]:matchCandidates(r);
+          return{row:r,key:key,dup:dup,include:!dup,type:guessType(r),
+            match:cands[0]||null,candidates:cands,matchWhy:cands[0]?cands[0].why:''};
+        });
+        bankCsvRenderReview();
+      }catch(e){console.warn(VERSION,e&&e.message);toast('Gabim gjatë leximit: '+e.message)}
+    };
+    rd.onerror=()=>toast('Skedari nuk u lexua');
+    rd.readAsArrayBuffer(f);
+  };
+  function typeLabel(t){return{customerReceipt:'Arkëtim klienti',supplierPayment:'Pagesë furnitori',transfer:'Transferim',fee:'Komision bankar',tax:'Pagesë tatimore',otherIn:'Hyrje tjetër',otherOut:'Dalje tjetër'}[t]||t}
+  function bankCsvRenderReview(){
+    const box=$g('bcReview');if(!box||!W)return;
+    if(!W.parsed){box.innerHTML='';syncButtons();return}
+    if(!W.parsed.ok){box.innerHTML='<p style="color:#b63c46;margin-top:10px">'+esc(W.parsed.error)+'</p>';syncButtons();return}
+    const m=W.parsed.meta,c=W.parsed.checks,acc=(typeof bankAccounts==='function'?bankAccounts():[]).find(a=>a.id===W.accountId)||{};
+    const dupN=W.rows.filter(r=>r.dup).length,incN=W.rows.filter(r=>r.include).length,matchN=W.rows.filter(r=>r.include&&r.match).length;
+    const chk=(ok,label,detail)=>'<span style="margin-right:14px;color:'+(ok===false?'#b63c46':ok===true?'#1e7e34':'#8a978f')+'">'+(ok===false?'✗':ok===true?'✓':'·')+' '+label+(detail?' <b>'+detail+'</b>':'')+'</span>';
+    let bad=c.balanceOk===false||c.debitOk===false||c.creditOk===false;
+    let h='<div class="card" style="margin-top:12px"><h3>'+esc(W.fileName||'extract')+' — '+(m.accountName?esc(m.accountName)+' · ':'')+(m.account?esc(m.account)+' · ':'')+(acc.currency?esc(acc.currency):'')+'</h3>'
+      +'<p class="hint">'+W.rows.length+' veprime të lexuara · <b>'+incN+'</b> për t’u ruajtur · <b>'+matchN+'</b> me çiftim të propozuar · <b>'+dupN+'</b> dublikate të kapërcyera</p>'
+      +(acc.currency&&acc.currency!=='ALL'?'<p style="margin:6px 0"><label>Kursi i aplikuar (ALL për 1 '+esc(acc.currency)+') për shkrimet në kontabilitet: <input id="bcRate" style="width:90px" value="'+(W.rate||1)+'" onchange="bankCsvRate(this.value)"></label></p>':'')
+      +'<p style="margin:6px 0">'+chk(c.balanceOk,'Bilanci: Previous + Σ = Current',fmt2(c.sum))
+      +chk(c.debitOk,'Debit sum',fmt2(c.debit))+chk(c.creditOk,'Credit sum',fmt2(c.credit))+'</p>'
+      +(bad?'<label style="display:block;margin:6px 0;color:#b63c46"><input type="checkbox" id="bcOverride" '+(W.override?'checked':'')+' onchange="bankCsvOverride(this.checked)"> Pranoj mospërputhjen e vlerave (vetëm admini) — veprimet ruhen me shumën e lexuar</label>':'')
+      +'<div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="text-align:left;border-bottom:1px solid #dfe6e2">'
+      +'<th style="padding:4px 6px">✓</th><th style="padding:4px 6px">Data</th><th style="padding:4px 6px">Kundërpalë</th><th style="padding:4px 6px">Përshkrimi</th>'
+      +'<th style="padding:4px 6px;text-align:right">Shuma</th><th style="padding:4px 6px">Lloji</th><th style="padding:4px 6px;min-width:240px">Çiftimi i propozuar</th></tr></thead><tbody>';
+    W.rows.forEach((r,i)=>{
+      const opts='<option value="">Pa lidhje</option>'+r.candidates.map(cd=>'<option value="'+esc(cd.kind+':'+cd.id)+'" '+(r.match&&r.match.kind===cd.kind&&r.match.id===cd.id?'selected':'')+'>'+esc(cd.label)+(cd.why?' — '+cd.why:'')+'</option>').join('');
+      h+='<tr style="border-bottom:1px solid #eef3f0;'+(r.dup?'opacity:.5':'')+'"><td style="padding:4px 6px"><input type="checkbox" '+(r.include?'checked':'')+' '+(r.dup?'disabled':'')+' onchange="bankCsvToggle('+i+',this.checked)"></td>'
+        +'<td style="padding:4px 6px;white-space:nowrap">'+esc(r.row.valueDate)+'</td>'
+        +'<td style="padding:4px 6px">'+esc(r.row.counterpart.name||'—')+(r.row.counterpart.iban?'<br><span class="hint">'+esc(r.row.counterpart.iban)+'</span>':'')+'</td>'
+        +'<td style="padding:4px 6px;max-width:340px"><span title="'+esc(r.row.description)+'">'+esc(r.row.description.slice(0,64))+(r.row.description.length>64?'…':'')+'</span></td>'
+        +'<td style="padding:4px 6px;text-align:right;white-space:nowrap;color:'+(r.row.amount<0?'#b63c46':'#1e7e34')+'"><b>'+fmt2(Math.abs(r.row.amount))+'</b></td>'
+        +'<td style="padding:4px 6px"><select onchange="bankCsvType('+i+',this.value)">'+Object.keys({customerReceipt:1,supplierPayment:1,transfer:1,fee:1,tax:1,otherIn:1,otherOut:1}).map(t=>'<option value="'+t+'" '+(r.type===t?'selected':'')+'>'+typeLabel(t)+'</option>').join('')+'</select></td>'
+        +'<td style="padding:4px 6px">'+(r.dup?'<span class="hint">ekziston tashmë (u kapërcye)</span>':'<select onchange="bankCsvMatch('+i+',this.value)">'+opts+'</select>'+(r.match&&r.matchWhy?'<br><span class="hint">pse: '+esc(r.matchWhy)+'</span>':''))+'</td></tr>';
+    });
+    h+='</tbody></table></div></div>';
+    box.innerHTML=h;syncButtons();
+  }
+  function syncButtons(){
+    const bad=W&&W.parsed&&W.parsed.ok&&(W.parsed.checks.balanceOk===false||W.parsed.checks.debitOk===false||W.parsed.checks.creditOk===false);
+    const can=!!(W&&W.parsed&&W.parsed.ok&&W.rows.some(r=>r.include)&&(!bad||W.override));
+    const s=$g('bcSave'),cf=$g('bcConfirm');
+    if(s)s.disabled=!can;if(cf)cf.disabled=!can;
+  }
+  window.bankCsvToggle=function(i,on){if(W&&W.rows[i]){W.rows[i].include=!!on;bankCsvRenderReview()}};
+  window.bankCsvType=function(i,v){if(W&&W.rows[i]){W.rows[i].type=v;bankCsvRenderReview()}};
+  window.bankCsvMatch=function(i,v){if(!W||!W.rows[i])return;const r=W.rows[i];
+    if(!v){r.match=null;r.matchWhy=''}
+    else{const[kind,id]=v.split(':');const cd=r.candidates.find(c=>c.kind===kind&&c.id===id)||{kind:kind,id:id,label:v,score:0,why:'zgjedhur me dorë'};
+      r.match=cd;r.matchWhy=cd.why||'zgjedhur me dorë'}
+    bankCsvRenderReview()};
+  window.bankCsvRate=function(v){if(W){W.rate=parseFloat(String(v).replace(',','.'))||1}};
+  window.bankCsvOverride=function(on){if(!W)return;
+    if(on&&!isAdmin())return toast('Vetëm administratori mund të pranojë mospërputhjen');
+    W.override=!!on;syncButtons()};
+
+  /* ---------- 4) ruajtja ---------- */
+  function nextBankTxId(){const y=new Date().getFullYear();let n=(typeof bankTransactions==='function'?bankTransactions():[]).length+1,id;
+    do{id='VB-'+y+'-'+String(n).padStart(5,'0');n++}while((typeof bankTransactions==='function'?bankTransactions():[]).some(x=>x.id===id));return id}
+  function resolveMatch(r){
+    const m=r.match;if(!m)return null;
+    if(m.kind==='payment'){const p=(state.payments||[]).find(x=>x.id===m.id);return p?{partyType:'supplier',party:p.supplier,invoice:'',link:p.id}:null}
+    if(m.kind==='receipt'){const p=(typeof customerPayments==='function'?customerPayments():[]).find(x=>x.id===m.id);return p?{partyType:'customer',party:p.customer,invoice:'',link:p.id}:null}
+    if(m.kind==='purchase'){const f=(typeof purchaseInvoices==='function'?purchaseInvoices():[]).find(x=>x.id===m.id);return f?{partyType:'supplier',party:f.supplier,invoice:f.id,link:f.id}:null}
+    if(m.kind==='sale'){const f=(typeof salesInvoices==='function'?salesInvoices():[]).find(x=>x.id===m.id);return f?{partyType:'customer',party:f.customer,invoice:f.id,link:f.id}:null}
+    if(m.kind==='supplier')return{partyType:'supplier',party:m.id,invoice:'',link:''};
+    if(m.kind==='customer')return{partyType:'customer',party:m.id,invoice:'',link:''};
+    return null;
+  }
+  window.bankCsvSaveDrafts=function(confirmMatched){
+    if(!W||!W.parsed||!W.parsed.ok)return toast('Nuk ka asgjë për të ruajtur');
+    if(!requirePermission('banking',confirmMatched?'confirm':'create'))return;
+    const acc=(typeof bankAccounts==='function'?bankAccounts():[]).find(a=>a.id===W.accountId);
+    if(!acc)return toast('Zgjidhni llogarinë bankare');
+    const c=W.parsed.checks,bad=c.balanceOk===false||c.debitOk===false||c.creditOk===false;
+    if(bad&&!W.override)return toast('Vlerat e extract-it nuk përputhen — shënoni pranomin e mospërputhjes');
+    const list=typeof bankTransactions==='function'?bankTransactions():[];
+    const created=[],confirmed=[];
+    W.rows.filter(r=>r.include&&!r.dup).forEach(r=>{
+      const meta=bankTypeMeta(r.type)||['out','','468'];
+      const link=resolveMatch(r);
+      const x={id:nextBankTxId(),date:r.row.processingDate||r.row.valueDate,valueDate:r.row.valueDate,bankAccount:acc.id,
+        type:r.type,direction:meta[0],partyType:link?link.partyType:meta[1],party:link?link.party:'',invoice:link?link.invoice:'',
+        targetBank:'',reference:r.row.reference||r.row.docCode,amount:r2(Math.abs(r.row.amount)),currency:acc.currency,
+        rate:acc.currency==='ALL'?1:(W.rate||1),fee:0,counterpart:meta[2],
+        description:(r.row.description||'').slice(0,300),status:'Draft',
+        importKey:r.key,source:'CSV '+W.fileName,bankCounterpart:r.row.counterpart.name,bankIban:r.row.counterpart.iban,
+        matchedLink:link?link.link:'',matchWhy:r.matchWhy||'',
+        createdAt:new Date().toISOString(),createdBy:(typeof activeUser==='function'&&(activeUser()||{}).username)||currentRole()};
+      list.push(x);created.push(x);
+      if(confirmMatched&&link){x.status='Konfirmuar';try{createBankAccountingDraft(x)}catch(e){console.warn(VERSION,e&&e.message)}confirmed.push(x)}
+    });
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Import extract bankar',ref:acc.code,
+      text:W.fileName+': '+created.length+' veprime bankare ('+confirmed.length+' të konfirmuara me VK), '+W.rows.filter(r=>r.dup).length+' dublikate të kapërcyera'+(bad?' · mospërputhje e pranuar nga admini':'')});
+    save();closeModal();render();
+    toast(created.length+' veprime u ruajtën'+(confirmed.length?' dhe '+confirmed.length+' u konfirmuan me VK':'')+' · Banka → Veprimet Bankare');
+    W=null;
+  };
+
+  /* ---------- 5) butoni në Banka ---------- */
+  const bankBase=views.banking;
+  views.banking=function(){
+    let h=bankBase.apply(this,arguments);
+    try{
+      if(h.indexOf('bankCsvOpenBtn')<0){
+        const mark='Llogaritë Bankare</button></div>';
+        const i=h.indexOf(mark);
+        if(i>=0)h=h.slice(0,i+mark.length-6)+'<button type="button" class="btn" id="bankCsvOpenBtn" data-right="banking:edit" onclick="bankCsvWizard()">⬆ Extract bankar (CSV)</button></div>'+h.slice(i+mark.length);
+      }
+    }catch(e){console.warn(VERSION,e&&e.message)}
+    return h;
+  };
+  window.__biobesBankCsv={version:VERSION,parse:window.bankCsvParse,matchCandidates:matchCandidates,guessType:guessType,importKey:importKey,state:()=>W};
+})();
+</script>
+
 <script id="biobes-rights-matrix-v1">
 /* BioBes ERP — Të drejtat me kuti (checkbox) për çdo modul, si në Vyapar/Odoo — v1
    Modeli:   rights.modules = { sales:['view','create','edit','confirm','cancel','delete','print'], ... }  (v2)
