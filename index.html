@@ -9388,7 +9388,7 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
         +'<td style="padding:4px 6px;max-width:340px"><span title="'+esc(r.row.description)+'">'+esc(r.row.description.slice(0,64))+(r.row.description.length>64?'…':'')+'</span></td>'
         +'<td style="padding:4px 6px;text-align:right;white-space:nowrap;color:'+(r.row.amount<0?'#b63c46':'#1e7e34')+'"><b>'+fmt2(Math.abs(r.row.amount))+'</b></td>'
         +'<td style="padding:4px 6px"><select onchange="bankCsvType('+i+',this.value)">'+Object.keys({customerReceipt:1,supplierPayment:1,transfer:1,fee:1,tax:1,otherIn:1,otherOut:1}).map(t=>'<option value="'+t+'" '+(r.type===t?'selected':'')+'>'+typeLabel(t)+'</option>').join('')+'</select></td>'
-        +'<td style="padding:4px 6px">'+(r.dup?'<span class="hint">ekziston tashmë (u kapërcye)</span>':'<select onchange="bankCsvMatch('+i+',this.value)">'+opts+'</select>'+(r.match&&r.matchWhy?'<br><span class="hint">pse: '+esc(r.matchWhy)+'</span>':'')
+        +'<td style="padding:4px 6px">'+(r.dup?'<span class="hint">ekziston tashmë (u kapërcye)</span>':'<select onchange="bankCsvMatch('+i+',this.value)">'+opts+'</select>'+(r.match&&r.matchWhy?'<br><span class="hint">pse: '+esc(r.matchWhy)+'</span>':'')+(!r.dup&&(r.row.counterpart.name||r.partyOverride)?'<br><button type="button" class="btn small" style="margin:3px 4px 0 0;padding:2px 7px;font-size:11px" onclick="bankCsvQuickSupplier('+i+')">+ Shto si furnitor</button><button type="button" class="btn small" style="margin-top:3px;padding:2px 7px;font-size:11px" onclick="bankCsvQuickCustomer('+i+')">+ Shto si klient</button>':'')
         +'<div style="margin-top:5px;border-top:1px dashed #dfe6e2;padding-top:4px"><span class="hint">Regjistrim:</span><br><select onchange="bankCsvPlan('+i+',&quot;kind&quot;,this.value)">'+Object.keys(PLAN_LABEL).map(k=>'<option value="'+k+'" '+(((r.plan)||{}).kind===k?'selected':'')+'>'+PLAN_LABEL[k]+'</option>').join('')+'</select>'
         +((((r.plan)||{}).kind==='payment')?'<br><select style="margin-top:2px" onchange="bankCsvPlan('+i+',&quot;party&quot;,this.value)"><option value="">— zgjidh furnitorin —</option>'+partyOpts('payment',(r.plan||{}).party)+'</select>':'')
         +((((r.plan)||{}).kind==='receipt')?'<br><select style="margin-top:2px" onchange="bankCsvPlan('+i+',&quot;party&quot;,this.value)"><option value="">— zgjidh klientin —</option>'+partyOpts('receipt',(r.plan||{}).party)+'</select>':'')
@@ -9415,6 +9415,26 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
     else{const[kind,id]=v.split(':');const cd=r.candidates.find(c=>c.kind===kind&&c.id===id)||{kind:kind,id:id,label:v,score:0,why:'zgjedhur me dorë'};
       r.match=cd;r.matchWhy=cd.why||'zgjedhur me dorë'}
     bankCsvRenderReview()};
+  /* Krijim i shpejtë i subjektit nga vetë rreshti i bankës dhe lidhja e rreshtit me të */
+  function quickParty(i,kind){
+    if(!W||!W.rows[i])return;
+    if(!requirePermission(kind==='supplier'?'suppliers':'customers','create'))return;
+    const r=W.rows[i];
+    const nm=(r.partyOverride||(r.row.counterpart&&r.row.counterpart.name)||'').trim();
+    if(!nm)return toast('Rreshti s’ka emër përfituesi — plotësojeni te "Përfituesi mungon" më parë');
+    if(typeof quickCreateEntity!=='function')return toast('Krijimi i shpejtë nuk mbështetet');
+    quickCreateEntity(kind,nm,function(obj){
+      if(!obj||!obj.id)return;
+      const ib=(r.row.counterpart&&r.row.counterpart.iban)||'';
+      if(ib&&!obj.iban){obj.iban=ib;save()}
+      const cd={kind:kind,id:obj.id,label:(obj.code?obj.code+' — ':'')+obj.name,score:100,why:'krijuar tani nga përdoruesi'};
+      r.candidates.push(cd);r.match=cd;r.matchWhy=cd.why;
+      r.plan=Object.assign({},r.plan,{kind:kind==='supplier'?'payment':'receipt',party:obj.id});
+      bankCsvRenderReview();
+    });
+  }
+  window.bankCsvQuickSupplier=function(i){quickParty(i,'supplier')};
+  window.bankCsvQuickCustomer=function(i){quickParty(i,'customer')};
   window.bankCsvRate=function(v){if(W){W.rate=parseFloat(String(v).replace(',','.'))||1}};
   window.bankCsvOverride=function(on){if(!W)return;
     if(on&&!isAdmin())return toast('Vetëm administratori mund të pranojë mospërputhjen');
@@ -9639,7 +9659,6 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
   window.__biobesBankCsv={version:VERSION,parse:window.bankCsvParse,matchCandidates:matchCandidates,guessType:guessType,importKey:importKey,state:()=>W,css:stmtCss};
 })();
 </script>
-
 <script id="biobes-rack-print-v1">
 /* Kartela e raftit: printim A4 landscape i GJITHË kartelës (KPI + tabela e loteve + hyrjet e raftit).
    Ndjek modelin e printimit të extract-it bankar: fletë e fshehtë + printOnly me @page A4 landscape. */
@@ -9784,7 +9803,7 @@ const G=[
  ['entityForm',a=>a[0]==='product'?'products':'suppliers','create'],['addProduct','products','create'],['addSupplier','suppliers','create'],['editEntity',typeMod,'edit'],['saveEditProduct','products','edit'],['saveEditSupplier','suppliers','edit'],['deleteEntity',typeMod,'delete'],['supplierEditForm','suppliers','edit'],['saveSupplierEdit','suppliers','edit'],['exportSuppliersXls','suppliers','print'],['exportProductsXls','products','print'],['productFormV2','products',idEdit],['saveProductV2','products',idEdit],['supplierCard','suppliers','view'],['productCard','products','view'],['openProductArticleCard','products','view'],
  ['simpleForm',typeMod,'create'],['addSimple',typeMod,'create'],
  /* magazina / lotet */
- ['transferLotForm','warehouse','edit'],['openLotTransfer','warehouse','edit'],['saveLotTransfer','warehouse','edit'],['inventoryForm','warehouse','edit'],['confirmInventory','warehouse','edit'],['inventoryStockConfig','warehouse','edit'],['saveInventoryStockConfig','warehouse','edit'],['rackCard','warehouse','view'],['printLotLabel','lots','print'],['lotCard','lots','view'],['rackCardPrint','warehouse','print'],
+ ['transferLotForm','warehouse','edit'],['openLotTransfer','warehouse','edit'],['saveLotTransfer','warehouse','edit'],['inventoryForm','warehouse','edit'],['confirmInventory','warehouse','edit'],['inventoryStockConfig','warehouse','edit'],['saveInventoryStockConfig','warehouse','edit'],['rackCard','warehouse','view'],['printLotLabel','lots','print'],['lotCard','lots','view'],['rackCardPrint','warehouse','print'],['bankCsvQuickSupplier','suppliers','create'],['bankCsvQuickCustomer','customers','create'],
  /* përpunimi */
  ['processForm','processing','create'],['addProcess','processing','create'],['machineEditForm','processing','edit'],['saveMachineEdit','processing','edit'],['machineStatusForm','processing','edit'],['saveMachineStatus','processing','edit'],['machineDelete','processing','delete'],['machineDeleteConfirm','processing','delete'],['createProcessFromOrder','processing','create'],['processCard','processing','view'],['machineCard','processing','view'],
  /* paketimi */
