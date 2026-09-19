@@ -9191,6 +9191,7 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
     let m=s.match(/\(([^)]+)\)\s*$/);if(m){iban=m[1];s=s.slice(0,m.index).trim()}
     m=s.match(/^([A-Z]{2}\d{12,})\s+(.*)$/);if(m){iban=iban||m[1];s=m[2].trim()}
     m=s.match(/^(\d{6,})\s+(.*)$/);if(m){acc=m[1];s=m[2].trim()}
+    else if(/^\d{6,}$/.test(s)){acc=s;s=''}
     return{name:s.replace(/\s+/g,' '),account:acc,iban:iban};
   }
   window.bankCsvParse=function(text){
@@ -9208,6 +9209,7 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
     const idx={};
     header.forEach((h,i)=>{const k=trim(h).toLowerCase();
       if(k.startsWith('reference num'))idx.party=i;
+      else if(k.startsWith('benefic'))idx.bene=i;
       else if(k==='description')idx.desc=i;
       else if(k.startsWith('reference')&&idx.ref===undefined&&i>3)idx.ref=i;
       else if(k.startsWith('transacti'))idx.tx=i;
@@ -9226,7 +9228,7 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
       const amount=parseAmount(c[idx.amount]);
       if(isNaN(amount))continue;
       const extra=idx.ref>idx.party+1?c.slice(idx.party+1,idx.ref).join(' ').trim():'';
-      const partyRaw=trim(c[idx.party]||''),desc0=trim(c[idx.desc]||'');
+      const partyRaw=[trim(c[idx.party]||''),idx.bene!==undefined?trim(c[idx.bene]||''):''].filter(Boolean).join(' '),desc0=trim(c[idx.desc]||'');
       let counterpart=parseCounterpart(partyRaw),recovered=false,partyMissing=false;
       if(!counterpart.name){
         /* përfituesi mungon te kolona C: provo ta gjesh në krye të përshkrimit (IBAN + emër) */
@@ -9528,6 +9530,10 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
     toast(created.length+' veprime u ruajtën'+(confirmed.length?' dhe '+confirmed.length+' u konfirmuan me VK':'')+(spread.length?' · u përhapën '+spread.length+' dokumente (MP/MA/SHP)':'')+' · Banka → Veprimet Bankare');
     W=null;
   };
+
+  try{const bpn=window.bankPartyName;window.bankPartyName=function(x){
+    if(x&&x.bankCounterpart)return x.bankCounterpart+(x.bankIban?' ('+x.bankIban+')':'');
+    return bpn.apply(this,arguments);};}catch(e){console.warn(VERSION,e&&e.message)}
 
   /* ---------- 6) printimi: extract-i në NJË faqe A4 landscape ---------- */
   const compName=()=>{try{if(typeof company==='function')return (company()||{}).name||''}catch(e){}
