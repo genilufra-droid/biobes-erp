@@ -10021,6 +10021,9 @@ try{const basePO=printOnly;printOnly=function(elementId,title){if(elementId!=='r
      {t:'Lista',d:'"Klientët": kodi, emri, gjendja (kredi/debit). Kërkimi sipër filtron menjëherë.'},
      {t:'Kartela',d:'Kliko emrin: shitjet, arkëtimet, gjendja; printimi i situatës si te furnitorët.'},
      {t:'Fatura shitjeje',d:'"Fatura Shitjeje" → "+ Faturë e re": klienti, produkti (nga lotet e paketuar), sasia, çmimi → Draft/Konfirmuar.'},
+     {t:'Lloji i dokumentit',d:'Te formulari i shitjes zgjidh "Lloji": Mall (si më parë), Shërbim (faturë shërbimi pa artikuj — nuk prek stokun) ose Parapagim (shuma e paguar paraprakisht nga klienti).'},
+     {t:'Parapagimi p.sh. 70%',d:'Klienti paguan 70%? Bëj dokument Parapagim me atë shumë dhe konfirmoje: kur të krijohet fatura e mëvonshme (mall ose shërbim), parapagimi ulet automatikisht (FIFO) dhe mbetja rri borxh.'},
+     {t:'Kartela me tab',d:'Kartela e klientit ka tab si e furnitorit: Shitje / Arkëtime / Parapagime / Të gjitha, me gjendjen neto dhe parapagimin e papërdorur; printohet A4 dhe eksportohet XLSX.'},
      {t:'Numërimi',d:'Fatura e shitjes ka numrin e vet (INV-) dhe lidhet me porosinë e ngarkesën.'},
      {t:'Arkëtimi',d:'Pagesa e klientit krijohet me mandat arkëtimi MA- (kapitulli tjetër).'}],
     warn:'Fatura e konfirmuar e shitjes zbrit stokun nga lotet e paketuar — kontrollo sasinë para konfirmimit.'},
@@ -10124,7 +10127,8 @@ try{const basePO=printOnly;printOnly=function(elementId,title){if(elementId!=='r
      {t:'Lot',d:'Sasi me origjinë; kodi B1<zonë>-<blerës>-<periudha>/<ndarja>.'},
      {t:'Tara',d:'Pesha e ambalazhit që zbritet nga brutoja për të gjetur neton.'},
      {t:'WAC',d:'Kostoja mesatare e ponderuar e stokut (vlera në raporte).'},
-     {t:'Draft / Konfirmuar',d:'Në pritje / i vlefshëm — vetëm e konfirmuara hyn në gjendje dhe raporte.'}]},
+     {t:'Draft / Konfirmuar',d:'Në pritje / i vlefshëm — vetëm e konfirmuara hyn në gjendje dhe raporte.'},
+     {t:'Faturë shërbimi / Parapagim klienti',d:'Shitje pa artikuj; parapagimi i konfirmuar ulet FIFO nga faturat e mëvonshme të klientit.'}]},
    {id:'faq',mod:null,icon:'❓',title:'Pyetje të shpeshta (FAQ)',intro:'Zgjidhje të shpejta për gabimet më të zakonshme në terren.',steps:[
      {t:'Kuponi nuk lexohet?',d:'Bëj foto të pastër pa hije dhe riprovo; ose shkruaj peshat me dorë — OCR është ndihmë, jo detyrim.'},
      {t:'Regjistrova peshimin dy herë?',d:'Hap peshimin e dytë → "⋮ Veprime" → Anulo ose Fshi (me të drejta). Loti i gabuar mbyllet automatikisht.'},
@@ -10133,6 +10137,7 @@ try{const basePO=printOnly;printOnly=function(elementId,title){if(elementId!=='r
      {t:'Kush ndryshon shënimet e manualit?',d:'Vetëm administratori (me të drejtën e cilësimeve).'},
      {t:'Humba të dhënat pas fshirjes së cache-it?',d:'Nëse ishe i sinkronizuar: hyr sërish — të dhënat rikthehen nga serveri.'}]}
   ];
+
 
   const TOUR=[
    {page:'dashboard',sel:'#manualHelpBtn',t:'Butoni i manualit 📖',d:'Kudo që jeni, ky buton hap manualin e sistemit. Mbajeni mend — është shpëtimi juaj!'},
@@ -10416,6 +10421,237 @@ try{const basePO=printOnly;printOnly=function(elementId,title){if(elementId!=='r
   }catch(e){}},0)}}catch(e){}
 })();
 </script>
+<script id="biobes-sales-prepay-v1">
+/* Shitjet si blerjet: fatura shërbimi, parapagime klienti (FIFO) dhe kartela e klientit me tab.
+   - Lloji i dokumentit te formulari i shitjes: Mall / Shërbim / Parapagim (pa artikuj, si te blerjet).
+   - Parapagimet e konfirmuara ulen automatikisht (FIFO) nga faturat e mëvonshme të klientit.
+   - Kartela e klientit: tab Shitje / Arkëtime / Parapagime / Të gjitha, KPI dhe print A4 + XLSX.
+   - Raportet Alpha nuk preken: asnjë ndryshim në kodin e tyre; vetëm të dhëna brenda skemës ekzistuese. */
+(function(){
+  const KINDS=['Mall','Shërbim','Parapagim'];
+  window.saleKindOf=f=>!f?  'Mall':(f.isPrepayment?'Parapagim':(f.isService?'Shërbim':'Mall'));
+
+  /* ---------- 1) Formulari i faturës së shitjes: lloji + fushat e shërbimit/parapagimit ---------- */
+  const baseSaleForm=window.saleInvoiceForm;
+  window.saleInvoiceForm=function(id){
+    baseSaleForm(id);
+    setTimeout(()=>{
+      const fg=document.querySelector('#modalBody .form-grid');if(!fg)return;
+      const f=id?salesInvoices().find(x=>x.id===id):null;
+      const kind=f?saleKindOf(f):'Mall';
+      if(document.getElementById('sfKindWrap'))return;
+      const div=document.createElement('div');div.className='field full';div.id='sfKindWrap';
+      div.innerHTML='<label>Lloji i dokumentit</label><select id="sfKind" onchange="sfKindToggle()">'+KINDS.map(k=>'<option'+(k===kind?' selected':'')+'>'+k+'</option>').join('')+'</select>'
+        +'<div id="sfServiceBox" style="display:'+(kind==='Mall'?'none':'block')+';margin-top:8px">'
+        +'<label>Përshkrimi (shërbimi / parapagimit)</label><input id="sfServiceDesc" value="'+esc((f&&f.serviceDescription)||'')+'" placeholder="p.sh. Shërbim transporti & magazinim / Parapagim 70% për porosinë…">'
+        +'<label style="margin-top:6px">Shuma (pa TVSH)</label><input id="sfServiceAmount" inputmode="decimal" value="'+(f&&(f.isService||f.isPrepayment)?fmt2(f.subtotal||0):'')+'" oninput="calcSaleV2()">'
+        +'<p class="hint" id="sfKindHint" style="margin:6px 0 0"></p></div>';
+      fg.insertBefore(div,fg.firstChild);
+      window.sfKindToggle=function(){
+        const k=(document.getElementById('sfKind')||{}).value||'Mall';
+        const box=document.getElementById('sfServiceBox');if(box)box.style.display=k==='Mall'?'none':'block';
+        const hide=k!=='Mall';
+        const lines=document.getElementById('saleLines');const linesCard=lines&&lines.closest('.card');if(linesCard)linesCard.style.display=hide?'none':'';
+        ['sfiOrder','sfiShipment','sfiShipCompany','sfiShipAddress','sfiDeliveryPlace','sfiTransport','sfiTerms','sfiCarrierVat','sfiOrigin','sfiPO','sfiPallet','sfiLoading'].forEach(fid=>{const el=document.getElementById(fid);const w=el&&el.closest('.field');if(w)w.style.display=hide?'none':''});
+        const hint=document.getElementById('sfKindHint');
+        if(hint)hint.textContent=k==='Parapagim'?'Parapagimi nuk lidhet me artikuj: shuma e paguar paraprakisht nga klienti. Kur të konfirmohet fatura e mëvonshme, parapagimi ulet automatikisht (FIFO).'
+          :k==='Shërbim'?'Faturë shitjeje shërbimi (pa artikuj): nuk prek stokun; hyn në xhiron e klientit dhe në arkëtime.'
+          :'Faturë shitjeje malli: me produkt, sasi dhe çmim si më parë.';
+        try{calcSaleV2()}catch(e){}
+      };
+      const baseCalc=window.calcSaleV2;
+      window.calcSaleV2=function(){
+        const k=(document.getElementById('sfKind')||{}).value||'Mall';
+        if(k==='Mall')return baseCalc();
+        const amt=parseLocal((document.getElementById('sfServiceAmount')||{}).value),v=parseLocal((document.getElementById('sfiVat')||{}).value),rate=parseLocal((document.getElementById('sfiRate')||{}).value)||1;
+        const vat=amt*v/100;
+        if(window.sfiGoods)$text('sfiGoods',fmt2(amt));if(window.sfiVatAmount)$text('sfiVatAmount',fmt2(vat));if(window.sfiTotal)$text('sfiTotal',fmt2(amt+vat));if(window.sfiTotalAll)$text('sfiTotalAll',fmt2((amt+vat)*rate)+' ALL');
+      };
+      window.sfKindToggle();
+    },40);
+  };
+
+  /* ---------- 2) Ruajtja: rruga e veçantë për Shërbim / Parapagim ---------- */
+  const baseSaleSave=window.saveSaleInvoiceV2;
+  window.saveSaleInvoiceV2=function(id,confirmIt){
+    const k=(document.getElementById('sfKind')||{}).value||'Mall';
+    if(k==='Mall')return baseSaleSave(id,confirmIt);
+    const cust=$val('sfiCustomer');if(!cust)return toast('Zgjidhni klientin');
+    const amt=parseLocal($val('sfServiceAmount','0'));if(!(amt>0))return toast('Shuma duhet të jetë më e madhe se zero');
+    const vat=parseLocal($val('sfiVat','0'));
+    let f=id?salesInvoices().find(x=>x.id===id):null;
+    if(!f){f={id:nextSeqId('FS',salesInvoices(),1,new Date($val('sfiDate')).getFullYear())};salesInvoices().push(f)}
+    Object.assign(f,{invoiceNumber:$val('sfiNumber').trim(),date:$val('sfiDate'),customer:cust,order:'',shipment:'',product:'',qty:0,price:0,lines:[],
+      currency:$val('sfiCurrency'),exchangeRate:parseLocal($val('sfiRate','1'))||1,vat,subtotal:amt,vatAmount:amt*vat/100,total:amt*(1+vat/100),
+      billTo:$val('sfiBill'),paymentTerms:$val('sfiPayment'),dueDate:$val('sfiDueDate'),customerVat:$val('sfiVatNo'),
+      serviceDescription:$val('sfServiceDesc'),
+      isPrepayment:k==='Parapagim',isService:k==='Shërbim',
+      prepayAllocations:f.prepayAllocations||[],status:confirmIt?'Konfirmuar':'Draft'});
+    f.totalALL=f.total*(f.exchangeRate||1);
+    state.events.push({date:new Date().toLocaleString('sq-AL'),type:confirmIt?(k==='Parapagim'?'Konfirmim parapagimi klienti':'Konfirmim shitjeje shërbimi'):'Draft shitjeje',ref:f.id,text:f.id+' — '+fmt2(f.total)+' '+f.currency});
+    save();closeModal();render();
+    if(confirmIt)allocateCustomerPrepayments(f.id);
+    setTimeout(()=>saleInvoiceCard(f.id),80);
+    toast(confirmIt?(k==='Parapagim'?'Parapagimi u konfirmua':'Fatura e shërbimit u konfirmua'):'Drafti u ruajt');
+  };
+
+  /* ---------- 3) Parapagimet e klientit: mbetja + alokimi FIFO ---------- */
+  window.customerPrepayUnused=function(id){
+    const p=salesInvoices().find(f=>f.id===id);if(!p||!p.isPrepayment)return 0;
+    const total=toALL(p.total,p.currency,p.exchangeRate),used=(p.prepayAllocations||[]).reduce((a,l)=>a+(+l.amount||0),0);
+    return Math.max(0,total-used);
+  };
+  window.allocateCustomerPrepayments=function(invId){
+    const inv=salesInvoices().find(f=>f.id===invId);
+    if(!inv||inv.isPrepayment||inv.status!=='Konfirmuar')return;
+    let remaining=toALL(inv.total,inv.currency,inv.exchangeRate);if(remaining<=.001)return;
+    const preps=salesInvoices().filter(f=>f.customer===inv.customer&&f.isPrepayment&&f.status==='Konfirmuar')
+      .sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+    let applied=0;
+    preps.forEach(p=>{
+      if(remaining<=.001)return;
+      const free=customerPrepayUnused(p.id);if(free<=.001)return;
+      const take=Math.min(free,remaining);
+      p.prepayAllocations=(p.prepayAllocations||[]).concat([{prepayId:p.id,invoiceId:inv.id,amount:Math.round(take*100)/100,date:new Date().toISOString().slice(0,10)}]);
+      remaining-=take;applied+=take;
+    });
+    if(applied>.001){state.events.push({date:new Date().toLocaleString('sq-AL'),type:'Alokim parapagimi klienti',ref:inv.id,text:inv.id+': u ul automatikisht '+fmt2(applied)+' ALL nga parapagimet e konfirmuara (FIFO)'});save()}
+  };
+  window.customerBalance=function(id){
+    const c=by('customers',id)||{};
+    const ob=(typeof obOf==='function')?(+obOf(c)||0):(+c.openingBalance||0);
+    const conf=salesInvoices().filter(f=>f.customer===id&&f.status==='Konfirmuar');
+    const debit=conf.filter(f=>!f.isPrepayment).reduce((a,f)=>a+toALL(f.total,f.currency,f.exchangeRate),0);
+    const prepay=conf.filter(f=>f.isPrepayment).reduce((a,f)=>a+toALL(f.total,f.currency,f.exchangeRate),0);
+    const paid=customerPayments().filter(x=>x.customer===id&&(x.status||'Konfirmuar')==='Konfirmuar').reduce((a,x)=>a+toALL(x.amount,x.currency,x.rate),0);
+    const ret=customerReturns().filter(x=>x.customer===id&&x.status==='Konfirmuar').reduce((a,x)=>a+toALL(x.total,x.currency,x.exchangeRate),0);
+    return ob+debit-(paid+prepay)-ret;
+  };
+
+  /* ---------- 4) Kartela e klientit me tab (si e furnitorit) ---------- */
+  function ccHistory(id){
+    const rows=[];
+    const c=by('customers',id)||{};
+    const ob=(typeof obOf==='function')?(+obOf(c)||0):(+c.openingBalance||0);
+    if(ob)rows.push({date:(c.openingDate||''),veprimi:'Gjendje fillestare',desc:'Saldo në hapjen e sistemit',debit:ob>0?ob:0,credit:ob<0?-ob:0,status:'Konfirmuar',kind:'all'});
+    salesInvoices().filter(f=>f.customer===id&&(f.status||'Konfirmuar')!=='Anuluar').forEach(f=>{
+      const k=saleKindOf(f);
+      rows.push({date:f.date,veprimi:k==='Parapagim'?'Parapagim':(k==='Shërbim'?'Faturë shërbimi':'Faturë'),
+        desc:'<a class="link" onclick="saleInvoiceCard(\''+f.id+'\')">'+esc(f.serviceDescription||(f.invoiceNumber||f.id))+' <b>'+f.id+'</b></a>',
+        debit:k==='Parapagim'?0:toALL(f.total,f.currency,f.exchangeRate),
+        credit:k==='Parapagim'?toALL(f.total,f.currency,f.exchangeRate):0,
+        status:f.status,kind:k==='Parapagim'?'prepayments':'sales'});
+    });
+    customerPayments().filter(x=>x.customer===id&&(x.status||'Konfirmuar')==='Konfirmuar').forEach(x=>{
+      rows.push({date:x.date,veprimi:'Arkëtim',desc:'<a class="link" onclick="receiptCard(\''+x.id+'\')">'+esc(x.method||'Arkëtim')+' — '+(x.description||'')+' <b>'+x.id+'</b></a>',debit:0,credit:toALL(x.amount,x.currency,x.rate),status:x.status||'Konfirmuar',kind:'receipts'});
+    });
+    customerReturns().filter(x=>x.customer===id&&x.status==='Konfirmuar').forEach(x=>{
+      rows.push({date:x.date,veprimi:'Kthim',desc:esc(x.reason||x.id)+' <b>'+x.id+'</b>',debit:0,credit:toALL(x.total,x.currency,x.exchangeRate),status:'Konfirmuar',kind:'sales'});
+    });
+    return rows.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  }
+  window.customerCardHistory=ccHistory;
+  function ccTable(rows,tab){
+    const list=tab==='all'?rows:rows.filter(r=>r.kind===tab||(tab==='sales'&&r.kind==='sales'));
+    const body=list.map(r=>'<tr><td>'+esc(r.date||'—')+'</td><td>'+esc(r.veprimi)+'</td><td>'+r.desc+'</td><td>'+(r.debit?fmt2(r.debit):'')+'</td><td>'+(r.credit?fmt2(r.credit):'')+'</td><td>'+status(r.status||'')+'</td></tr>').join('')||'<tr><td colspan="6" class="empty">Nuk ka veprime</td></tr>';
+    return '<div class="table-wrap" style="border:0"><table><thead><tr><th>Data</th><th>Veprimi</th><th>Përshkrimi</th><th>Debi (ALL)</th><th>Kredi (ALL)</th><th>Status</th></tr></thead><tbody id="ccBody">'+body+'</tbody></table></div>';
+  }
+  const baseCustomerCard=window.customerCard;
+  window.customerCard=function(id,tab){
+    tab=tab||'all';window.__ccId=id;
+    let c=by('customers',id);if(!c||!c.id)return toast('Klienti nuk u gjet');
+    const conf=salesInvoices().filter(f=>f.customer===id&&f.status==='Konfirmuar');
+    const fatura=conf.filter(f=>!f.isPrepayment),prepayConf=conf.filter(f=>f.isPrepayment);
+    const faturaSum=fatura.reduce((a,f)=>a+toALL(f.total,f.currency,f.exchangeRate),0);
+    const prepaySum=prepayConf.reduce((a,f)=>a+toALL(f.total,f.currency,f.exchangeRate),0);
+    const unused=prepayConf.reduce((a,f)=>a+customerPrepayUnused(f.id),0);
+    const paid=customerPayments().filter(x=>x.customer===id&&(x.status||'Konfirmuar')==='Konfirmuar').reduce((a,x)=>a+toALL(x.amount,x.currency,x.rate),0);
+    const bal=customerBalance(id);
+    const headLine=[c.code,c.name,c.city||'',c.country||''].filter(Boolean).map(esc).join(' &nbsp;·&nbsp; ');
+    const sub=[c.vat?('NIPT/VAT: '+esc(c.vat)):'',c.phone?('Tel: '+esc(c.phone)):''].filter(Boolean).join(' &nbsp;·&nbsp; ');
+    const tabs=[['sales','Shitje'],['receipts','Arkëtime'],['prepayments','Parapagime'],['all','Të gjitha']];
+    modal('Kartela — '+esc(c.name),
+      '<div id="printCustomerCard">'
+      +'<div class="card" style="border-top:4px solid #176b49;margin-bottom:12px"><div style="font-size:16px;font-weight:800">'+headLine+'</div>'
+      +(sub?'<p class="hint" style="margin:4px 0 0">'+sub+'</p>':'')+'</div>'
+      +'<div class="kpis">'
+      +'<div class="kpi"><small>Fatura (të konfirmuara)</small><strong>'+fatura.length+' · '+n(faturaSum,0)+' ALL</strong></div>'
+      +'<div class="kpi"><small>Arkëtime + Parapagime</small><strong>'+n(paid+prepaySum,0)+' ALL</strong></div>'
+      +'<div class="kpi"><small>Gjendja neto</small><strong style="color:'+(bal>0.009?'#b63c46':(bal<-0.009?'#1e7e34':'#333'))+'">'+n(bal,0)+' ALL</strong></div>'
+      +'<div class="kpi"><small>Parapagim i papërdorur</small><strong>'+n(unused,0)+' ALL</strong></div>'
+      +'</div>'
+      +'<div class="actions" role="tablist" aria-label="Kartela e klientit" style="margin:10px 0">'+tabs.map(t=>'<button type="button" role="tab" data-customer-tab="'+t[0]+'" class="btn '+(t[0]===tab?'primary':'')+'" aria-selected="'+(t[0]===tab)+'" onclick="customerCardTab(\''+t[0]+'\')">'+t[1]+'</button>').join('')+'</div>'
+      +'<div class="card" style="padding:0">'+ccTable(ccHistory(id),tab)+'</div>'
+      +'</div>',
+      '<button class="btn" onclick="closeModal()">Mbyll</button>'
+      +'<button class="btn primary" onclick="saleInvoiceForCustomer(\''+id+'\')">+ Faturë shitjeje</button>'
+      +'<button class="btn" onclick="receiptFormForCustomer(\''+id+'\')">+ Arkëtim</button>'
+      +'<button class="btn" onclick="exportCustomerLedgerXlsx(\''+id+'\')">Eksporto XLSX</button>'
+      +'<button class="btn" onclick="printOnly(\'printCustomerCard\',\'Kartela '+esc(c.code)+'\')">🖨 Printo A4</button>');
+    try{if(typeof rtApply==='function')rtApply()}catch(e){}
+  };
+  window.customerCardTab=function(tab){const id=window.__ccId;if(id)customerCard(id,tab)};
+  window.saleInvoiceForCustomer=function(id){saleInvoiceForm();setTimeout(()=>{try{$set('sfCustomer',id)}catch(e){}},60)};
+  window.receiptFormForCustomer=function(id){receiptForm();setTimeout(()=>{try{$set('rCustomer',id);loadReceiptInvoices()}catch(e){}},60)};
+  window.exportCustomerLedgerXlsx=function(id){
+    const c=by('customers',id)||{};
+    const rows=ccHistory(id);
+    const html='<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table border="1">'
+      +'<tr><th colspan="6">Kartela e klientit — '+esc(c.name||id)+'</th></tr>'
+      +'<tr><th>Data</th><th>Veprimi</th><th>Përshkrimi</th><th>Debi (ALL)</th><th>Kredi (ALL)</th><th>Status</th></tr>'
+      +rows.map(r=>'<tr><td>'+esc(r.date||'')+'</td><td>'+esc(r.veprimi)+'</td><td>'+esc((r.desc||'').replace(/<[^>]+>/g,''))+'</td><td>'+(r.debit||'')+'</td><td>'+(r.credit||'')+'</td><td>'+esc(r.status||'')+'</td></tr>').join('')
+      +'</table></body></html>';
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'application/vnd.ms-excel'}));a.download=(c.code||id)+'-kartela.xls';a.click();
+    toast('XLSX u shkarkua');
+  };
+
+  /* ---------- 5) Kartela e faturës së shërbimit/parapagimit + print ---------- */
+  const baseSaleCard=window.saleInvoiceCard;
+  window.saleInvoiceCard=function(id){
+    const f=salesInvoices().find(x=>x.id===id);if(!f)return;
+    const k=saleKindOf(f);
+    if(k==='Mall')return baseSaleCard(id);
+    const c=by('customers',f.customer)||{};
+    const allocs=salesInvoices().filter(p=>p.isPrepayment).flatMap(p=>(p.prepayAllocations||[]).filter(l=>l.invoiceId===f.id));
+    const usedByInv=allocs.length?'<div class="card"><h3>Parapagimet e alokuara në këtë faturë</h3>'+tableCard(['Parapagimi','Shuma','Data'],allocs.map(l=>['<a class="link" onclick="saleInvoiceCard(\''+l.prepayId+'\')">'+l.prepayId+'</a>',fmt2(l.amount),l.date]))+'</div>':'';
+    const allocsOfPrepay=salesInvoices().filter(x=>(x.prepayAllocations||[]).some(l=>l.prepayId===f.id));
+    const usedOfPrepay=allocsOfPrepay.length?'<div class="card"><h3>Ulet nga faturat</h3>'+tableCard(['Fatura','Shuma','Data'],allocsOfPrepay.flatMap(x=>(x.prepayAllocations||[]).filter(l=>l.prepayId===f.id).map(l=>['<a class="link" onclick="saleInvoiceCard(\''+x.id+'\')">'+x.id+'</a>',fmt2(l.amount),l.date])))+'</div>':'';
+    modal((k==='Parapagim'?'PARAPAGIM KLIENTI ':'FATURË SHËRBIMI ')+id,
+      '<div id="printSaleService" class="doc-sheet"><h2>'+(k==='Parapagim'?'PARAPAGIM NGA KLIENTI':'FATURË SHITJEJE SHËRBIMI')+' '+esc(f.id)+'</h2>'
+      +'<p><b>Klienti:</b> '+esc(c.name||'—')+' &nbsp; <b>Data:</b> '+esc(f.date)+' &nbsp; <b>Statusi:</b> '+status(f.status)+'</p>'
+      +'<p><b>Përshkrimi:</b> '+esc(f.serviceDescription||'—')+'</p>'
+      +tableCard(['Shuma pa TVSH','TVSH','Totali'],[[fmt2(f.subtotal)+' '+f.currency,fmt2(f.vatAmount)+' '+f.currency+(f.vat?' ('+fmt2(f.vat)+'%)':''),'<b>'+fmt2(f.total)+' '+f.currency+'</b>']])
+      +(k==='Parapagim'?'<p class="hint">Mbetja e papërdorur: <b>'+fmt2(customerPrepayUnused(f.id))+' ALL</b> — ulet automatikisht (FIFO) nga faturat e mëvonshme të klientit.</p>':'')
+      +'</div>'+usedByInv+usedOfPrepay,
+      '<button class="btn" onclick="closeModal()">Mbyll</button>'
+      +(f.status==='Draft'?'<button class="btn" data-admin-only onclick="saleInvoiceForm(\''+id+'\')">Ndrysho</button>':'')
+      +'<button class="btn primary" onclick="printOnly(\'printSaleService\',\''+(k==='Parapagim'?'Parapagim ':'Faturë shërbimi ')+id+'\')">Printo / PDF</button>');
+  };
+
+  /* ---------- 6) CSS printimi: kartela klientit + fatura shërbimi ---------- */
+  try{const basePO=printOnly;printOnly=function(elementId,title){
+    if(elementId!=='printCustomerCard'&&elementId!=='printSaleService')return basePO.apply(this,arguments);
+    let css='';
+    if(elementId==='printCustomerCard')css='@page{size:A4 portrait;margin:10mm} #printCustomerCard{width:100%;max-width:190mm;margin:auto} #printCustomerCard .kpis{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important} #printCustomerCard .kpi strong{font-size:15px!important} #printCustomerCard [role=tablist]{display:none!important} #printCustomerCard .table-wrap{overflow:visible!important} #printCustomerCard table{min-width:0!important;width:100%!important;table-layout:fixed} #printCustomerCard td,#printCustomerCard th{overflow-wrap:anywhere;font-size:10px}';
+    else css='@page{size:A4 portrait;margin:12mm} #printSaleService{width:100%;max-width:180mm;margin:auto;font-size:12px} #printSaleService h2{font-size:16px;margin:0 0 6px}';
+    let el=document.getElementById(elementId);if(!el)return toast('Dokumenti nuk u gjet');
+    document.getElementById('biobesPrintFrame')?.remove();
+    let frame=document.createElement('iframe');frame.id='biobesPrintFrame';frame.title='Dokumenti për printim';frame.style.cssText='position:fixed;width:0;height:0;border:0;right:0;bottom:0';document.body.appendChild(frame);
+    frame.contentDocument.open();frame.contentDocument.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title||'Dokument')+'</title><style>'+css+' body{background:#fff;margin:0;padding:8mm;font-family:system-ui,Segoe UI,Arial;color:#111}.card{box-shadow:none!important}@media print{body{padding:0!important}}</style></head><body>'+el.outerHTML+'</body></html>');frame.contentDocument.close();
+    frame.contentWindow.addEventListener('afterprint',()=>frame.remove(),{once:true});
+    setTimeout(()=>{if(frame.isConnected){frame.contentWindow.focus();frame.contentWindow.print()}},350);
+    setTimeout(()=>frame.remove(),60000);
+  };window.printOnly=printOnly}catch(e){console.error('sales-prepay print',e)}
+
+  /* ---------- 7) Lista e shitjeve: shenja e llojit ---------- */
+  try{const baseTable=window.salesInvoicesTable;window.salesInvoicesTable=function(){
+    let html=baseTable();
+    salesInvoices().forEach(f=>{const k=saleKindOf(f);if(k==='Mall')return;
+      html=html.split('>'+f.id+'</button>').join('>'+f.id+' <span class="pill '+(k==='Parapagim'?'orange':'blue')+'">'+k+'</span></button>')});
+    return html;
+  }}catch(e){}
+})();
+</script>
 <script id="biobes-rights-matrix-v1">
 /* BioBes ERP — Të drejtat me kuti (checkbox) për çdo modul, si në Vyapar/Odoo — v1
    Modeli:   rights.modules = { sales:['view','create','edit','confirm','cancel','delete','print'], ... }  (v2)
@@ -10501,7 +10737,7 @@ const G=[
  ['entityForm',a=>a[0]==='product'?'products':'suppliers','create'],['addProduct','products','create'],['addSupplier','suppliers','create'],['editEntity',typeMod,'edit'],['saveEditProduct','products','edit'],['saveEditSupplier','suppliers','edit'],['deleteEntity',typeMod,'delete'],['supplierEditForm','suppliers','edit'],['saveSupplierEdit','suppliers','edit'],['exportSuppliersXls','suppliers','print'],['exportProductsXls','products','print'],['productFormV2','products',idEdit],['saveProductV2','products',idEdit],['supplierCard','suppliers','view'],['productCard','products','view'],['openProductArticleCard','products','view'],
  ['simpleForm',typeMod,'create'],['addSimple',typeMod,'create'],
  /* magazina / lotet */
- ['transferLotForm','warehouse','edit'],['openLotTransfer','warehouse','edit'],['saveLotTransfer','warehouse','edit'],['inventoryForm','warehouse','edit'],['confirmInventory','warehouse','edit'],['inventoryStockConfig','warehouse','edit'],['saveInventoryStockConfig','warehouse','edit'],['rackCard','warehouse','view'],['printLotLabel','lots','print'],['lotCard','lots','view'],['rackCardPrint','warehouse','print'],['bankCsvQuickSupplier','suppliers','create'],['bankCsvQuickCustomer','customers','create'],['lotZonesManager','warehouse','edit'],['lotZoneAdd','warehouse','edit'],['lotZoneEdit','warehouse','edit'],['lotZoneSave','warehouse','edit'],['lotZoneDelete','warehouse','edit'],['lotZoneSupplierForm','suppliers','edit'],['lotZoneSupplierSave','suppliers','edit'],['openManual','dashboard','view'],['manualTourStart','dashboard','view'],['manualPrint','dashboard','view'],['manualSaveNote','settings','edit'],['weighGroupForm','weighings','create'],['weighGroupSave','weighings','create'],['weighGroupPrint','weighings','print'],['weighGroupCard','weighings','view'],
+ ['transferLotForm','warehouse','edit'],['openLotTransfer','warehouse','edit'],['saveLotTransfer','warehouse','edit'],['inventoryForm','warehouse','edit'],['confirmInventory','warehouse','edit'],['inventoryStockConfig','warehouse','edit'],['saveInventoryStockConfig','warehouse','edit'],['rackCard','warehouse','view'],['printLotLabel','lots','print'],['lotCard','lots','view'],['rackCardPrint','warehouse','print'],['bankCsvQuickSupplier','suppliers','create'],['bankCsvQuickCustomer','customers','create'],['lotZonesManager','warehouse','edit'],['lotZoneAdd','warehouse','edit'],['lotZoneEdit','warehouse','edit'],['lotZoneSave','warehouse','edit'],['lotZoneDelete','warehouse','edit'],['lotZoneSupplierForm','suppliers','edit'],['lotZoneSupplierSave','suppliers','edit'],['openManual','dashboard','view'],['manualTourStart','dashboard','view'],['manualPrint','dashboard','view'],['manualSaveNote','settings','edit'],['weighGroupForm','weighings','create'],['weighGroupSave','weighings','create'],['weighGroupPrint','weighings','print'],['weighGroupCard','weighings','view'],['customerCardTab','customers','view'],['saleInvoiceForCustomer','sales','create'],['receiptFormForCustomer','cashreceipts','create'],['exportCustomerLedgerXlsx','customers','print'],
  /* përpunimi */
  ['processForm','processing','create'],['addProcess','processing','create'],['machineEditForm','processing','edit'],['saveMachineEdit','processing','edit'],['machineStatusForm','processing','edit'],['saveMachineStatus','processing','edit'],['machineDelete','processing','delete'],['machineDeleteConfirm','processing','delete'],['createProcessFromOrder','processing','create'],['processCard','processing','view'],['machineCard','processing','view'],
  /* paketimi */
