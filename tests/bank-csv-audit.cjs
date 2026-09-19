@@ -59,6 +59,17 @@ const CSV_MISSING=HEAD+
  '2,20.08.2026,,"mb financ BIOBES 1004215",,P260820MBFIN1,XBEN,20.08.2026,"-85 ALL",-26975239.61\n'+
  '3,19.08.2026,"60196215483 AFRIM STRANA FERMER (0002127523)","P260819ABIEOP14 LIKUJDIM I PJESSHEM PER BLERJE BIMESH 60196071997",,P260819ABIEOP1,Payment,19.08.2026,"-30000 ALL",-26975154.61\n'+
  FOOT(-26975239.61,-27145239.61,0,-200085);
+
+/* Përhapja automatike: blerje furnitori / arkëtim klienti / taksë / e panjohur */
+const CSV_POST=HEAD+
+ '1,05.02.2026,"60185125000 SOKOL AGALLIU FERMER (0001360346)","P260205POST01 LIKUJDIM TOTAL BLERJEVE SHKURT 60185125000",,P260205POST01,Payment,05.02.2026,"-120000 ALL",-9922000\n'+
+ '2,05.02.2026,"40239868582 NUTRECO SWITZERLAND GMBH (000999001)","P260205POST02 ARKETIM FATURE SHITJEJE 40239868582",,P260205POST02,Payment,05.02.2026,"250000 ALL",-9802000\n'+
+ '3,06.02.2026,"40239868623 DREJTORIA PERGJITHSHME TATIMEVE (0101100016)","P260206POST03 TATIMI MBI TE ARDHURAT",,P260206POST03,TAX,06.02.2026,"-45000 ALL",-10052000\n'+
+ '4,06.02.2026,"99999999999 PANJOHUR SHPK (0000000002)","P260206POST04 DALJE E PANJOHUR",,P260206POST04,Payment,06.02.2026,"-7000 ALL",-10007000\n'+
+ FOOT(-9802000,-9922000,250000,-172000);
+const CSV_POST2=HEAD+
+ '1,07.02.2026,"60185134322 FLAMUR GURI FERMER (0000785821)","P260207POST05 LIKUJDIM PJESSHEM 60185134322",,P260207POST05,Payment,07.02.2026,"-80000 ALL",-5080000\n'+
+ FOOT(-5000000,-5080000,0,-80000);
 const CSV_ALL=HEAD+ALL_ROWS+FOOT(ALL_PREV,ALL_CUR,156250,-1449925);
 /* i prishur: shuma e rreshtit 3 ndryshon → bilanci nuk mbyllet */
 const CSV_BAD=HEAD+ALL_ROWS.replace('"-517825 ALL"','"-517820 ALL"')+FOOT(ALL_PREV,ALL_CUR,156250,-1449925);
@@ -76,6 +87,7 @@ const CSV_TWO=HEAD+
 (async()=>{
  fs.mkdirSync('.audit',{recursive:true});
  fs.writeFileSync('.audit/bank-real.csv',CSV_REAL);
+ fs.writeFileSync('.audit/bank-post.csv',CSV_POST);fs.writeFileSync('.audit/bank-post2.csv',CSV_POST2);
  fs.writeFileSync('.audit/bank-missing.csv',CSV_MISSING);
  fs.writeFileSync('.audit/bank-all.csv',CSV_ALL);fs.writeFileSync('.audit/bank-bad.csv',CSV_BAD);
  fs.writeFileSync('.audit/bank-eur.csv',CSV_EUR);fs.writeFileSync('.audit/bank-two.csv',CSV_TWO);
@@ -122,6 +134,8 @@ const CSV_TWO=HEAD+
  });
 
  await step('Ruaj si Draft: 5 veprime bankare me importKey, palën e lidhur dhe llojet e sakta; fatura e extract-it shtohet në përshkrim',async()=>{
+   await ev(()=>{bankCsvPlan(2,'cat','TATIME');bankCsvPlan(3,'cat','TATIME')});
+   await p.waitForTimeout(300);
    await p.locator('#bcSave').click();await p.waitForTimeout(900);
    const t=await ev(()=>bankTransactions().map(x=>({id:x.id,type:x.type,party:x.party,partyType:x.partyType,status:x.status,cur:x.currency,ref:x.reference,amt:x.amount,key:x.importKey,src:x.source,cp:x.bankCounterpart})));
    assert.equal(t.length,5);
@@ -204,6 +218,8 @@ const CSV_TWO=HEAD+
    /* rreshti 1 i extract-it real ështe i njëjti veprim si rreshti 1 i bank-all.csv (referencë+datë+shumë) → kapërcehet */
    const dups=await ev(()=>window.__biobesBankCsv.state().rows.filter(r=>r.dup).length);
    assert.equal(dups,1,'deduplikim mes skedarëve: rreshti i parë njihet si i hedhur');
+   await ev(()=>{const W=window.__biobesBankCsv.state();W.rows.forEach((r,i)=>{if(r.plan&&r.plan.kind==='expense'&&!r.plan.cat)bankCsvPlan(i,'cat','TATIME')})});
+   await p.waitForTimeout(300);
    await p.locator('#bcSave').click();await p.waitForTimeout(1000);
    const n=await ev(()=>bankTransactions().filter(x=>(x.source||'').includes('bank-real')).length);
    assert.equal(n,17,'18 veprime - 1 dublikat = 17 Draft të reja');
@@ -269,6 +285,58 @@ const CSV_TWO=HEAD+
    assert.ok(Math.abs(cur-sheet.cur)<0.01,'Current Balance = saldo pas periudhës ('+sheet.cur+')');
    const prev=parseFloat(sheet.foot.match(/Previous Balance: ([^A-Z]+)/)[1].replace(/[^\d.-]/g,''));
    assert.ok(Math.abs(prev-0)<0.01,'Previous Balance = saldo para periudhës (0, hapja e llogarisë)');
+ });
+ await step('Përhapja automatike me konfirmim: MP- + kartela, MA- + kartela, shpenzim me kategori, e panjohura vetëm bankë; VK për secilin',async()=>{
+   await ev(()=>{try{closeModal()}catch(e){}});
+   const before=await ev(()=>({bal1:supplierBalance('S1'),n:bankTransactions().length,p:state.payments.length,m:customerPayments().length,e:(window.__biobesExpenses.docs()||[]).length}));
+   await ev(()=>bankCsvWizard());await p.waitForTimeout(500);
+   await p.setInputFiles('#bcFile','.audit/bank-post.csv');await p.waitForTimeout(1000);
+   const plans=await ev(()=>window.__biobesBankCsv.state().rows.map(r=>({k:r.plan.kind,party:r.plan.party||null,cat:r.plan.cat||null})));
+   assert.deepEqual(plans[0],{k:'payment',party:'S1',cat:null});
+   assert.deepEqual(plans[1],{k:'receipt',party:'C1',cat:null});
+   assert.deepEqual(plans[2],{k:'expense',party:null,cat:null});
+   assert.deepEqual(plans[3],{k:'bank',party:null,cat:null});
+   /* pa kategori shpenzimi ruajtja bllokohet me mesazh të qartë */
+   await p.locator('#bcConfirm').click();await p.waitForTimeout(600);
+   assert.match(await ev(()=>document.getElementById('toast').textContent),/Zgjidhni kategorinë e shpenzimit/);
+   assert.equal(await ev(()=>bankTransactions().length),before.n,'asgjë nuk u ruajt pa kategori');
+   /* zgjedhja e kategorisë në tabelën e rishikimit */
+   await ev(()=>bankCsvPlan(2,'cat','TATIME'));
+   await p.waitForTimeout(400);
+   assert.equal(await ev(()=>window.__biobesBankCsv.state().rows[2].plan.cat),'TATIME');
+   await p.locator('#bcConfirm').click();await p.waitForTimeout(1200);
+   const after=await ev(b=>({
+     pays:state.payments.slice(b.p).map(x=>({id:x.id,sup:x.supplier,amt:x.amount,st:x.status,method:x.method,inv:x.invoice})),
+     recs:customerPayments().slice(b.m).map(x=>({id:x.id,cus:x.customer,amt:x.amount,st:x.status})),
+     exps:window.__biobesExpenses.docs().slice(b.e).map(x=>({id:x.id,num:x.number,cat:x.category,tot:x.total,st:x.status,method:x.method,bank:x.bankAccount})),
+     txs:bankTransactions().slice(b.n).map(x=>({plan:x.postedPlan,doc:x.postedDoc,st:x.status})),
+     bal1:supplierBalance('S1'),
+     vks:ensureAccounting().entries.map(e=>e.sourceKey),
+     evs:state.events.map(e=>e.type)}),before);
+   assert.equal(after.pays.length,1);assert.equal(after.pays[0].sup,'S1');assert.equal(after.pays[0].amt,120000);assert.equal(after.pays[0].st,'Konfirmuar');assert.equal(after.pays[0].method,'Bankë');
+   assert.equal(after.recs.length,1);assert.equal(after.recs[0].cus,'C1');assert.equal(after.recs[0].amt,250000);assert.equal(after.recs[0].st,'Konfirmuar');
+   assert.equal(after.exps.length,1);assert.equal(after.exps[0].cat,'TATIME');assert.equal(after.exps[0].tot,45000);assert.equal(after.exps[0].st,'Konfirmuar');assert.equal(after.exps[0].method,'bank');
+   assert.deepEqual(after.txs.map(t=>t.plan),['payment','receipt','expense','bank']);
+   assert.ok(after.txs[0].doc&&after.txs[0].doc===after.pays[0].id,'veprimi bankar mban dokumentin e krijuar');
+   assert.ok(after.txs[1].doc===after.recs[0].id);assert.ok(after.txs[2].doc);assert.equal(after.txs[3].doc,undefined);
+   assert.ok(Math.abs(after.bal1-(before.bal1-120000))<0.01,'kartela e furnitorit u përditësua nga mandati i konfirmuar');
+   const mp=after.pays[0].id,ma=after.recs[0].id,sh=after.exps[0].id;
+   assert.ok(after.vks.some(k=>k&&k.includes(mp)),'VK për pagesën');
+   assert.ok(after.vks.some(k=>k&&k.includes(ma)),'VK për arkëtimin');
+   assert.ok(after.vks.some(k=>k==='expense:'+sh),'VK për shpenzimin');
+   assert.ok(after.evs.includes('Mandat pagesë')&&after.evs.includes('Mandat arkëtim'));
+ });
+
+ await step('Përhapja si Draft: dokumenti krijohet Draft, kartela dhe VK presin konfirmimin',async()=>{
+   const before=await ev(()=>({bal2:supplierBalance('S2'),p:state.payments.length,n:bankTransactions().length}));
+   await ev(()=>bankCsvWizard());await p.waitForTimeout(500);
+   await p.setInputFiles('#bcFile','.audit/bank-post2.csv');await p.waitForTimeout(900);
+   await p.locator('#bcSave').click();await p.waitForTimeout(900);
+   const after=await ev(b=>({pays:state.payments.slice(b.p),bal2:supplierBalance('S2'),
+     vks:ensureAccounting().entries.map(e=>e.sourceKey)}),before);
+   assert.equal(after.pays.length,1);assert.equal(after.pays[0].status,'Draft');assert.equal(after.pays[0].supplier,'S2');
+   assert.ok(Math.abs(after.bal2-before.bal2)<0.01,'drafti nuk e prek kartelën');
+   assert.ok(!after.vks.some(k=>k&&k.includes(after.pays[0].id)),'drafti nuk krijon VK');
  });
  await step('ROLE-USER pa të drejtën edit në Banka: butoni fshehet dhe wizard-i refuzohet',async()=>{
    await ev(async()=>{const h=await hashPassword('Prove-2026!');state.users.push({id:'U-BC',username:'bc-user',name:'Bankier',role:'ROLE-USER',active:true,
