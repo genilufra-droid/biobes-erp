@@ -108,6 +108,37 @@ const {open}=require('./helpers.cjs'),assert=require('node:assert/strict');
    assert.match(fr2.body,/Shërbim transporti/);
  });
 
+ await step('Raportet e menaxhimit: shërbimi në xhiro, parapagimi si Kredi, gjendja e saktë',async()=>{
+   const r=await ev(()=>{const sal=vySalesRows();
+     const svc=sal.filter(x=>x.type==='Shërbim');
+     const pre=sal.filter(x=>x.invoiceId===window.__preId);
+     const L=vyPartyLedger('customer',state.customers[0].id);
+     const preRow=L.rows.find(x=>x.ref===window.__preId);
+     const sum=vyPartyLedger('customer',state.customers[0].id);const sumObj={balance:sum.balance};
+     return {svcRev:svc.reduce((a,x)=>a+x.revenueALL,0),preInSales:pre.length,
+       preCredit:preRow?preRow.creditALL:0,preDebit:preRow?preRow.debitALL:0,preType:preRow?preRow.type:'',
+       bal:sumObj?sumObj.balance:null};});
+   assert.equal(r.svcRev,100000,'xhiroja e shërbimit: '+r.svcRev);
+   assert.equal(r.preInSales,0,'parapagimi nuk duhet në xhiro');
+   assert.equal(r.preCredit,70000,'parapagimi nuk del si Kredi te libri i partive: '+r.preCredit);
+   assert.equal(r.preDebit,0);
+   assert.equal(r.preType,'Parapagim');
+   assert.equal(r.bal,0,'saldo e klientit te raportet: '+r.bal);
+ });
+
+ await step('Kartelat (ekran + print): totali Debi/Kredi/Detyrimi poshtë tabelës',async()=>{
+   await ev(()=>customerCard(state.customers[0].id,'all'));await p.waitForTimeout(400);
+   const cc=await ev(()=>{const tf=document.querySelector('#printCustomerCard tfoot');return tf?tf.innerText.replace(/\s+/g,' '):''});
+   assert.match(cc,/Totali/);assert.match(cc,/100,000/);assert.match(cc,/Detyrimi \(Debi/);assert.match(cc,/0\.00 ALL/);
+   await ev(()=>{closeModal();supplierCard(state.suppliers[0].id)});await p.waitForTimeout(500);
+   const sc=await ev(()=>{const tf=document.querySelector('#printSupplierCard tfoot');return tf?tf.innerText.replace(/\s+/g,' '):''});
+   assert.match(sc,/Totali/);assert.match(sc,/Detyrimi:/);
+   await ev(()=>{closeModal();customerCard(state.customers[0].id,'all')});await p.waitForTimeout(300);
+   await ev(()=>printOnly('printCustomerCard','Kartela'));await p.waitForTimeout(250);
+   const pr=await ev(()=>{const f=document.getElementById('biobesPrintFrame');return f?f.contentDocument.body.innerHTML.includes('<tfoot>')||f.contentDocument.body.innerHTML.includes('Detyrimi'):false});
+   assert.equal(pr,true,'tfoot mungon në print');
+ });
+
  await step('Pa gabime JS',async()=>{assert.deepEqual(errors,[])});
  await browser.close();
  console.log(`\n${passed} passed, ${failed} failed`);process.exit(failed?1:0);
