@@ -51,6 +51,14 @@ const CSV_REAL='Account,Account Name:,Period\nAL78202220060000000021158942,EMANU
  +'No,Value Date,Reference Numbe Beneficiary/Ordering name and account number,Description,,Reference,Transacti,Processing Date,Amount,Amount Total\n'
  +REAL_ROWS.map(r=>`${r[0]},${r[1]},"${r[2]}","${r[3]}",${r[4]},${r[5]},${r[6]},${r[7]},"${r[8]} ALL",${r[9]}`).join('\n')
  +'\nPrevious Balance,Current Balance:,Debit sum:,Credit sum:\n-24639304.46,-25170204.46,,\n';
+
+/* Rreshta si në extract-in e gushtit 2026: kolona C (përfituesi) bosh — te disa
+   përfituesi gjendet në krye të përshkrimit (IBAN + emër), te të tjerët mungon krejt. */
+const CSV_MISSING=HEAD+
+ '1,20.08.2026,,"AL972142210602202817738020113 KOCI T AND L SHPK",,P260820ACVAOP08,XBEN,20.08.2026,"-170000 ALL",-27145239.61\n'+
+ '2,20.08.2026,,"mb financ BIOBES 1004215",,P260820MBFIN1,XBEN,20.08.2026,"-85 ALL",-26975239.61\n'+
+ '3,19.08.2026,"60196215483 AFRIM STRANA FERMER (0002127523)","P260819ABIEOP14 LIKUJDIM I PJESSHEM PER BLERJE BIMESH 60196071997",,P260819ABIEOP1,Payment,19.08.2026,"-30000 ALL",-26975154.61\n'+
+ FOOT(-26975239.61,-27145239.61,0,-200085);
 const CSV_ALL=HEAD+ALL_ROWS+FOOT(ALL_PREV,ALL_CUR,156250,-1449925);
 /* i prishur: shuma e rreshtit 3 ndryshon → bilanci nuk mbyllet */
 const CSV_BAD=HEAD+ALL_ROWS.replace('"-517825 ALL"','"-517820 ALL"')+FOOT(ALL_PREV,ALL_CUR,156250,-1449925);
@@ -68,6 +76,7 @@ const CSV_TWO=HEAD+
 (async()=>{
  fs.mkdirSync('.audit',{recursive:true});
  fs.writeFileSync('.audit/bank-real.csv',CSV_REAL);
+ fs.writeFileSync('.audit/bank-missing.csv',CSV_MISSING);
  fs.writeFileSync('.audit/bank-all.csv',CSV_ALL);fs.writeFileSync('.audit/bank-bad.csv',CSV_BAD);
  fs.writeFileSync('.audit/bank-eur.csv',CSV_EUR);fs.writeFileSync('.audit/bank-two.csv',CSV_TWO);
  const {browser,page:p,errors}=await open(false);
@@ -198,6 +207,29 @@ const CSV_TWO=HEAD+
    await p.locator('#bcSave').click();await p.waitForTimeout(1000);
    const n=await ev(()=>bankTransactions().filter(x=>(x.source||'').includes('bank-real')).length);
    assert.equal(n,17,'18 veprime - 1 dublikat = 17 Draft të reja');
+ });
+ await step('Përfituesi mungon (kolona C bosh): gjendet në përshkrim ose shënohet "⚠ Përfituesi mungon" dhe plotësohet me dorë',async()=>{
+   await ev(()=>{try{closeModal()}catch(e){}});
+   await ev(()=>bankCsvWizard());await p.waitForTimeout(500);
+   await p.setInputFiles('#bcFile','.audit/bank-missing.csv');await p.waitForTimeout(900);
+   const st=await ev(()=>{const W=window.__biobesBankCsv.state();return W.rows.map(r=>({miss:r.row.partyMissing,rec:r.row.recovered,nm:r.row.counterpart.name,ib:r.row.counterpart.iban}))});
+   assert.deepEqual(st[0],{miss:false,rec:true,nm:'KOCI T AND L SHPK',ib:'AL972142210602202817738020113'},'përfituesi u gjet në krye të përshkrimit');
+   assert.deepEqual(st[1],{miss:true,rec:false,nm:'',ib:''},'rreshti pa përfitues njihet si i tillë');
+   assert.equal(st[2].miss,false);assert.equal(st[2].rec,false);assert.equal(st[2].nm,'AFRIM STRANA FERMER');
+   const rev=await p.locator('#bcReview').innerText();
+   assert.match(rev,/1 pa përfitues/);assert.match(rev,/1 përfitues të gjetur në përshkrim/);
+   assert.equal(await p.locator('#bcReview').getByText('⚠ Përfituesi mungon').count(),1);
+   assert.match(rev,/\(nga përshkrimi\)/);
+   /* plotësimi me dorë i përfituesit të munguar */
+   await p.locator('#bcReview input[placeholder="Shkruaj përfituesin"]').fill('BIOBES financim i brendshëm');
+   await p.locator('#bcReview input[placeholder="Shkruaj përfituesin"]').dispatchEvent('change');
+   await p.waitForTimeout(300);
+   assert.doesNotMatch(await p.locator('#bcReview').innerText(),/1 pa përfitues/);
+   await p.locator('#bcSave').click();await p.waitForTimeout(900);
+   const t=await ev(()=>bankTransactions().filter(x=>(x.source||'').includes('bank-missing')).map(x=>({cp:x.bankCounterpart,miss:x.partyMissing,rec:x.partyRecovered})));
+   assert.deepEqual(t,[{cp:'KOCI T AND L SHPK',miss:false,rec:true},
+     {cp:'BIOBES financim i brendshëm',miss:false,rec:false},
+     {cp:'AFRIM STRANA FERMER',miss:false,rec:false}]);
  });
  await step('Printimi nga wizard-i: fleta A4 landscape me 18 rreshta, kreu dhe fundi i bankës',async()=>{
    await ev(()=>{window.__printCalls=[];const o=window.printOnly;window.printOnly=function(id,t){window.__printCalls.push([id,t]);return o.apply(this,arguments)}});
