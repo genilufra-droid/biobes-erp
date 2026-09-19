@@ -1,5 +1,5 @@
 /* ==========================================================================
-   tests/warehouse-rack-audit.cjs — 12 prova të magazinës/raftit
+   tests/warehouse-rack-audit.cjs — 13 prova të magazinës/raftit
    --------------------------------------------------------------------------
    Skenari i riprodhuar nga terreni: peshim i konfirmuar në MG (Magazina Gur),
    8 thasë / 216 kg neto, magazinë pa asnjë raft në state.racks -> loti merrte
@@ -159,6 +159,27 @@ const PRODUCTION_WEIGHING_ID='PS-2026-002';
     const rows=await p.evaluate(id=>(state.lots||[]).filter(l=>l.rack===id).map(l=>({id:l.id,code:l.code,net:l.net,bags:l.bags})),rackId);
     assert.equal(rows.length,1);assert.equal(rows[0].id,lotId);
     assert.equal(rows[0].net,216);assert.equal(rows[0].bags,8);
+   });
+
+   /* 4b — Printimi A4 landscape i gjithë kartelës së raftit (KPI + lotet + hyrjet). */
+   await step('Kartela e raftit ka butonin Printo A4 landscape dhe fleta përmban gjithçka',async()=>{
+    await p.evaluate(id=>rackCard(id),rackId);await p.waitForTimeout(400);
+    assert.equal(await p.locator('#rackCardPrintBtn').count(),1,'butoni i printimit mungon në kartelën e raftit');
+    await p.evaluate(()=>{window.__rpCalls=[];const o=window.printOnly;window.printOnly=function(idt,t){window.__rpCalls.push([idt,t]);return o.apply(this,arguments)}});
+    await p.locator('#rackCardPrintBtn').click();await p.waitForTimeout(120);
+    const fr=await p.evaluate(()=>{const f=document.getElementById('biobesPrintFrame');if(!f)return null;const d=f.contentDocument;return{css:(d.querySelector('style')||{}).textContent||'',hasSheet:!!d.getElementById('rackCardSheet'),lot:/B1-|LOT|Loti|\d{3}/.test(d.body.innerHTML)}});
+    await p.waitForTimeout(450);
+    assert.deepEqual(await p.evaluate(()=>window.__rpCalls.at(-1)),['rackCardSheet','Kartela e raftit R1 — Rafti kryesor']);
+    const sheet=await p.evaluate(()=>(document.getElementById('rackCardPrintHost')||{}).innerHTML||'');
+    assert.match(sheet,/id="rackCardSheet"/);
+    assert.match(sheet,/R1 — Rafti kryesor/);assert.match(sheet,/Magazina Gur/);
+    assert.match(sheet,/Gjendja fizike/);assert.match(sheet,/216/);assert.match(sheet,/Hyrjet në këtë raft/);
+    assert.match(sheet,/Peshimi PS-/);
+    assert.ok(fr,'iframe-i i printimit nuk u krijua');
+    assert.match(fr.css,/@page\{size:A4 landscape/);
+    assert.equal(fr.hasSheet,true,'fleta rackCardSheet mungon brenda iframe-it');
+    await p.evaluate(()=>{document.getElementById('biobesPrintFrame')?.remove();document.getElementById('rackCardPrintHost')?.remove();window.printOnly=window.printOnly});
+    await close();
    });
 
    /* 5 — Draft-fatura e blerjes krijohet saktë, një herë. */

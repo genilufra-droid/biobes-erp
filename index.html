@@ -9640,6 +9640,65 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
 })();
 </script>
 
+<script id="biobes-rack-print-v1">
+/* Kartela e raftit: printim A4 landscape i GJITHË kartelës (KPI + tabela e loteve + hyrjet e raftit).
+   Ndjek modelin e printimit të extract-it bankar: fletë e fshehtë + printOnly me @page A4 landscape. */
+window.rackCardPrint=function(id){
+  if(!requirePermission('warehouse','print'))return;
+  const r=by('racks',id);if(!r||!r.id)return toast('Rafti nuk u gjet');
+  const w=by('warehouses',r.warehouse)||{};
+  const ls=state.lots.filter(l=>l.rack===id&&!String(l.status).toLowerCase().includes('anuluar'));
+  const kg=ls.reduce((a,x)=>a+(+x.net||0),0),bags=ls.reduce((a,x)=>a+(+x.bags||0),0);
+  const tg=ls.reduce((a,x)=>a+(+x.gross||0),0),tt=ls.reduce((a,x)=>a+(+x.tare||0),0);
+  const sup=new Set(ls.map(x=>x.supplier)).size,prod=new Set(ls.map(x=>x.product)).size;
+  const comp=(()=>{try{if(typeof company==='function')return (company()||{}).name||''}catch(e){}
+    try{if(typeof companyInfo==='function')return (companyInfo()||{}).name||''}catch(e){}
+    return (state&&state.settings&&(state.settings.companyName||state.settings.company))||''})()||'BIOBES sh.p.k.';
+  const rows=ls.map((l,i)=>{const s=by('suppliers',l.supplier)||{},p=by('products',l.product)||{};
+    return '<tr><td>'+(i+1)+'</td><td>'+esc(l.code)+'</td><td>'+esc((s.code||'')+(s.name?' — '+s.name:''))+'</td><td>'+esc((p.code||'')+(p.name?' — '+p.name:''))+'</td><td>'+esc(l.date||'')+'</td><td class="num">'+(l.bags||'—')+'</td><td class="num">'+n(l.gross)+' kg</td><td class="num">'+n(l.tare)+' kg</td><td class="num">'+n(l.net)+' kg</td><td>'+esc(l.status||'')+'</td></tr>'}).join('');
+  const entries=ls.map(l=>'<tr><td>'+esc(l.code)+'</td><td>'+esc(l.date||'')+'</td><td>'+esc((by('products',l.product)||{}).name||'')+'</td><td class="num">'+n(l.net)+' kg</td><td>'+(l.weighing?esc('Peshimi '+l.weighing):'—')+'</td></tr>').join('');
+  const html='<div id="rackCardSheet">'
+    +'<h2>'+esc(comp)+' — Kartela e raftit</h2>'
+    +'<div class="rc-meta">Magazina: <b>'+esc(w.name||'—')+'</b> · Rafti: <b>'+esc(r.code)+' — '+esc(r.name)+'</b> · Thasë: <b>'+bags+'</b> · Shtypur më '+esc(new Date().toLocaleString('sq-AL'))+'</div>'
+    +'<div class="rc-kpis">'
+    +'<div class="rc-kpi"><small>Gjendja fizike</small><strong>'+n(kg,0)+' kg</strong></div>'
+    +'<div class="rc-kpi"><small>Lotet</small><strong>'+ls.length+'</strong></div>'
+    +'<div class="rc-kpi"><small>Furnitorë</small><strong>'+sup+'</strong></div>'
+    +'<div class="rc-kpi"><small>Produkte</small><strong>'+prod+'</strong></div>'
+    +'</div>'
+    +'<table class="rc-table"><thead><tr><th>Nr.</th><th>Loti</th><th>Furnitori</th><th>Produkti</th><th>Data hyrjes</th><th>Thasë</th><th>Bruto</th><th>Ambalazh</th><th>Neto</th><th>Status</th></tr></thead><tbody>'
+    +(rows||'<tr><td colspan="10">Rafti është bosh</td></tr>')
+    +'</tbody><tfoot><tr><td colspan="5">Gjithsej</td><td class="num">'+bags+'</td><td class="num">'+n(tg)+' kg</td><td class="num">'+n(tt)+' kg</td><td class="num">'+n(kg)+' kg</td><td></td></tr></tfoot></table>'
+    +'<h3>Hyrjet në këtë raft</h3>'
+    +(ls.length?'<table class="rc-table"><thead><tr><th>Loti</th><th>Data</th><th>Produkti</th><th>Neto</th><th>Peshimi</th></tr></thead><tbody>'+entries+'</tbody></table>':'<div class="rc-empty">Rafti është bosh</div>')
+    +'</div>';
+  let host=document.getElementById('rackCardPrintHost');
+  if(!host){host=document.createElement('div');host.id='rackCardPrintHost';host.style.cssText='position:fixed;left:-10000px;top:0;width:277mm';document.body.appendChild(host)}
+  host.innerHTML=html;
+  printOnly('rackCardSheet','Kartela e raftit '+r.code+' — '+r.name);
+  setTimeout(()=>{try{host.innerHTML=''}catch(e){}},2000);
+};
+/* Printimi: faqe A4 landscape, e gjithë kartela në një fletë */
+try{const basePO=printOnly;printOnly=function(elementId,title){if(elementId!=='rackCardSheet')return basePO.apply(this,arguments);
+  let el=document.getElementById(elementId);if(!el)return toast('Kartela nuk u gjet');
+  let css='@page{size:A4 landscape;margin:10mm} html,body{background:#fff;margin:0;padding:0;font-family:system-ui,Segoe UI,Arial;color:#111} #rackCardSheet{width:100%} #rackCardSheet h2{margin:0 0 4px;font-family:Georgia,serif;font-size:17px} .rc-meta{font-size:11px;color:#334;margin:0 0 7px} .rc-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0 0 8px} .rc-kpi{border:1px solid #999;border-radius:6px;padding:5px 8px} .rc-kpi small{display:block;font-size:9px;color:#456} .rc-kpi strong{font-size:14px} table.rc-table{border-collapse:collapse;width:100%;font-size:9.5px;margin-bottom:8px} .rc-table th,.rc-table td{border:1px solid #999;padding:3px 4px;text-align:left;vertical-align:top} .rc-table th{background:#eee} .rc-table td.num,.rc-table th.num{text-align:right;white-space:nowrap} .rc-table tfoot td{font-weight:700;background:#f3f3f3} .rc-table tr{page-break-inside:avoid} #rackCardSheet h3{font-size:12px;margin:6px 0 4px} .rc-empty{font-size:10px;color:#555}';
+  let old=document.getElementById('biobesPrintFrame');if(old)old.remove();
+  let frame=document.createElement('iframe');frame.id='biobesPrintFrame';frame.title='Dokumenti për printim';frame.style.cssText='position:fixed;width:0;height:0;border:0;right:0;bottom:0';document.body.appendChild(frame);
+  frame.contentDocument.open();frame.contentDocument.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title||'Kartela e raftit')+'</title><style>'+css+'</style></head><body>'+el.outerHTML+'<\/body></html>');frame.contentDocument.close();
+  frame.contentWindow.addEventListener('afterprint',()=>frame.remove(),{once:true});
+  setTimeout(()=>{if(frame.isConnected){try{frame.contentWindow.focus();frame.contentWindow.print()}catch(e){}}},350);
+  setTimeout(()=>{if(frame.isConnected)frame.remove()},60000);
+};window.printOnly=printOnly}catch(e){console.error('rack-print-v1',e)}
+/* Butoni "Printo A4 landscape" te dritarja e kartelës së raftit */
+(function(){const base=window.rackCard;window.rackCard=function(id){base(id);setTimeout(()=>{try{
+  const foot=document.getElementById('modalFoot');if(!foot||foot.querySelector('#rackCardPrintBtn'))return;
+  if(typeof userCan==='function'&&!userCan('warehouse','print'))return;
+  const b=document.createElement('button');b.type='button';b.className='btn';b.id='rackCardPrintBtn';
+  b.setAttribute('onclick',"rackCardPrint('"+id+"')");b.textContent='🖨 Printo A4 landscape';
+  const closeBtn=foot.querySelector('button');foot.insertBefore(b,(closeBtn&&closeBtn.nextSibling)||null);
+  if(typeof rtApply==='function')rtApply();
+}catch(e){console.error('rack-print-btn',e)}},0)}})();
+</script>
 <script id="biobes-rights-matrix-v1">
 /* BioBes ERP — Të drejtat me kuti (checkbox) për çdo modul, si në Vyapar/Odoo — v1
    Modeli:   rights.modules = { sales:['view','create','edit','confirm','cancel','delete','print'], ... }  (v2)
@@ -9725,7 +9784,7 @@ const G=[
  ['entityForm',a=>a[0]==='product'?'products':'suppliers','create'],['addProduct','products','create'],['addSupplier','suppliers','create'],['editEntity',typeMod,'edit'],['saveEditProduct','products','edit'],['saveEditSupplier','suppliers','edit'],['deleteEntity',typeMod,'delete'],['supplierEditForm','suppliers','edit'],['saveSupplierEdit','suppliers','edit'],['exportSuppliersXls','suppliers','print'],['exportProductsXls','products','print'],['productFormV2','products',idEdit],['saveProductV2','products',idEdit],['supplierCard','suppliers','view'],['productCard','products','view'],['openProductArticleCard','products','view'],
  ['simpleForm',typeMod,'create'],['addSimple',typeMod,'create'],
  /* magazina / lotet */
- ['transferLotForm','warehouse','edit'],['openLotTransfer','warehouse','edit'],['saveLotTransfer','warehouse','edit'],['inventoryForm','warehouse','edit'],['confirmInventory','warehouse','edit'],['inventoryStockConfig','warehouse','edit'],['saveInventoryStockConfig','warehouse','edit'],['rackCard','warehouse','view'],['printLotLabel','lots','print'],['lotCard','lots','view'],
+ ['transferLotForm','warehouse','edit'],['openLotTransfer','warehouse','edit'],['saveLotTransfer','warehouse','edit'],['inventoryForm','warehouse','edit'],['confirmInventory','warehouse','edit'],['inventoryStockConfig','warehouse','edit'],['saveInventoryStockConfig','warehouse','edit'],['rackCard','warehouse','view'],['printLotLabel','lots','print'],['lotCard','lots','view'],['rackCardPrint','warehouse','print'],
  /* përpunimi */
  ['processForm','processing','create'],['addProcess','processing','create'],['machineEditForm','processing','edit'],['saveMachineEdit','processing','edit'],['machineStatusForm','processing','edit'],['saveMachineStatus','processing','edit'],['machineDelete','processing','delete'],['machineDeleteConfirm','processing','delete'],['createProcessFromOrder','processing','create'],['processCard','processing','view'],['machineCard','processing','view'],
  /* paketimi */
