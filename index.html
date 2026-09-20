@@ -284,6 +284,7 @@ function printOnly(elementId,title){let el=document.getElementById(elementId);if
 let __labelIds={printWarehouseLabel:'80mm 60mm',printLabel:'80mm 60mm',vyQrLabel:'84mm 50mm'};
 if(__labelIds[elementId]){let __a4=!!(arguments[2]&&arguments[2].paper==='A4');css=css.replace(/@page\b[^{]*\{[^}]*\}/g,'');css+=' @page{size:'+(__a4?'A4 portrait':__labelIds[elementId])+';margin:0} html,body{width:100%!important;height:100%!important;margin:0!important;padding:0!important;background:#fff!important;overflow:hidden!important;box-sizing:border-box} body{display:flex!important;align-items:center;justify-content:center} #'+elementId+'{max-width:calc(100% - 4mm)!important;max-height:calc(100% - 4mm)!important;min-height:0!important;margin:0!important;box-sizing:border-box;overflow:hidden;break-inside:avoid;page-break-inside:avoid;page-break-after:avoid} #printWarehouseLabel{width:min(72mm,100%)!important;height:min(52mm,100%)!important;padding:2mm!important;border:0.4mm solid #111!important;display:flex!important;flex-direction:column;gap:1mm;font-family:Arial,Helvetica,sans-serif!important;color:#111!important;background:#fff!important} #printWarehouseLabel h2{font-size:10px!important;line-height:1.15!important;margin:0!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} #printWarehouseLabel .wl-code{font-size:15px!important;line-height:1.1!important} #printWarehouseLabel .wl-body{display:grid!important;grid-template-columns:minmax(0,1fr) 22mm!important;gap:2mm!important;align-items:stretch;flex:1 1 auto;min-height:0} #printWarehouseLabel table{font-size:8.5px!important;line-height:1.1!important;width:100%!important;height:100%;table-layout:auto!important;border-collapse:collapse} #printWarehouseLabel td:first-child{width:1%!important;white-space:nowrap} #printWarehouseLabel td:last-child{overflow-wrap:anywhere} #printWarehouseLabel td{padding:0.3mm 1mm!important;border:0.2mm solid #333!important;vertical-align:middle!important} #printWarehouseLabel .wl-side{width:22mm!important} #warehouseQr{width:20mm!important;height:20mm!important;padding:1mm!important;margin:0 auto!important;display:block!important;background:#fff!important} #warehouseQr canvas,#warehouseQr img{width:20mm!important;height:20mm!important;margin:0!important} #warehouseQr img{display:block!important} #warehouseQr img~canvas,#warehouseQr canvas[style*=none]{display:none!important} #printWarehouseLabel small{font-size:7px!important;line-height:1.15!important;margin-top:0.5mm;display:block}'+(__a4?' body{align-items:flex-start!important;justify-content:flex-start!important} #'+elementId+'{margin:12mm 0 0 12mm!important} #printWarehouseLabel{width:72mm!important;height:52mm!important}':'')}
 if(elementId==='printSupplierCard')css+=' @page{size:A4 portrait;margin:10mm} #printSupplierCard{width:100%;max-width:190mm;margin:auto} #printSupplierCard .kpis{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important} #printSupplierCard .kpi strong{font-size:16px!important} #printSupplierCard [role=tablist]{display:none!important} #printSupplierCard .table-wrap{overflow:visible!important} #printSupplierCard table{min-width:0!important;width:100%!important;table-layout:fixed} #printSupplierCard td,#printSupplierCard th{overflow-wrap:anywhere;font-size:10px}';
+if(elementId==='printTraceDossier')css+=' @page{size:A4 landscape;margin:8mm} #printTraceDossier{width:100%!important;min-width:0!important;padding:0!important} #printTraceDossier svg{max-width:100%!important;height:auto!important;min-width:0!important} #printTraceDossier .td-wrap{overflow:visible!important;border:0!important} #printTraceDossier .td-graph{page-break-inside:avoid} #printTraceDossier tr{page-break-inside:avoid} #printTraceDossier .td-sign{margin-top:10mm}';
 frame.contentDocument.open();frame.contentDocument.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title||'Dokument')}</title><style>${css} body{background:#fff;margin:0;padding:8mm}.modal,.card{box-shadow:none!important}.mandate,.doc-sheet,.order-sheet,#printLedger{margin:0 auto!important}@media print{body{padding:0!important}}</style></head><body>${el.outerHTML}<\/body></html>`);frame.contentDocument.close();frame.contentWindow.addEventListener('afterprint',()=>frame.remove(),{once:true});setTimeout(()=>{if(frame.isConnected){frame.contentWindow.focus();frame.contentWindow.print()}},350);setTimeout(()=>frame.remove(),60000)}
 printMandate=function(){printOnly('printMandate','Mandat pagese')};printLedger=function(){printOnly('printLedger','Kartela e furnitorit')};printOrder=function(){printOnly('printOrder','Porosia')};doPrintWeight=function(){printOnly('printWeight','Formulari i peshimit')};printLotLabel=function(){printOnly('printLabel','Etiketa e lotit')};
 // Rebuild payment lists so document numbers and supplier ledger payments are real links.
@@ -10014,6 +10015,7 @@ window.MB_SHOTS={
      {t:'Kodi i vjetër',d:'Lotet e vjetra mbajnë kodin B1<furnitor>-<produkt>-<vit> — pranon kërkimin dhe printimin njëjtë.'},
      {t:'Kartela e lotit',d:'Kliko kodin: të dhënat, peshimi, etiketa, paketimet, transferimet, mostrat — gjithë historia.'},
      {t:'Gjurmueshmëria me grafik',d:'Te kartela e lotit (ose e paketimit/procesit) kliko "🕸 Hap grafikun e gjurmueshmërisë": hapet flow-chart para e mbrapa — nga furnitori e peshimi, nëpër makineri e përzierje lotësh, deri te loti i klientit, fatura, ngarkesa dhe klienti. Kliko çdo kuti për të hapur dokumentin; shigjetat kanë kg. Me "Drejtimi" zgjedh vetëm origjinën (mbrapa) ose vetëm destinacionin (para).'},
+     {t:'Kartela e gjurmueshmërisë (A4)',d:'Nga fatura e shitjes, loti i klientit, ngarkesa ose kartela e lotit: "📄 Kartela e gjurmueshmërisë" jep fletën A4 landscape me grafikun dhe tabelat — fermerët e peshimet, raftet, mostrat, makinerit, paketimi, fatura dhe ngarkesa — gati për print dhe për ankesa të klientit.'},
      {t:'Zonat',d:'Lista e zonave dhe zonat e furnitorëve mbahen nga admini: "⌗ Zonat e kodeve" te faqja e loteve.'}],
     fields:[
      {k:'Lloji',v:'Numri i llojit të produktit (1 = lëndë e parë).'},
@@ -11110,13 +11112,15 @@ console.info('BioBes '+VERSION+': motor OCR me CDN rezervë (jsdelivr/unpkg/cdnj
 })();
 </script>
 <script id="biobes-trace-graph-v1">
-/* BioBes ERP — Gjurmueshmëria e lotit me grafik (flow-chart para & mbrapa).
+/* BioBes ERP — Gjurmueshmëria e lotit me grafik (flow-chart para & mbrapa) + kartela A4 landscape.
    Ndërton zinxhirin nga të dhënat ekzistuese: furnitor/peshim -> lot -> proces(makineri)
    -> lot i përfunduar -> paketim(loti i klientit) -> porosi -> faturë/ngarkesë -> klient.
-   - lotTraceModal(id): hap modalin me grafikun SVG (klikueshëm) + përmbledhjen.
-   - Drejtimi: i plotë / vetëm mbrapa (origjina) / vetëm para (destinacioni).
-   - Shton butonin "🕸 Hap grafikun e gjurmueshmërisë" te kartela e lotit, e procesit,
-     e paketimit dhe te rezultati i Gjurmueshmërisë. */
+   - lotTraceModal(id): modal me grafikun SVG (klikueshëm) + përmbledhje; drejtim i plotë/mbrapa/para.
+   - traceDossierModal(id): KARTELA E GJURMUESHMËRISË — fletë A4 landscape për print, me grafikun
+     dhe tabelat: origjina (fermerë/peshime/rafta/mostra), proceset/makinerit, paketimi/loti i
+     klientit, dërgesa (faturë/ngarkesë/dokumente) dhe nënshkrimet.
+   - Butonat 🕸/📄 te kartela e lotit, e procesit, e paketimit, e faturës së shitjes, e ngarkesës
+     dhe te moduli Gjurmueshmëria. */
 (function(){
 function tgKg(v){v=mgRound(v);return Number.isInteger(v)?String(v):fmt2(v)}
 function tgProcQty(p,lotId){let q=(p.sourceQty||[]).find(z=>z.lot===lotId);if(q)return +q.qty||0;if((p.lots||[]).length===1)return +p.input||0;return mgRound((+p.input||0)/Math.max(1,(p.lots||[]).length))}
@@ -11157,7 +11161,7 @@ function tgNodeRaw(key){
   if(t==='pr'){let x=by('processes',id);return x?.id?{type:t,title:'Procesi',code:x.id,sub:(by('machines',x.machine)?.code||'')+' · '+fmt2(+x.input||0)+'→'+fmt2(+x.output||0)+' kg',open:"processCard('"+id+"')"}:null}
   if(t==='pk'){let x=packs().find(p=>p.id===id);return x?{type:t,title:'Paketimi',code:x.internalLot||x.id,sub:'loti klientit: '+(x.customerLot||'—'),open:"packagingCard('"+id+"')"}:null}
   if(t==='ord'){let x=by('orders',id);return x?.id?{type:t,title:'Porosia',code:x.id,sub:(by('customers',x.customer)?.name||'').slice(0,26),open:"orderCard('"+id+"')"}:null}
-  if(t==='sale'){let x=(typeof salesInvoices==='function'?salesInvoices():[]).find(f=>f.id===id);return x?{type:t,title:'Fatura',code:x.invoiceNumber||x.id,sub:fmt2(+x.total||0)+' '+(x.currency||''),open:"saleCard?saleCard('"+id+"'):go('sales')"}:null}
+  if(t==='sale'){let x=(typeof salesInvoices==='function'?salesInvoices():[]).find(f=>f.id===id);return x?{type:t,title:'Fatura',code:x.invoiceNumber||x.id,sub:fmt2(+x.total||0)+' '+(x.currency||''),open:"saleInvoiceCard('"+id+"')"}:null}
   if(t==='ship'){let x=by('shipments',id);return x?.id?{type:t,title:'Ngarkesa',code:x.id,sub:'plumbça '+(x.seal||'—'),open:"shipmentCard('"+id+"')"}:null}
   if(t==='cust'){let x=by('customers',id);return x?.id?{type:t,title:'Klienti',code:(x.name||'').slice(0,24),sub:x.country||'',open:"customerCard('"+id+"')"}:null}
   return null;
@@ -11174,55 +11178,144 @@ function tgSubgraph(startKey,dir,E){
   return {nodes,edges,keys};
 }
 function tgLevels(nodes,edges){
-  let keyOf=n=>n.key,inE={};edges.forEach(e=>{(inE[e.to]=inE[e.to]||[]).push(e.from)});
+  let inE={};edges.forEach(e=>{(inE[e.to]=inE[e.to]||[]).push(e.from)});
   let memo={},busy={};
   function lv(k,chain){if(memo[k]!=null)return memo[k];if(busy[k]||chain.has(k))return 0;busy[k]=1;chain.add(k);let m=0;(inE[k]||[]).forEach(p=>{m=Math.max(m,lv(p,chain)+1)});chain.delete(k);delete busy[k];return memo[k]=m}
   nodes.forEach(n=>{lv(n.key,new Set())});
   nodes.forEach(n=>{n.level=memo[n.key]||0});
 }
-function lotTraceModalRender(){
-  let host=document.getElementById('tgSvgWrap'),sum=document.getElementById('tgSummary');if(!host)return;
-  let dir=(document.getElementById('tgDir')||{}).value||'full',start=window.__tgStart;
+function tgBuild(start,dir){
   let E=tgEdges(),g=tgSubgraph(start,dir,E);
   let keySet=new Set(g.nodes.map(n=>n.key));
   g.edges=g.edges.filter(e=>keySet.has(e.from)&&keySet.has(e.to));
   tgLevels(g.nodes,g.edges);
   let byLvl={};g.nodes.forEach(n=>{(byLvl[n.level]=byLvl[n.level]||[]).push(n)});
   let levels=Object.keys(byLvl).map(Number).sort((a,b)=>a-b),maxRows=Math.max(...levels.map(l=>byLvl[l].length),1);
-  let CW=212,RH=78,NW=184,NH=58,W=(levels.length)*CW+24,H=maxRows*RH+24;
-  let pos={};levels.forEach(l=>{let arr=byLvl[l];arr.forEach((n,i)=>{pos[n.key]={x:l*CW+14,y:i*RH+14+(maxRows-arr.length)*RH/2}})});
+  let CW=212,RH=78,NW=184,NH=58,W=(levels.length)*CW+24,H=maxRows*RH+24,pos={};
+  levels.forEach(l=>{let arr=byLvl[l];arr.forEach((n,i)=>{pos[n.key]={x:l*CW+14,y:i*RH+14+(maxRows-arr.length)*RH/2}})});
   let svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" font-family="inherit" style="min-width:'+W+'px">';
   svg+='<defs><marker id="tgArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#7c8f86"/></marker></defs>';
   g.edges.forEach(e=>{let a=pos[e.from],b=pos[e.to];if(!a||!b)return;let x1=a.x+NW,y1=a.y+NH/2,x2=b.x,y2=b.y+NH/2,mx=(x1+x2)/2;
     svg+='<path d="M'+x1+','+y1+' C'+mx+','+y1+' '+mx+','+y2+' '+x2+','+y2+'" fill="none" stroke="#7c8f86" stroke-width="1.4" marker-end="url(#tgArrow)"/>';
     if(e.label)svg+='<text x="'+mx+'" y="'+((y1+y2)/2-4)+'" font-size="10" text-anchor="middle" fill="#33544a" stroke="#fbfdfc" stroke-width="3" paint-order="stroke">'+esc(e.label)+'</text>'});
-  window.__tgOpen={};
+  let openMap={};
   g.nodes.forEach(n=>{let p=pos[n.key],f=TG_FILL[n.type]||['#eef2ef','#6b7f76'],dark=n.type==='cust';
-    window.__tgOpen[n.key]=n.open;
+    openMap[n.key]=n.open;
     svg+='<g data-tg-node="'+esc(n.key)+'" style="cursor:pointer"><rect x="'+p.x+'" y="'+p.y+'" width="'+NW+'" height="'+NH+'" rx="10" fill="'+f[0]+'" stroke="'+(n.key===start?'#0d3f2b':f[1])+'" stroke-width="'+(n.key===start?2.6:1.2)+'"/>'
       +'<text x="'+(p.x+10)+'" y="'+(p.y+15)+'" font-size="9" letter-spacing="0.6" fill="'+(dark?'#cfe6da':'#5c6f66')+'">'+esc(n.title.toUpperCase())+'</text>'
       +'<text x="'+(p.x+10)+'" y="'+(p.y+31)+'" font-size="12" font-weight="700" fill="'+(dark?'#ffffff':'#17352a')+'">'+esc(n.code)+'</text>'
       +'<text x="'+(p.x+10)+'" y="'+(p.y+46)+'" font-size="10" fill="'+(dark?'#d8ece1':'#4a5d54')+'">'+esc(n.sub||'')+'</text></g>'});
   svg+='</svg>';
-  host.innerHTML=svg;
-  Object.keys(window.__tgOpen).forEach(k=>{let el=host.querySelector('[data-tg-node="'+CSS.escape(k)+'"]');if(el)el.addEventListener('click',()=>{try{eval(window.__tgOpen[k])}catch(e){console.error(e)}})});
   let lots=g.nodes.filter(n=>n.type==='lot'),prs=g.nodes.filter(n=>n.type==='pr'),pks=g.nodes.filter(n=>n.type==='pk'),custs=g.nodes.filter(n=>n.type==='cust'),mach=[...new Set(prs.map(n=>(n.sub||'').split(' ·')[0]))].filter(Boolean);
-  if(sum)sum.innerHTML='<p style="margin:4px 0"><b>Zinxhiri'+(dir==='back'?' (mbrapa)':dir==='fwd'?' (para)':' i plotë')+'</b> · lote: <b>'+lots.length+'</b> · procese/makineri: <b>'+prs.length+'</b> ('+mach.length+' makineri: '+esc(mach.join(', ')||'—')+') · paketime: <b>'+pks.length+'</b> · klientë: <b>'+esc(custs.map(c=>c.code).join(', ')||'—')+'</b> · nyje gjithsej: '+g.nodes.length+'</p>';
+  let summary='<p style="margin:4px 0"><b>Zinxhiri'+(dir==='back'?' (mbrapa)':dir==='fwd'?' (para)':' i plotë')+'</b> · lote: <b>'+lots.length+'</b> · procese/makineri: <b>'+prs.length+'</b> ('+mach.length+' makineri: '+esc(mach.join(', ')||'—')+') · paketime: <b>'+pks.length+'</b> · klientë: <b>'+esc(custs.map(c=>c.code).join(', ')||'—')+'</b> · nyje gjithsej: '+g.nodes.length+'</p>';
+  return {svg,summary,openMap,nodes:g.nodes,edges:g.edges};
+}
+function tgAttach(host,openMap){Object.keys(openMap).forEach(k=>{let el=host.querySelector('[data-tg-node="'+CSS.escape(k)+'"]');if(el)el.addEventListener('click',()=>{try{eval(openMap[k])}catch(e){console.error(e)}})})}
+function lotTraceModalRender(){
+  let host=document.getElementById('tgSvgWrap'),sum=document.getElementById('tgSummary');if(!host)return;
+  let dir=(document.getElementById('tgDir')||{}).value||'full',start=window.__tgStart;
+  let r=tgBuild(start,dir);
+  host.innerHTML=r.svg;tgAttach(host,r.openMap);
+  if(sum)sum.innerHTML=r.summary;
 }
 window.lotTraceModal=function(arg){
-  let key=String(arg||'');
-  if(key.indexOf(':')<0){if(by('lots',key)?.id)key='lot:'+key;else if(packs().some(p=>p.id===key))key='pk:'+key;else return toast('Loti nuk u gjet')}
-  if(!tgNode(key))return toast('Nyja nuk u gjet');
+  let key=tgResolveStart(arg);
+  if(!key)return toast('Loti nuk u gjet');
   window.__tgStart=key;
   let n=tgNode(key);
-  modal('Gjurmueshmëria — '+n.code,`<div class="card"><div class="toolbar" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label style="margin:0">Drejtimi:</label><select id="tgDir" onchange="lotTraceModalRender()"><option value="full">I plotë (para + mbrapa)</option><option value="back">Vetëm mbrapa — origjina</option><option value="fwd">Vetëm para — destinacioni</option></select><button class="btn small" onclick="printOnly('tgSvgWrap','Gjurmueshmëria e lotit')">Printo grafikun</button></div><div id="tgSummary"></div><div id="tgSvgWrap" style="overflow:auto;border:1px solid #d4dcd6;border-radius:8px;background:#fbfdfc;padding:8px"></div><p class="hint">Kliko çdo kuti për të hapur dokumentin përkatës. Shigjetat tregojnë rrjedhën e mallit; numrat janë kg.</p></div>`,`<button class="btn" onclick="closeModal()">Mbyll</button>`);
+  modal('Gjurmueshmëria — '+n.code,`<div class="card"><div class="toolbar" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label style="margin:0">Drejtimi:</label><select id="tgDir" onchange="lotTraceModalRender()"><option value="full">I plotë (para + mbrapa)</option><option value="back">Vetëm mbrapa — origjina</option><option value="fwd">Vetëm para — destinacioni</option></select><button class="btn small" onclick="printOnly('tgSvgWrap','Gjurmueshmëria e lotit')">Printo grafikun</button><button class="btn small primary" onclick="traceDossierModal('${esc(key)}')">📄 Kartela e gjurmueshmërisë (A4)</button></div><div id="tgSummary"></div><div id="tgSvgWrap" style="overflow:auto;border:1px solid #d4dcd6;border-radius:8px;background:#fbfdfc;padding:8px"></div><p class="hint">Kliko çdo kuti për të hapur dokumentin përkatës. Shigjetat tregojnë rrjedhën e mallit; numrat janë kg.</p></div>`,`<button class="btn" onclick="closeModal()">Mbyll</button>`);
   lotTraceModalRender();
 };
 window.lotTraceModalRender=lotTraceModalRender;
-const tgLotCardBase=lotCard;lotCard=function(id){tgLotCardBase(id);if(typeof modalBody!=='undefined'&&modalBody)modalBody.insertAdjacentHTML('afterbegin','<div class="card" style="border-color:#bcd7c6;background:#f4faf6"><button class="btn small primary" onclick="lotTraceModal(\'lot:'+id+'\')">🕸 Hap grafikun e gjurmueshmërisë</button> <span class="hint">para & mbrapa: furnitori → makineri → loti i klientit</span></div>')};
-const tgProcessCardBase=processCard;processCard=function(id){tgProcessCardBase(id);let p=by('processes',id),out=(state.lots||[]).find(l=>l.process===id);if(typeof modalBody!=='undefined'&&modalBody)modalBody.insertAdjacentHTML('afterbegin','<div class="card" style="border-color:#bcd7c6;background:#f4faf6"><button class="btn small primary" onclick="lotTraceModal(\'pr:'+id+'\')">🕸 Grafiku i gjurmueshmërisë së procesit</button>'+(out?.id?' <button class="btn small" onclick="lotTraceModal(\'lot:'+out.id+'\')">Grafiku nga loti dalës</button>':'')+'</div>')};
-const tgPackCardBase=packagingCard;packagingCard=function(id){tgPackCardBase(id);if(typeof modalBody!=='undefined'&&modalBody)modalBody.insertAdjacentHTML('afterbegin','<div class="card" style="border-color:#bcd7c6;background:#f4faf6"><button class="btn small primary" onclick="lotTraceModal(\'pk:'+id+'\')">🕸 Nga u formua ky lot klienti (mbrapa)</button> <span class="hint">tregon lotet burimorë, makineritë dhe peshimet</span></div>')};
-const tgTraceV2Base=traceSearchV2;traceSearchV2=function(){tgTraceV2Base();let tq=document.getElementById('traceQ'),tr=document.getElementById('traceResult');if(!tq||!tr)return;let q=(tq.value||'').trim().toLowerCase(),lot=state.lots.find(x=>((x.code||'').toLowerCase()).includes(q)||x.id.toLowerCase()===q),w=state.weighings.find(x=>x.id.toLowerCase()===q);if(w&&!lot)lot=state.lots.find(x=>x.weighing===w.id);if(!lot)return;tr.insertAdjacentHTML('afterbegin','<div class="card" style="border-color:#bcd7c6;background:#f4faf6;margin-bottom:8px"><button class="btn small primary" onclick="lotTraceModal(\'lot:'+lot.id+'\')">🕸 Hap grafikun e gjurmueshmërisë (flow-chart)</button></div>')};
+function tgResolveStart(arg){
+  let s=String(arg||'');
+  if(s.indexOf(':')>0&&tgNode(s))return s;
+  if(by('lots',s).id)return 'lot:'+s;
+  if(packs().some(x=>x.id===s))return 'pk:'+s;
+  if(by('shipments',s).id)return 'ship:'+s;
+  if(by('processes',s).id)return 'pr:'+s;
+  if(by('orders',s).id)return 'ord:'+s;
+  let f=(typeof salesInvoices==='function'?salesInvoices():[]).find(x=>x.id===s||(x.invoiceNumber||'')===s);
+  if(f?.id&&f.order)return 'ord:'+f.order;
+  return '';
+}
+window.tgResolveStart=tgResolveStart;
+/* ---------- Kartela e gjurmueshmërisë — fletë A4 landscape ---------- */
+function tdRow(cells){return '<tr>'+cells.map(c=>'<td>'+c+'</td>').join('')+'</tr>'}
+function tdTable(heads,rows,empty){return '<div class="table-wrap"><table><thead><tr>'+heads.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+(rows.length?rows.join(''):'<tr><td colspan="'+heads.length+'">'+(empty||'—')+'</td></tr>')+'</tbody></table></div>'}
+function traceDossierHtml(startKey){
+  let r=tgBuild(startKey,'full'),nodes=r.nodes;
+  let lotIds=nodes.filter(n=>n.type==='lot').map(n=>n.key.slice(4));
+  let rawLots=lotIds.map(id=>by('lots',id)).filter(l=>l.id&&!l.process);
+  let procs=nodes.filter(n=>n.type==='pr').map(n=>by('processes',n.key.slice(3))).filter(x=>x?.id);
+  let pks=nodes.filter(n=>n.type==='pk').map(n=>packs().find(x=>x.id===n.key.slice(3))).filter(x=>x?.id);
+  let ords=nodes.filter(n=>n.type==='ord').map(n=>by('orders',n.key.slice(4))).filter(x=>x?.id);
+  let sales=nodes.filter(n=>n.type==='sale').map(n=>(typeof salesInvoices==='function'?salesInvoices():[]).find(f=>f.id===n.key.slice(5))).filter(x=>x?.id);
+  let ships=nodes.filter(n=>n.type==='ship').map(n=>by('shipments',n.key.slice(5))).filter(x=>x?.id);
+  let custs=nodes.filter(n=>n.type==='cust').map(n=>by('customers',n.key.slice(5))).filter(x=>x?.id);
+  let samples=(state.samples||[]).filter(s=>lotIds.includes(s.lot)||(s.id&&ords.some(o=>o.sample===s.id)));
+  let startNode=tgNode(startKey)||{code:''};
+  let prodNames=[...new Set([...lotIds.map(id=>by('lots',id).product),...pks.map(x=>x.product)].map(id=>by('products',id)?.name).filter(Boolean))];
+  let totKg=mgRound(pks.reduce((a,x)=>a+(+x.net||0),0))||mgRound(sales.reduce((a,f)=>a+((f.lines||[]).reduce((b,l)=>b+(+l.net||0),0)),0));
+  let docs=(state.documents||[]).filter(d=>ships.some(s=>s.id===d.shipment));
+  let h='<div id="printTraceDossier" class="td-sheet">';
+  h+='<div class="td-head"><div><div class="td-title">KARTELA E GJURMUESHMËRISË — TRACEABILITY</div><p><b>Nisur nga:</b> '+esc(startNode.title||'')+' '+esc(startNode.code||'')+' &nbsp;·&nbsp; <b>Data e printimit:</b> '+esc(new Date().toLocaleString('sq-AL'))+'</p></div><div class="td-id">'+
+    '<p><b>Klienti:</b> '+esc(custs.map(c=>c.name).join(', ')||'—')+'</p>'+
+    '<p><b>Porositë:</b> '+esc(ords.map(o=>o.id).join(', ')||'—')+' &nbsp; <b>Faturat:</b> '+esc(sales.map(f=>f.invoiceNumber||f.id).join(', ')||'—')+'</p>'+
+    '<p><b>Ngarkesat:</b> '+esc(ships.map(s=>s.id).join(', ')||'—')+' &nbsp; <b>Loti i klientit:</b> '+esc([...new Set(pks.map(x=>x.customerLot).filter(Boolean))].join(', ')||'—')+'</p>'+
+    '<p><b>Produkti:</b> '+esc(prodNames.join(', ')||'—')+' &nbsp; <b>Sasia e dërguar:</b> '+fmt2(totKg)+' kg</p></div></div>';
+  h+='<div class="td-graph"><h3>1. Grafiku i rrjedhës (para & mbrapa)</h3>'+r.svg+'</div>';
+  h+='<h3>2. Origjina — fermerët/furnitorët, peshimet, magazinimi dhe mostrat</h3>'+
+    tdTable(['Loti burimor','Fermeri/furnitori','Zona','Peshimi','Bruto / Tara / Neto kg','Magazina / Rafti','Mostra (status · gjurmimi)'],
+      rawLots.map(l=>{let s=by('suppliers',l.supplier),w=state.weighings.find(x=>x.id===l.weighing),sm=(state.samples||[]).filter(x=>x.lot===l.id);
+        return tdRow([esc(l.code),esc((s.code||'')+' — '+(s.name||'')),esc(s.region||'—'),esc(w?w.id+' ('+w.date+')':'—'),fmt2(+l.gross||0)+' / '+fmt2(+l.tare||0)+' / '+fmt2(+l.originalNet||+l.net||0),esc((by('warehouses',l.warehouse)?.name||'—')+' / '+(by('racks',l.rack)?.name||'—')),esc(sm.map(x=>x.id+' ('+x.status+(x.tracking?' · '+x.tracking:'')+')').join('; ')||'pa mostër')])}));
+  h+='<h3>3. Proceset dhe makinerit që kaloi malli</h3>'+
+    tdTable(['Procesi','Data','Makineria/Dhoma','Hapat','Hyrje kg','Dalje kg','Humbja kg','Rendimenti %','Lote hyrëse (kg)'],
+      procs.map(p=>tdRow([esc(p.id),esc(p.date||'—'),esc((by('machines',p.machine)?.code||'')+' — '+(by('machines',p.machine)?.name||'')),esc(p.steps||'—'),fmt2(+p.input||0),fmt2(+p.output||0),fmt2(+p.loss||mgRound((+p.input||0)-(+p.output||0))),fmt2(+p.yield||0),esc(((p.sourceQty||[]).length?p.sourceQty.map(z=>(by('lots',z.lot)?.code||z.lot)+' '+tgKg(z.qty)+' kg'):(p.lots||[]).map(id=>by('lots',id)?.code||id).join(', ')).join('; '))])));
+  h+='<h3>4. Paketimi dhe loti i klientit</h3>'+
+    tdTable(['Paketimi','Loti BioBes','Loti i klientit','Thasë × kg','Neto kg','Lotet burimorë (kg)'],
+      pks.map(x=>tdRow([esc(x.id),esc(x.internalLot||'—'),esc(x.customerLot||'—'),(+x.bags||0)+' × '+fmt2(+x.bagWeight||0),fmt2(+x.net||0),esc((x.sourceLots||[]).map(id=>(by('lots',id)?.code||id)+' '+tgKg(packLotQty(x,id))+' kg').join('; ')||'—')])));
+  h+='<h3>5. Dërgesa te klienti — fatura, ngarkesa, dokumente dhe mostra</h3>'+
+    tdTable(['Dokumenti','Data','Detajet','Gjendja'],
+      sales.map(f=>tdRow(['Fatura '+esc(f.invoiceNumber||f.id),esc(f.date||'—'),fmt2(+f.total||0)+' '+(f.currency||'')+' · kurs '+fmt2(+f.exchangeRate||0),esc(f.status||'—')]))
+      .concat(ships.map(s=>tdRow(['Ngarkesa '+esc(s.id),esc(s.date||'—'),'targa '+esc(s.plate||'—')+' · plumbça '+esc(s.seal||'—')+' · '+fmt2(+s.net||0)+' kg',esc(typeof normalizedShipmentStatus==='function'?normalizedShipmentStatus(s):(s.status||'—'))])))
+      .concat(docs.map(d=>tdRow([esc(d.type),esc(d.date||'—'),'nr. '+esc(d.number||'—'),esc(d.status||'—')]))
+      .concat(samples.map(s=>tdRow(['Mostra '+esc(s.id),esc(s.date||'—'),'loti '+esc(by('lots',s.lot)?.code||'—')+(s.tracking?' · gjurmimi '+esc(s.tracking):''),esc(s.status||'—')])))));
+  h+='<div class="td-sign"><span>Përgatiti: ______________</span><span>Verifikoi (cilësia): ______________</span><span>Vula: ______________</span></div>';
+  h+='<p class="td-foot">Dokument gjurmueshmërie i gjeneruar nga BioBes ERP — përgjigje e plotë para e mbrapa: nga fermeri dhe peshimi, nëpër magazina/raft, mostra, procese e makineri, paketim e loti i klientit, deri te fatura dhe ngarkesa. Çdo kg i shigjetave është sasia reale e regjistruar.</p>';
+  h+='</div>';
+  return h;
+}
+window.traceDossierModal=function(arg){
+  let key=tgResolveStart(arg);
+  if(!key)return toast('Dokumenti nuk u gjet për gjurmueshmëri');
+  let n=tgNode(key);
+  modal('Kartela e gjurmueshmërisë — '+(n?n.code:''),'<div class="td-wrap">'+traceDossierHtml(key)+'</div>',`<button class="btn" onclick="closeModal()">Mbyll</button><button class="btn primary" onclick="printOnly('printTraceDossier','Kartela e gjurmueshmërisë')">Printo A4 landscape</button>`);
+};
+/* ---------- Butonat hyrës te kartelat ekzistuese ---------- */
+const tgLotCardBase=lotCard;lotCard=function(id){tgLotCardBase(id);if(typeof modalBody!=='undefined'&&modalBody)modalBody.insertAdjacentHTML('afterbegin','<div class="card" style="border-color:#bcd7c6;background:#f4faf6"><button class="btn small primary" onclick="lotTraceModal(\'lot:'+id+'\')">🕸 Hap grafikun e gjurmueshmërisë</button> <button class="btn small" onclick="traceDossierModal(\'lot:'+id+'\')">📄 Kartela e gjurmueshmërisë (A4)</button> <span class="hint">para & mbrapa: furnitori → makineri → loti i klientit</span></div>')};
+const tgProcessCardBase=processCard;processCard=function(id){tgProcessCardBase(id);let out=(state.lots||[]).find(l=>l.process===id);if(typeof modalBody!=='undefined'&&modalBody)modalBody.insertAdjacentHTML('afterbegin','<div class="card" style="border-color:#bcd7c6;background:#f4faf6"><button class="btn small primary" onclick="lotTraceModal(\'pr:'+id+'\')">🕸 Grafiku i gjurmueshmërisë së procesit</button> <button class="btn small" onclick="traceDossierModal(\'pr:'+id+'\')">📄 Kartela A4</button>'+(out?.id?' <button class="btn small" onclick="lotTraceModal(\'lot:'+out.id+'\')">Grafiku nga loti dalës</button>':'')+'</div>')};
+const tgPackCardBase=packagingCard;packagingCard=function(id){tgPackCardBase(id);if(typeof modalBody!=='undefined'&&modalBody)modalBody.insertAdjacentHTML('afterbegin','<div class="card" style="border-color:#bcd7c6;background:#f4faf6"><button class="btn small primary" onclick="lotTraceModal(\'pk:'+id+'\')">🕸 Nga u formua ky lot klienti (mbrapa)</button> <button class="btn small" onclick="traceDossierModal(\'pk:'+id+'\')">📄 Kartela e gjurmueshmërisë (A4)</button> <span class="hint">tregon lotet burimorë, makineritë dhe peshimet</span></div>')};
+const tgSaleCardBase=saleInvoiceCard;saleInvoiceCard=function(id){tgSaleCardBase(id);let f=(typeof salesInvoices==='function'?salesInvoices():[]).find(x=>x.id===id);if(typeof modalBody!=='undefined'&&modalBody&&f?.order)modalBody.insertAdjacentHTML('afterbegin','<div class="card" style="border-color:#bcd7c6;background:#f4faf6"><b>Kjo shitje nga erdhi?</b> <button class="btn small primary" onclick="lotTraceModal(\'ord:'+f.order+'\')">🕸 Grafiku</button> <button class="btn small" onclick="traceDossierModal(\'ord:'+f.order+'\')">📄 Kartela e gjurmueshmërisë (A4)</button> <span class="hint">fermerët, peshimet, raftet, mostrat, makinerit, paketimi, ngarkesa</span></div>')};
+const tgShipCardBase=shipmentCard;shipmentCard=function(id){tgShipCardBase(id);if(typeof modalBody!=='undefined'&&modalBody)modalBody.insertAdjacentHTML('afterbegin','<div class="card" style="border-color:#bcd7c6;background:#f4faf6"><button class="btn small primary" onclick="lotTraceModal(\'ship:'+id+'\')">🕸 Grafiku i kontejnerit</button> <button class="btn small" onclick="traceDossierModal(\'ship:'+id+'\')">📄 Kartela e gjurmueshmërisë (A4)</button></div>')};
+const tgTraceV2Base=traceSearchV2;traceSearchV2=function(){tgTraceV2Base();let tq=document.getElementById('traceQ'),tr=document.getElementById('traceResult');if(!tq||!tr)return;let q=(tq.value||'').trim().toLowerCase(),lot=state.lots.find(x=>((x.code||'').toLowerCase()).includes(q)||x.id.toLowerCase()===q),w=state.weighings.find(x=>x.id.toLowerCase()===q);if(w&&!lot)lot=state.lots.find(x=>x.weighing===w.id);if(!lot)return;tr.insertAdjacentHTML('afterbegin','<div class="card" style="border-color:#bcd7c6;background:#f4faf6;margin-bottom:8px"><button class="btn small primary" onclick="lotTraceModal(\'lot:'+lot.id+'\')">🕸 Hap grafikun e gjurmueshmërisë (flow-chart)</button> <button class="btn small" onclick="traceDossierModal(\'lot:'+lot.id+'\')">📄 Kartela e gjurmueshmërisë (A4)</button></div>')};
 })();
 </script>
+<style id="biobes-trace-dossier-css">
+/* Kartela e gjurmueshmërisë: pamja në ekran (scroll horizontal) dhe printi A4 landscape */
+.td-wrap{overflow:auto;border:1px solid #d4dcd6;border-radius:8px;background:#fff}
+.td-sheet{background:#fff;padding:16px 18px;min-width:1020px;font-size:12px;color:#111}
+.td-sheet h3{margin:12px 0 6px;font-size:13px;color:#176b49}
+.td-head{display:grid;grid-template-columns:1fr 1.4fr;gap:14px;border:2px solid #176b49;border-radius:8px;padding:10px 12px;background:#f4faf6}
+.td-title{font-size:17px;font-weight:800;color:#176b49;letter-spacing:.4px;margin-bottom:4px}
+.td-head p{margin:2px 0;font-size:11.5px}
+.td-graph{margin-top:10px;border:1px solid #d4dcd6;border-radius:8px;padding:8px;overflow:auto;background:#fbfdfc}
+.td-sheet .table-wrap{overflow:visible}
+.td-sheet table{width:100%;border-collapse:collapse;font-size:10.5px}
+.td-sheet th{background:#e8f5e9;color:#276846;border:1px solid #8ba99a;padding:3px 5px;text-align:left;font-size:10px}
+.td-sheet td{border:1px solid #c2d0c8;padding:3px 5px;vertical-align:top}
+.td-sign{display:flex;gap:40px;margin-top:16px;font-size:11px}
+.td-foot{margin-top:8px;font-size:9.5px;color:#4a5d54;border-top:1px solid #c2d0c8;padding-top:6px}
+</style>
+
 </body></html>
