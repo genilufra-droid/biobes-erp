@@ -21,7 +21,8 @@
     "test:lot-code": "node tests/lot-code-audit.cjs",
     "test:manual": "node tests/manual-audit.cjs",
     "test:weigh-group": "node tests/weigh-group-audit.cjs",
-    "test:sales-prepay": "node tests/sales-prepay-audit.cjs"
+    "test:sales-prepay": "node tests/sales-prepay-audit.cjs",
+    "test:trace-graph": "node tests/trace-graph-audit.cjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"

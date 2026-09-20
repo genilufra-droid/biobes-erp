@@ -1816,7 +1816,7 @@ function exportE2EXlsx(){makeXlsx('QA-'+E2E_RUN_ID+'.xlsx',['ID Testi','Moduli',
 const settingsE2EBase=views.settings;views.settings=function(){let h=settingsE2EBase();return h.replace('<div class="apps">',`<div class="card"><h3>Testi real End-to-End — vetëm Administrator</h3><p><b>${E2E_RUN_ID}</b> · Të dhënat shënohen dhe pastrohen pa prekur regjistrimet reale.</p><div class="actions"><button class="btn primary" data-admin-only onclick="generateE2E()">Gjenero testin E2E</button><button class="btn" data-admin-only onclick="runE2EChecks()">Ekzekuto kontrollet</button><button class="btn danger" data-admin-only onclick="if(confirm('Të pastrohen vetëm të dhënat E2E?'))cleanE2E()">Pastro vetëm të dhënat E2E</button><button class="btn" data-admin-only onclick="exportE2EJson()">Eksporto QA JSON</button><button class="btn" data-admin-only onclick="exportE2EXlsx()">Eksporto QA XLSX</button></div></div><div class="apps">`)}
 </script>
 <script>
-function availableLotQuantity(lotId){let lot=by('lots',lotId);if(!lot)return 0;let start=+lot.originalNet||+lot.net||0,processOut=state.processes.filter(p=>p.status!=='Anuluar'&&(p.lots||[]).includes(lotId)).reduce((a,p)=>a+(+p.input||0),0),packOut=packs().filter(p=>(p.sourceLots||[]).includes(lotId)).reduce((a,p)=>a+packLotQty(p,lotId),0);return start-processOut-packOut}
+function availableLotQuantity(lotId){let lot=by('lots',lotId);if(!lot)return 0;let start=+lot.originalNet||+lot.net||0,processOut=state.processes.filter(p=>p.status!=='Anuluar'&&(p.lots||[]).includes(lotId)).reduce((a,p)=>{let q=(p.sourceQty||[]).find(z=>z.lot===lotId);return a+(q?+q.qty:((p.lots||[]).length===1?(+p.input||0):mgRound((+p.input||0)/Math.max(1,(p.lots||[]).length))))},0),packOut=packs().filter(p=>(p.sourceLots||[]).includes(lotId)).reduce((a,p)=>a+packLotQty(p,lotId),0);return start-processOut-packOut}
 function validateProcessBusiness(v){if(!v.order||!v.product||!v.lot||!v.machine)return'Plotësoni porosinë, produktin, lotin dhe makinerinë';if(!(v.input>0)||!(v.output>0))return'Sasitë duhet të jenë më të mëdha se zero';if(v.input>availableLotQuantity(v.lot)+.001)return'Hyrja e procesit tejkalon stokun e lotit';if(v.output>v.input&&!v.authorization)return'Dalja nuk mund të jetë më e madhe se hyrja pa autorizim';return''}
 function validatePackagingBusiness(v){if(!v.order||!v.product||!v.internalLot)return'Plotësoni porosinë, produktin dhe lotin BioBes';if(!(v.bags>0)||!(v.bagWeight>0))return'Thasët dhe kg/thes duhet të jenë më të mëdha se zero';let net=v.bags*v.bagWeight,sources=(v.sources&&v.sources.length)?v.sources:(v.sourceLot?[{lot:v.sourceLot,qty:net}]:[]);if(!sources.length)return'Zgjidhni të paktën një lot burimor';for(let z of sources){let lot=by('lots',z.lot);if(!lot||!lot.id)return'Loti burimor nuk u gjet';if(!(+z.qty>0))return'Sasia për lotin '+lot.code+' duhet të jetë pozitive';if(+z.qty>lotUnpacked(lot)+((+(v.oldMap||{})[lot.id])||0)+.001)return'Paketimi tejkalon stokun e papaketuar të lotit '+lot.code;if(lot.product!==v.product)return'Loti '+lot.code+' është i produktit tjetër — përzieni vetëm lotë të së njëjtit produkt'}let sum=sources.reduce((a,z)=>a+(+z.qty||0),0);if(Math.abs(sum-net)>.01)return'Sasia nga lotet ('+fmt2(sum)+' kg) duhet të jetë '+fmt2(net)+' kg';return''}
 function validateSalesBusiness(v,editingId=''){if(!v.number||!v.customer||!v.product)return'Numri, klienti dhe produkti janë të detyrueshëm';if(!(v.qty>0)||!(v.price>=0))return'Sasia duhet pozitive dhe çmimi jo negativ';if(salesInvoices().some(x=>x.id!==editingId&&(x.invoiceNumber||x.id)===v.number))return'Numri i faturës ekziston';return''}
@@ -3677,14 +3677,17 @@ const shipmentCardMultiBase=shipmentCard;shipmentCard=function(id){shipmentCardM
 
 /* ---------- Përpunim: disa lote hyrëse me kg për lot ---------- */
 function processCandidateLots(productId){return (state.lots||[]).filter(l=>!String(l.status||'').toLowerCase().includes('anuluar')&&(!productId||l.product===productId)&&lotAvail(l)>0.0000005)}
-function processSourceRowHtml(lotId,qty){let lot=by('lots',lotId);if(!lot||!lot.id)return'';let p=by('products',lot.product)||{};return '<div data-pr-source-row data-lot="'+lotId+'" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:6px 8px;border:1px solid #d4dcd6;border-radius:8px;background:#f7faf8"><div style="flex:1;min-width:150px"><b>'+esc(lot.code)+'</b><br><small>'+esc((p.code||'')+' — '+(p.name||''))+' · i lirë '+fmt2(lotAvail(lot))+' kg</small></div><div style="flex:0 0 200px;display:flex;align-items:center;gap:6px"><input type="number" step="0.000001" min="0" readonly value="'+mgStr(+qty||0)+'" data-pr-qty title="KG nga ky lot (shpërndahet auto)" style="width:140px;background:#eef2ef"> <span>kg</span></div><div style="flex:0 0 42px;text-align:right"><button type="button" class="btn small danger" title="Hiq lotin" onclick="processSourceRemoveRow(this)">✕</button></div></div>'}
+function processSourceRowHtml(lotId,qty){let lot=by('lots',lotId);if(!lot||!lot.id)return'';let p=by('products',lot.product)||{};return '<div data-pr-source-row data-lot="'+lotId+'" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;padding:6px 8px;border:1px solid #d4dcd6;border-radius:8px;background:#f7faf8"><div style="flex:1;min-width:150px"><b>'+esc(lot.code)+'</b><br><small>'+esc((p.code||'')+' — '+(p.name||''))+' · i lirë '+fmt2(lotAvail(lot))+' kg</small></div><div style="flex:0 0 200px;display:flex;align-items:center;gap:6px"><input type="number" step="0.000001" min="0" value="'+mgStr(+qty||0)+'" data-pr-qty oninput="processQtyEdited(this)" title="KG nga ky lot — plotësohet automatikisht, mund ta ndryshoni" style="width:140px"> <span>kg</span></div><div style="flex:0 0 42px;text-align:right"><button type="button" class="btn small danger" title="Hiq lotin" onclick="processSourceRemoveRow(this)">✕</button></div></div>'}
 function processSourceRows(){return Array.from(document.querySelectorAll('[data-pr-source-row]'))}
 function processSourceOptions(selected){let set=new Set(selected||[]),prod=$val('prProduct');return '<option value="">Shto lot…</option>'+processCandidateLots(prod).filter(l=>!set.has(l.id)).map(l=>'<option value="'+l.id+'">'+esc(l.code+' — '+(by('products',l.product)?.name||'')+' — i lirë '+fmt2(lotAvail(l))+' kg')+'</option>').join('')}
-function processRedistribute(){let rows=processSourceRows(),total=$num('prInput',0),parts=distributeEvenMg(total,rows.length);rows.forEach((r,i)=>{r.querySelector('[data-pr-qty]').value=mgStr(parts[i])});let el=document.getElementById('prSourceSum');if(el)el.innerHTML=rows.length?('Lote hyrëse: <b>'+rows.length+'</b> · hyrja <b>'+fmt2(total)+' kg</b> e shpërndarë njëlloj'+(rows.length>1?' · <span class="pill orange">përzierje '+rows.length+' lotësh</span>':'')):'Shto të paktën një lot hyrës'}
+function processRedistribute(){let rows=processSourceRows(),total=$num('prInput',0),touched=rows.filter(r=>r.dataset.touched),unt=rows.filter(r=>!r.dataset.touched),used=touched.reduce((a,r)=>a+(parseFloat(r.querySelector('[data-pr-qty]').value)||0),0),parts=distributeEvenMg(Math.max(0,mgRound(total-used)),unt.length);unt.forEach((r,i)=>{r.querySelector('[data-pr-qty]').value=mgStr(parts[i])});processSumUpdate()}
+function processQtyEdited(inp){let r=inp.closest('[data-pr-source-row]');if(r)r.dataset.touched='1';processSumUpdate()}
+function processRebalance(){processSourceRows().forEach(r=>{delete r.dataset.touched});processRedistribute()}
+function processSumUpdate(){let rows=processSourceRows(),el=document.getElementById('prSourceSum');if(!el)return;let total=$num('prInput',0),sum=mgRound(rows.reduce((a,r)=>a+(parseFloat(r.querySelector('[data-pr-qty]').value)||0),0));if(!rows.length){el.innerHTML='Shto të paktën një lot hyrës';return}let ok=Math.abs(sum-total)<=.001;el.innerHTML='Lote hyrëse: <b>'+rows.length+'</b> · shuma <b>'+fmt2(sum)+' kg</b> · pesha hyrëse <b>'+fmt2(total)+' kg</b> '+(ok?'<span class="pill green">e balancuar</span>':'<span class="pill red">diferenca '+fmt2(mgRound(total-sum))+' kg — rregulloni kg e loteve ose peshën hyrëse</span>')+(rows.length>1?' · <span class="pill orange">përzierje '+rows.length+' lotësh</span>':'')}
 function processSourceRefresh(){let sel=document.getElementById('prAddLot');if(sel)sel.innerHTML=processSourceOptions(processSourceRows().map(r=>r.dataset.lot));processRedistribute()}
 function processSourceAdd(){let sel=document.getElementById('prAddLot'),id=sel?sel.value:'';if(!id)return;let rows=processSourceRows();if(rows.some(r=>r.dataset.lot===id))return toast('Ai lot është tashmë në listë');let box=document.querySelector('[data-pr-sources]');if(!box)return;box.insertAdjacentHTML('beforeend',processSourceRowHtml(id,0));sel.value='';processSourceRefresh()}
 function processSourceRemoveRow(btn){btn.closest('[data-pr-source-row]')?.remove();processSourceRefresh()}
-function processForm(){modal('Proces i ri — shumë lotë',`<div class="form-grid"><div class="field"><label>Porosia</label><select id="prOrder">${opts(state.orders,x=>x.id+' — '+by('customers',x.customer).name)}</select></div><div class="field"><label>Produkti</label><select id="prProduct" onchange="processSourceRefresh()">${opts(state.products,x=>x.code+' — '+x.name)}</select></div><div class="field"><label>Makineria/Dhoma</label><select id="prMachine">${opts(state.machines.filter(x=>!x.retired&&x.status!=='Jashtë funksionit'),x=>x.code+' — '+x.name)}</select></div><div class="field"><label>Pesha hyrëse kg</label><input id="prInput" type="number" step="0.000001" oninput="processRedistribute()"></div><div class="field"><label>Pesha dalëse kg</label><input id="prOutput" type="number" step="0.000001"></div><div class="field full"><label>Lotet hyrëse (lënda e parë) * <small>(kg për lot — shpërndahen njëlloj, vetëm për lexim)</small></label><div style="display:flex;gap:8px;margin-bottom:6px"><select id="prAddLot" style="flex:1">${processSourceOptions([])}</select><button type="button" class="btn small" onclick="processSourceAdd()">+ Shto lot</button></div><div data-pr-sources></div><p class="hint" id="prSourceSum" style="margin:0"></p></div><div class="field full"><label>Proceset</label><input id="prSteps" value="Pastrim → Seleksionim → Prerje → Sitje → Paketim"></div><div class="field"><label>Pastrimi u konfirmua?</label><select id="prClean"><option>Po</option><option>Jo</option></select></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addProcess()">Fillo procesin</button>`)}
+function processForm(){modal('Proces i ri — shumë lotë',`<div class="form-grid"><div class="field"><label>Porosia</label><select id="prOrder">${opts(state.orders,x=>x.id+' — '+by('customers',x.customer).name)}</select></div><div class="field"><label>Produkti</label><select id="prProduct" onchange="processSourceRefresh()">${opts(state.products,x=>x.code+' — '+x.name)}</select></div><div class="field"><label>Makineria/Dhoma</label><select id="prMachine">${opts(state.machines.filter(x=>!x.retired&&x.status!=='Jashtë funksionit'),x=>x.code+' — '+x.name)}</select></div><div class="field"><label>Pesha hyrëse kg</label><input id="prInput" type="number" step="0.000001" oninput="processRedistribute()"></div><div class="field"><label>Pesha dalëse kg</label><input id="prOutput" type="number" step="0.000001"></div><div class="field full"><label>Lotet hyrëse (lënda e parë) * <small>(kg për lot — plotësohet automatikisht, mund ta ndryshoni)</small></label><div style="display:flex;gap:8px;margin-bottom:6px"><select id="prAddLot" style="flex:1">${processSourceOptions([])}</select><button type="button" class="btn small" onclick="processSourceAdd()">+ Shto lot</button><button type="button" class="btn small" onclick="processRebalance()" title="Kthen shpërndarjen njëlloj të kg">Rishpërndaj njëlloj</button></div><div data-pr-sources></div><p class="hint" id="prSourceSum" style="margin:0"></p></div><div class="field full"><label>Proceset</label><input id="prSteps" value="Pastrim → Seleksionim → Prerje → Sitje → Paketim"></div><div class="field"><label>Pastrimi u konfirmua?</label><select id="prClean"><option>Po</option><option>Jo</option></select></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addProcess()">Fillo procesin</button>`)}
 function validateProcessBusiness(v){if(!v.order||!v.product||!v.machine)return'Plotësoni porosinë, produktin dhe makinerinë';let sources=(v.sources&&v.sources.length)?v.sources:(v.lot?[{lot:v.lot,qty:v.input}]:[]);if(!sources.length)return'Zgjidhni të paktën një lot hyrës';if(!(v.input>0)||!(v.output>0))return'Sasitë duhet të jenë më të mëdha se zero';let seen=new Set(),sum=0;for(let z of sources){let lot=by('lots',z.lot);if(!lot||!lot.id)return'Loti hyrës nuk u gjet';if(seen.has(lot.id))return'Loti '+lot.code+' është shtuar dy herë';seen.add(lot.id);if(!(+z.qty>0))return'Sasia për lotin '+lot.code+' duhet të jetë pozitive';if(+z.qty>availableLotQuantity(lot.id)+.001)return'Hyrja e procesit tejkalon stokun e lotit '+lot.code;if(v.product&&lot.product&&lot.product!==v.product)return'Loti '+lot.code+' është i produktit tjetër — përpunoni vetëm lotë të së njëjtit produkt';sum=mgRound(sum+(+z.qty))}if(Math.abs(sum-(+v.input||0))>.001)return'Shuma e loteve ('+fmt2(sum)+' kg) duhet të jetë sa pesha hyrëse '+fmt2(v.input)+' kg';if(v.output>v.input&&!v.authorization)return'Dalja nuk mund të jetë më e madhe se hyrja pa autorizim';return''}
 function coreProcess(data){
   if(state.processes.some(x=>x.id===data.id))return coreResult(true,'',state.processes.find(x=>x.id===data.id));
@@ -3696,7 +3699,7 @@ function coreProcess(data){
   if(data.input!=null&&Math.abs(input-(+data.input))>.001)return coreResult(false,'Sasi procesi e pavlefshme ose mbi stok');
   if(!(input>0)||!(data.output>0)||data.output>input&&!data.authorization)return coreResult(false,'Sasi procesi e pavlefshme ose mbi stok');
   let totalCost=srcs.reduce((a,z)=>a+z.qty*(+z.lot.unitCost||0),0),unitCost=totalCost/input,ids=srcs.map(z=>z.lot.id);
-  let p={...data};delete p.sources;p.lots=ids;if(ids.length===1)p.sourceLot=ids[0];p.input=input;p.output=data.output;p.loss=mgRound(input-data.output);p.yield=data.output/input*100;p.status='Përfunduar';p.unitCost=unitCost;p.totalCost=totalCost;
+  let p={...data};delete p.sources;p.lots=ids;p.sourceQty=srcs.map(z=>({lot:z.lot.id,qty:z.qty}));if(ids.length===1)p.sourceLot=ids[0];p.input=input;p.output=data.output;p.loss=mgRound(input-data.output);p.yield=data.output/input*100;p.status='Përfunduar';p.unitCost=unitCost;p.totalCost=totalCost;
   state.processes.push(p);
   srcs.forEach(z=>{z.lot.availableNet=Math.max(0,lotAvail(z.lot)-z.qty);z.lot.net=z.lot.availableNet});
   let first=srcs[0].lot;
@@ -10010,6 +10013,7 @@ window.MB_SHOTS={
      {t:'Kodi i ri',d:'B1 + zona + blerësi + periudha + ndarja, p.sh. B1K07-4-II/3: lloji 1, zona K07, blerësi 4, periudha e dytë, ndarja 3. Përsëritja merr -2 në fund.'},
      {t:'Kodi i vjetër',d:'Lotet e vjetra mbajnë kodin B1<furnitor>-<produkt>-<vit> — pranon kërkimin dhe printimin njëjtë.'},
      {t:'Kartela e lotit',d:'Kliko kodin: të dhënat, peshimi, etiketa, paketimet, transferimet, mostrat — gjithë historia.'},
+     {t:'Gjurmueshmëria me grafik',d:'Te kartela e lotit (ose e paketimit/procesit) kliko "🕸 Hap grafikun e gjurmueshmërisë": hapet flow-chart para e mbrapa — nga furnitori e peshimi, nëpër makineri e përzierje lotësh, deri te loti i klientit, fatura, ngarkesa dhe klienti. Kliko çdo kuti për të hapur dokumentin; shigjetat kanë kg. Me "Drejtimi" zgjedh vetëm origjinën (mbrapa) ose vetëm destinacionin (para).'},
      {t:'Zonat',d:'Lista e zonave dhe zonat e furnitorëve mbahen nga admini: "⌗ Zonat e kodeve" te faqja e loteve.'}],
     fields:[
      {k:'Lloji',v:'Numri i llojit të produktit (1 = lëndë e parë).'},
@@ -11103,6 +11107,122 @@ console.info('BioBes '+VERSION+': motor OCR me CDN rezervë (jsdelivr/unpkg/cdnj
   setInterval(()=>{
     if(canWake()&&!wakeBusy&&Date.now()>=wakeCooldownUntil)wakeServerAndSync();
   },30000);
+})();
+</script>
+<script id="biobes-trace-graph-v1">
+/* BioBes ERP — Gjurmueshmëria e lotit me grafik (flow-chart para & mbrapa).
+   Ndërton zinxhirin nga të dhënat ekzistuese: furnitor/peshim -> lot -> proces(makineri)
+   -> lot i përfunduar -> paketim(loti i klientit) -> porosi -> faturë/ngarkesë -> klient.
+   - lotTraceModal(id): hap modalin me grafikun SVG (klikueshëm) + përmbledhjen.
+   - Drejtimi: i plotë / vetëm mbrapa (origjina) / vetëm para (destinacioni).
+   - Shton butonin "🕸 Hap grafikun e gjurmueshmërisë" te kartela e lotit, e procesit,
+     e paketimit dhe te rezultati i Gjurmueshmërisë. */
+(function(){
+function tgKg(v){v=mgRound(v);return Number.isInteger(v)?String(v):fmt2(v)}
+function tgProcQty(p,lotId){let q=(p.sourceQty||[]).find(z=>z.lot===lotId);if(q)return +q.qty||0;if((p.lots||[]).length===1)return +p.input||0;return mgRound((+p.input||0)/Math.max(1,(p.lots||[]).length))}
+function tgEdges(){
+  let E=[];
+  (state.lots||[]).forEach(l=>{
+    if(l.supplier&&by('suppliers',l.supplier)?.id)E.push({from:'sup:'+l.supplier,to:'lot:'+l.id,label:'origjina'});
+    if(l.weighing&&state.weighings.some(w=>w.id===l.weighing))E.push({from:'w:'+l.weighing,to:'lot:'+l.id,label:tgKg(+l.originalNet||+l.net||0)+' kg'});
+  });
+  (state.processes||[]).filter(p=>p.status!=='Anuluar').forEach(p=>{
+    (p.lots||[]).forEach(lid=>{if(by('lots',lid)?.id)E.push({from:'lot:'+lid,to:'pr:'+p.id,label:tgKg(tgProcQty(p,lid))+' kg'})});
+    let out=(state.lots||[]).find(l=>l.process===p.id);
+    if(out?.id)E.push({from:'pr:'+p.id,to:'lot:'+out.id,label:tgKg(+p.output||0)+' kg'});
+  });
+  packs().forEach(pk=>{
+    (pk.sourceLots||[]).forEach(lid=>{if(by('lots',lid)?.id)E.push({from:'lot:'+lid,to:'pk:'+pk.id,label:tgKg(packLotQty(pk,lid))+' kg'})});
+    if(pk.order)E.push({from:'pk:'+pk.id,to:'ord:'+pk.order,label:''});
+  });
+  (state.orders||[]).forEach(o=>{
+    if(!o?.id)return;
+    let sale=(typeof salesInvoices==='function'?salesInvoices():[]).filter(f=>f.status==='Konfirmuar'&&f.order===o.id)[0];
+    let ship=(state.shipments||[]).filter(s=>(typeof shipmentOrders==='function'?shipmentOrders(s):[s.order]).includes(o.id))[0];
+    if(sale?.id)E.push({from:'ord:'+o.id,to:'sale:'+sale.id,label:''});
+    if(ship?.id)E.push({from:'ord:'+o.id,to:'ship:'+ship.id,label:''});
+    if(o.customer&&by('customers',o.customer)?.id){
+      if(sale?.id)E.push({from:'sale:'+sale.id,to:'cust:'+o.customer,label:''});
+      if(ship?.id)E.push({from:'ship:'+ship.id,to:'cust:'+o.customer,label:''});
+      if(!sale?.id&&!ship?.id)E.push({from:'ord:'+o.id,to:'cust:'+o.customer,label:''});
+    }
+  });
+  return E;
+}
+function tgNodeRaw(key){
+  let t=key.split(':')[0],id=key.slice(t.length+1);
+  if(t==='sup'){let x=by('suppliers',id);return x?.id?{type:t,title:'Furnitori',code:x.code,sub:(x.name||'').slice(0,26),open:"supplierCard('"+id+"')"}:null}
+  if(t==='w'){let x=state.weighings.find(w=>w.id===id);return x?{type:t,title:'Peshimi',code:x.id,sub:fmt2(+x.net||0)+' kg neto',open:"weightCard('"+id+"')"}:null}
+  if(t==='lot'){let x=by('lots',id);return x?.id?{type:t,title:'Loti',code:x.code,sub:fmt2(+x.originalNet||+x.net||0)+' kg · '+(by('products',x.product)?.code||''),open:"lotCard('"+id+"')"}:null}
+  if(t==='pr'){let x=by('processes',id);return x?.id?{type:t,title:'Procesi',code:x.id,sub:(by('machines',x.machine)?.code||'')+' · '+fmt2(+x.input||0)+'→'+fmt2(+x.output||0)+' kg',open:"processCard('"+id+"')"}:null}
+  if(t==='pk'){let x=packs().find(p=>p.id===id);return x?{type:t,title:'Paketimi',code:x.internalLot||x.id,sub:'loti klientit: '+(x.customerLot||'—'),open:"packagingCard('"+id+"')"}:null}
+  if(t==='ord'){let x=by('orders',id);return x?.id?{type:t,title:'Porosia',code:x.id,sub:(by('customers',x.customer)?.name||'').slice(0,26),open:"orderCard('"+id+"')"}:null}
+  if(t==='sale'){let x=(typeof salesInvoices==='function'?salesInvoices():[]).find(f=>f.id===id);return x?{type:t,title:'Fatura',code:x.invoiceNumber||x.id,sub:fmt2(+x.total||0)+' '+(x.currency||''),open:"saleCard?saleCard('"+id+"'):go('sales')"}:null}
+  if(t==='ship'){let x=by('shipments',id);return x?.id?{type:t,title:'Ngarkesa',code:x.id,sub:'plumbça '+(x.seal||'—'),open:"shipmentCard('"+id+"')"}:null}
+  if(t==='cust'){let x=by('customers',id);return x?.id?{type:t,title:'Klienti',code:(x.name||'').slice(0,24),sub:x.country||'',open:"customerCard('"+id+"')"}:null}
+  return null;
+}
+function tgNode(key){let n=tgNodeRaw(key);if(n)n.key=key;return n}
+const TG_FILL={sup:['#e8f0fe','#5b7bd5'],w:['#fff4e5','#d59a5b'],lot:['#e6f4ea','#1e7e34'],pr:['#f3e8ff','#8a63d2'],pk:['#fde8ef','#d2638a'],ord:['#e5f6fb','#4aa3c0'],sale:['#eef2ef','#6b7f76'],ship:['#eef2ef','#6b7f76'],cust:['#176b49','#176b49']};
+function tgSubgraph(startKey,dir,E){
+  let fwd={},rev={};E.forEach(e=>{(fwd[e.from]=fwd[e.from]||[]).push(e.to);(rev[e.to]=rev[e.to]||[]).push(e.from)});
+  let bfs=(map,seed)=>{let seen=new Set([seed]),q=[seed];while(q.length){let k=q.shift();(map[k]||[]).forEach(n=>{if(!seen.has(n)){seen.add(n);q.push(n)}})}return seen};
+  let back=bfs(rev,startKey),fwdS=bfs(fwd,startKey),keys;
+  if(dir==='back')keys=back;else if(dir==='fwd')keys=fwdS;else keys=new Set([...back,...fwdS]);
+  let edges=E.filter(e=>keys.has(e.from)&&keys.has(e.to));
+  let nodes=[...keys].map(tgNode).filter(Boolean);
+  return {nodes,edges,keys};
+}
+function tgLevels(nodes,edges){
+  let keyOf=n=>n.key,inE={};edges.forEach(e=>{(inE[e.to]=inE[e.to]||[]).push(e.from)});
+  let memo={},busy={};
+  function lv(k,chain){if(memo[k]!=null)return memo[k];if(busy[k]||chain.has(k))return 0;busy[k]=1;chain.add(k);let m=0;(inE[k]||[]).forEach(p=>{m=Math.max(m,lv(p,chain)+1)});chain.delete(k);delete busy[k];return memo[k]=m}
+  nodes.forEach(n=>{lv(n.key,new Set())});
+  nodes.forEach(n=>{n.level=memo[n.key]||0});
+}
+function lotTraceModalRender(){
+  let host=document.getElementById('tgSvgWrap'),sum=document.getElementById('tgSummary');if(!host)return;
+  let dir=(document.getElementById('tgDir')||{}).value||'full',start=window.__tgStart;
+  let E=tgEdges(),g=tgSubgraph(start,dir,E);
+  let keySet=new Set(g.nodes.map(n=>n.key));
+  g.edges=g.edges.filter(e=>keySet.has(e.from)&&keySet.has(e.to));
+  tgLevels(g.nodes,g.edges);
+  let byLvl={};g.nodes.forEach(n=>{(byLvl[n.level]=byLvl[n.level]||[]).push(n)});
+  let levels=Object.keys(byLvl).map(Number).sort((a,b)=>a-b),maxRows=Math.max(...levels.map(l=>byLvl[l].length),1);
+  let CW=212,RH=78,NW=184,NH=58,W=(levels.length)*CW+24,H=maxRows*RH+24;
+  let pos={};levels.forEach(l=>{let arr=byLvl[l];arr.forEach((n,i)=>{pos[n.key]={x:l*CW+14,y:i*RH+14+(maxRows-arr.length)*RH/2}})});
+  let svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" font-family="inherit" style="min-width:'+W+'px">';
+  svg+='<defs><marker id="tgArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#7c8f86"/></marker></defs>';
+  g.edges.forEach(e=>{let a=pos[e.from],b=pos[e.to];if(!a||!b)return;let x1=a.x+NW,y1=a.y+NH/2,x2=b.x,y2=b.y+NH/2,mx=(x1+x2)/2;
+    svg+='<path d="M'+x1+','+y1+' C'+mx+','+y1+' '+mx+','+y2+' '+x2+','+y2+'" fill="none" stroke="#7c8f86" stroke-width="1.4" marker-end="url(#tgArrow)"/>';
+    if(e.label)svg+='<text x="'+mx+'" y="'+((y1+y2)/2-4)+'" font-size="10" text-anchor="middle" fill="#33544a" stroke="#fbfdfc" stroke-width="3" paint-order="stroke">'+esc(e.label)+'</text>'});
+  window.__tgOpen={};
+  g.nodes.forEach(n=>{let p=pos[n.key],f=TG_FILL[n.type]||['#eef2ef','#6b7f76'],dark=n.type==='cust';
+    window.__tgOpen[n.key]=n.open;
+    svg+='<g data-tg-node="'+esc(n.key)+'" style="cursor:pointer"><rect x="'+p.x+'" y="'+p.y+'" width="'+NW+'" height="'+NH+'" rx="10" fill="'+f[0]+'" stroke="'+(n.key===start?'#0d3f2b':f[1])+'" stroke-width="'+(n.key===start?2.6:1.2)+'"/>'
+      +'<text x="'+(p.x+10)+'" y="'+(p.y+15)+'" font-size="9" letter-spacing="0.6" fill="'+(dark?'#cfe6da':'#5c6f66')+'">'+esc(n.title.toUpperCase())+'</text>'
+      +'<text x="'+(p.x+10)+'" y="'+(p.y+31)+'" font-size="12" font-weight="700" fill="'+(dark?'#ffffff':'#17352a')+'">'+esc(n.code)+'</text>'
+      +'<text x="'+(p.x+10)+'" y="'+(p.y+46)+'" font-size="10" fill="'+(dark?'#d8ece1':'#4a5d54')+'">'+esc(n.sub||'')+'</text></g>'});
+  svg+='</svg>';
+  host.innerHTML=svg;
+  Object.keys(window.__tgOpen).forEach(k=>{let el=host.querySelector('[data-tg-node="'+CSS.escape(k)+'"]');if(el)el.addEventListener('click',()=>{try{eval(window.__tgOpen[k])}catch(e){console.error(e)}})});
+  let lots=g.nodes.filter(n=>n.type==='lot'),prs=g.nodes.filter(n=>n.type==='pr'),pks=g.nodes.filter(n=>n.type==='pk'),custs=g.nodes.filter(n=>n.type==='cust'),mach=[...new Set(prs.map(n=>(n.sub||'').split(' ·')[0]))].filter(Boolean);
+  if(sum)sum.innerHTML='<p style="margin:4px 0"><b>Zinxhiri'+(dir==='back'?' (mbrapa)':dir==='fwd'?' (para)':' i plotë')+'</b> · lote: <b>'+lots.length+'</b> · procese/makineri: <b>'+prs.length+'</b> ('+mach.length+' makineri: '+esc(mach.join(', ')||'—')+') · paketime: <b>'+pks.length+'</b> · klientë: <b>'+esc(custs.map(c=>c.code).join(', ')||'—')+'</b> · nyje gjithsej: '+g.nodes.length+'</p>';
+}
+window.lotTraceModal=function(arg){
+  let key=String(arg||'');
+  if(key.indexOf(':')<0){if(by('lots',key)?.id)key='lot:'+key;else if(packs().some(p=>p.id===key))key='pk:'+key;else return toast('Loti nuk u gjet')}
+  if(!tgNode(key))return toast('Nyja nuk u gjet');
+  window.__tgStart=key;
+  let n=tgNode(key);
+  modal('Gjurmueshmëria — '+n.code,`<div class="card"><div class="toolbar" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label style="margin:0">Drejtimi:</label><select id="tgDir" onchange="lotTraceModalRender()"><option value="full">I plotë (para + mbrapa)</option><option value="back">Vetëm mbrapa — origjina</option><option value="fwd">Vetëm para — destinacioni</option></select><button class="btn small" onclick="printOnly('tgSvgWrap','Gjurmueshmëria e lotit')">Printo grafikun</button></div><div id="tgSummary"></div><div id="tgSvgWrap" style="overflow:auto;border:1px solid #d4dcd6;border-radius:8px;background:#fbfdfc;padding:8px"></div><p class="hint">Kliko çdo kuti për të hapur dokumentin përkatës. Shigjetat tregojnë rrjedhën e mallit; numrat janë kg.</p></div>`,`<button class="btn" onclick="closeModal()">Mbyll</button>`);
+  lotTraceModalRender();
+};
+window.lotTraceModalRender=lotTraceModalRender;
+const tgLotCardBase=lotCard;lotCard=function(id){tgLotCardBase(id);if(typeof modalBody!=='undefined'&&modalBody)modalBody.insertAdjacentHTML('afterbegin','<div class="card" style="border-color:#bcd7c6;background:#f4faf6"><button class="btn small primary" onclick="lotTraceModal(\'lot:'+id+'\')">🕸 Hap grafikun e gjurmueshmërisë</button> <span class="hint">para & mbrapa: furnitori → makineri → loti i klientit</span></div>')};
+const tgProcessCardBase=processCard;processCard=function(id){tgProcessCardBase(id);let p=by('processes',id),out=(state.lots||[]).find(l=>l.process===id);if(typeof modalBody!=='undefined'&&modalBody)modalBody.insertAdjacentHTML('afterbegin','<div class="card" style="border-color:#bcd7c6;background:#f4faf6"><button class="btn small primary" onclick="lotTraceModal(\'pr:'+id+'\')">🕸 Grafiku i gjurmueshmërisë së procesit</button>'+(out?.id?' <button class="btn small" onclick="lotTraceModal(\'lot:'+out.id+'\')">Grafiku nga loti dalës</button>':'')+'</div>')};
+const tgPackCardBase=packagingCard;packagingCard=function(id){tgPackCardBase(id);if(typeof modalBody!=='undefined'&&modalBody)modalBody.insertAdjacentHTML('afterbegin','<div class="card" style="border-color:#bcd7c6;background:#f4faf6"><button class="btn small primary" onclick="lotTraceModal(\'pk:'+id+'\')">🕸 Nga u formua ky lot klienti (mbrapa)</button> <span class="hint">tregon lotet burimorë, makineritë dhe peshimet</span></div>')};
+const tgTraceV2Base=traceSearchV2;traceSearchV2=function(){tgTraceV2Base();let tq=document.getElementById('traceQ'),tr=document.getElementById('traceResult');if(!tq||!tr)return;let q=(tq.value||'').trim().toLowerCase(),lot=state.lots.find(x=>((x.code||'').toLowerCase()).includes(q)||x.id.toLowerCase()===q),w=state.weighings.find(x=>x.id.toLowerCase()===q);if(w&&!lot)lot=state.lots.find(x=>x.weighing===w.id);if(!lot)return;tr.insertAdjacentHTML('afterbegin','<div class="card" style="border-color:#bcd7c6;background:#f4faf6;margin-bottom:8px"><button class="btn small primary" onclick="lotTraceModal(\'lot:'+lot.id+'\')">🕸 Hap grafikun e gjurmueshmërisë (flow-chart)</button></div>')};
 })();
 </script>
 </body></html>
