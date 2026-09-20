@@ -10555,7 +10555,7 @@ window.MB_SHOTS={
     const rows=[];
     const c=by('customers',id)||{};
     const ob=(typeof obOf==='function')?(+obOf(c)||0):(+c.openingBalance||0);
-    if(ob)rows.push({date:(c.openingDate||''),veprimi:'Gjendje fillestare',desc:'Saldo në hapjen e sistemit',debit:ob>0?ob:0,credit:ob<0?-ob:0,status:'Konfirmuar',kind:'all'});
+    if(ob)rows.push({date:(c.openingDate||((typeof obDate==='function')?obDate():'')),veprimi:'Gjendje fillestare',desc:'Gjendje fillestare — Saldo në hapjen e sistemit',debit:ob>0?ob:0,credit:ob<0?-ob:0,status:'Konfirmuar',kind:'all'});
     salesInvoices().filter(f=>f.customer===id&&(f.status||'Konfirmuar')!=='Anuluar').forEach(f=>{
       const k=saleKindOf(f);
       const lns=saleLinesOf(f),qty=lns.reduce((a,l)=>a+Math.abs(+l.net||0),0)||(+f.qty||0);
@@ -10594,6 +10594,7 @@ window.MB_SHOTS={
     const unused=prepayConf.reduce((a,f)=>a+customerPrepayUnused(f.id),0);
     const paid=customerPayments().filter(x=>x.customer===id&&(x.status||'Konfirmuar')==='Konfirmuar').reduce((a,x)=>a+toALL(x.amount,x.currency,x.rate),0);
     const bal=customerBalance(id);
+    const ob=(typeof obOf==='function')?(+obOf(c)||0):(+c.openingBalance||0);
     const headLine=[c.code,c.name,c.city||'',c.country||''].filter(Boolean).map(esc).join(' &nbsp;·&nbsp; ');
     const sub=[c.vat?('NIPT/VAT: '+esc(c.vat)):'',c.phone?('Tel: '+esc(c.phone)):''].filter(Boolean).join(' &nbsp;·&nbsp; ');
     const tabs=[['sales','Shitje'],['receipts','Arkëtime'],['prepayments','Parapagime'],['all','Të gjitha']];
@@ -10610,6 +10611,7 @@ window.MB_SHOTS={
       +'<div class="kpis">'
       +'<div class="kpi"><small>Fatura (të konfirmuara)</small><strong>'+fatura.length+' · '+n(faturaSum,0)+' ALL</strong></div>'
       +'<div class="kpi"><small>Arkëtime + Parapagime</small><strong>'+n(paid+prepaySum,0)+' ALL</strong></div>'
+      +'<div class="kpi"><small>Gjendja fillestare</small><strong>'+n(ob,0)+' ALL</strong></div>'
       +'<div class="kpi"><small>Gjendja neto</small><strong style="color:'+(bal>0.009?'#b63c46':(bal<-0.009?'#1e7e34':'#333'))+'">'+n(bal,0)+' ALL</strong></div>'
       +'<div class="kpi"><small>Parapagim i papërdorur</small><strong>'+n(unused,0)+' ALL</strong></div>'
       +'</div>'
