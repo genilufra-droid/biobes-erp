@@ -72,6 +72,8 @@ const {open}=require('./helpers.cjs'),assert=require('node:assert/strict');
      const S=typeof salesInvoices==='function'?salesInvoices():state.salesInvoices;
      if(!S.some(f=>f.id==='EXP-TG-1'))S.push({id:'EXP-TG-1',status:'Konfirmuar',order:'PO-TG-001',customer:state.customers[0].id,currency:'EUR',total:12000,exchangeRate:98,date:'2026-09-14',lines:[{product:prd,net:1000,price:12}]});
      if(!by('shipments','NG-TG-1').id)state.shipments.push({id:'NG-TG-1',date:'2026-09-15',orders:['PO-TG-001'],order:'PO-TG-001',customer:state.customers[0].id,status:'Planifikuar',net:1000,seal:'SL-TG'});
+     if(!by('samples','SM-TG-1').id)state.samples.push({id:'SM-TG-1',date:'2026-09-11',customer:state.customers[0].id,product:prd,lot:'TG-LA',tracking:'TG-TRACK-1',status:'E aprovuar'});
+     let oTg=by('orders','PO-TG-001');if(oTg.id)oTg.sample='SM-TG-1';
      save();return out1.id;
    });
    assert.ok(out1);
@@ -117,6 +119,32 @@ const {open}=require('./helpers.cjs'),assert=require('node:assert/strict');
    assert.ok(await ev(()=>[...document.querySelectorAll('#modalBody button')].some(b=>b.textContent.includes('Hap grafikun e gjurmueshmërisë'))));
    await ev(()=>{closeModal();processCard('PR-TG-2')});await p.waitForTimeout(300);
    assert.ok(await ev(()=>[...document.querySelectorAll('#modalBody button')].some(b=>b.textContent.includes('Grafiku i gjurmueshmërisë së procesit'))));
+   await ev(()=>closeModal());
+ });
+
+ await step('Kartela e gjurmueshmërisë: nga shitja te fermeri, rafti, makineritë, mostra dhe ngarkesa',async()=>{
+   await ev(()=>{try{closeModal()}catch(e){};traceDossierModal('ord:PO-TG-001')});await p.waitForTimeout(400);
+   const d=await ev(()=>{const el=document.getElementById('printTraceDossier');return{txt:el?el.textContent:'',svg:!!el&&!!el.querySelector('svg'),tables:el?el.querySelectorAll('table').length:0}});
+   assert.ok(d.svg,'grafiku mungon në kartelë');
+   assert.ok(d.tables>=4,'tabelat: '+d.tables);
+   for(const s of ['KARTELA E GJURMUESHMËRISË','TG-A-105','S01/1','Magazina Qendrore','Rafti i Sokolit','MK-01','MK-02','SM-TG-1','TG-TRACK-1','CUST-LOT-TG','NG-TG-1','SL-TG','Nutreco'])assert.ok(d.txt.includes(s),'mungon '+s);
+ });
+
+ await step('Printimi A4 landscape: frame-i merr @page landscape dhe gjithë përmbajtjen',async()=>{
+   await ev(()=>{window.__cap=null;const orig=HTMLElement.prototype.remove;HTMLElement.prototype.remove=function(){if(this&&this.id==='biobesPrintFrame'){try{window.__cap=this.contentDocument.documentElement.innerHTML}catch(e){}}return orig.apply(this,arguments)};printOnly('printTraceDossier','Kartela e gjurmueshmërisë')});
+   await p.waitForTimeout(900);
+   const f=await ev(()=>{const h=window.__cap||'';return{land:h.includes('@page{size:A4 landscape'),title:h.includes('KARTELA E GJURMUESHMËRISË'),tables:(h.match(/<table/g)||[]).length,svg:h.includes('<svg')}});
+   assert.ok(f.title,'frame i printimit nuk u kap');
+   assert.equal(f.land,true,'@page landscape mungon');
+   assert.ok(f.tables>=4,'tabelat në print: '+f.tables);assert.ok(f.svg,'grafiku në print mungon');
+ });
+
+ await step('Butonat hyrës te fatura e shitjes dhe te ngarkesa',async()=>{
+   await ev(()=>{closeModal();saleInvoiceCard('EXP-TG-1')});await p.waitForTimeout(300);
+   let b=await ev(()=>({t:[...document.querySelectorAll('#modalBody button')].some(x=>x.textContent.includes('Kartela e gjurmueshmërisë (A4)')),h:[...document.querySelectorAll('#modalBody *')].some(x=>x.textContent.includes('Kjo shitje nga erdhi'))}));
+   assert.ok(b.t,'butoni i kartelës te fatura');assert.ok(b.h,'pyetja "Kjo shitje nga erdhi?"');
+   await ev(()=>{closeModal();shipmentCard('NG-TG-1')});await p.waitForTimeout(300);
+   assert.ok(await ev(()=>[...document.querySelectorAll('#modalBody button')].some(x=>x.textContent.includes('Kartela e gjurmueshmërisë (A4)'))));
    await ev(()=>closeModal());
  });
 
