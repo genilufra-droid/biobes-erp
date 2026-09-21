@@ -11792,8 +11792,8 @@ commitModuleImport=function(){
  +'.od-form .od-pav small{font-size:12px;color:#6b7280}';
  var st=document.createElement('style');st.textContent=CSS;document.head.appendChild(st);
  /* fushat që mungojnë te njëra palë plotësohen te tjetra — të dyja palët dalin me të njëjtat fusha */
- var COMMON=[['NIPT / VAT','Nipt','nipt'],['EORI','Eori','eori'],['Personi i kontaktit','Contact','contact'],['Email','Email','email'],['Adresa','Address','address'],['Monedha e faturimit','Currency','currency'],['Afati i pagesës (ditë)','Terms','paymentTerms'],['Statusi','Active','']];
- var CUSTONLY=[['Website','Website','website'],['Qarku / Zona','Region','region']];
+ var COMMON=[['NIPT / VAT','Nipt','nipt'],['EORI','Eori','eori'],['Personi i kontaktit','Contact','contact'],['Email','Email','email'],['Adresa','Address','address'],['Qyteti','City','city'],['Shteti','Country','country'],['Website','Website','website'],['Monedha e faturimit','Currency','currency'],['Afati i pagesës (ditë)','Terms','paymentTerms'],['Statusi','Active','']];
+ var CUSTONLY=[['Qarku / Zona','Region','region']];
  var ORDER=['kodi','emri','emri / kompania','nipt / vat','nipt / vat id','eori','eori (eksport be)','personi i kontaktit','telefoni','email','website','adresa','qyteti','qarku / zona','qarku/zona','shteti','monedha e faturimit','afati i pagesës (ditë)','statusi'];
  var SEC=[['kodi','TË DHËNAT E PALËS'],['adresa','ADRESA DHE KONTAKTI'],['monedha e faturimit','FATURIMI DHE FINANCAT']];
  function lab(el){return (el.querySelector('label')?.textContent||'').replace(/\*/g,'').trim().toLowerCase()}
@@ -11853,12 +11853,16 @@ commitModuleImport=function(){
   }catch(e){console.error("BioBes",'odoo-form',e)}
  }
  function recFor(prefix){
-  try{
-   var c=document.getElementById(prefix+'Code');if(!c)return null;
-   var code=String(c.value||'').trim();if(!code)return null;
-   return (state.suppliers||[]).filter(function(x){return x&&String(x.code||'').trim()===code})[0]||null;
-  }catch(e){return null}
- }
+try{
+var c=document.getElementById(prefix+'Code');if(!c)return null;
+var code=String(c.value||'').trim();if(!code)return null;
+var isCust=/^cf/i.test(prefix);
+var a1=isCust?(state.customers||[]):(state.suppliers||[]),a2=isCust?(state.suppliers||[]):(state.customers||[]);
+var byCode=function(arr){return arr.filter(function(x){return x&&String(x.code||'').trim()===code})[0]||null};
+var hit=null;try{var id=window.__modalRecordId||null;if(id)hit=a1.filter(function(x){return x&&x.id===id})[0]||null}catch(e){}
+return hit||byCode(a1)||byCode(a2);
+}catch(e){return null}
+}
  function readExtras(prefix,specs){
   var o={};
   (specs||[]).forEach(function(s){
