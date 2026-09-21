@@ -87,6 +87,18 @@ async function boot(browser,fake){
       sessionStorage.setItem('biobesServerUser',JSON.stringify({id:'u1',username:'admin',name:'Admin',role:'ROLE-ADMIN'}));
     }catch(e){/* kornizat pa qasje në memorie */}
   });
+  // Serveri i rremë nuk transmeton stream SSE: zëvendësohet EventSource me stub,
+  // kështu faqja s'përpiqet të hapë lidhje direkte ndaj përgjigjeve JSON.
+  await ctx.addInitScript(()=>{
+    window.__sse={instances:[],pushed:[],push(ev,data){this.pushed.push({ev,data,at:Date.now()});(this.instances||[]).forEach(es=>{(es.handlers[ev]||[]).slice().forEach(f=>{try{f({data:typeof data==='string'?data:JSON.stringify(data)})}catch(e){}})});return (this.instances||[]).length}};
+    class FakeES{
+      constructor(url){this.url=String(url);this.handlers={};this.readyState=1;(window.__sse.instances=window.__sse.instances||[]).push(this);setTimeout(()=>{this.readyState=1;try{this.onopen&&this.onopen()}catch(e){}this._fire('hello',{ok:true})},25)}
+      addEventListener(t,f){(this.handlers[t]=this.handlers[t]||[]).push(f)}
+      _fire(t,d){(this.handlers[t]||[]).slice().forEach(f=>{try{f({data:JSON.stringify(d)})}catch(e){}})}
+      close(){this.readyState=2}
+    }
+    window.EventSource=FakeES;
+  });
   await ctx.route('**/*',fake.handler);
   const page=await ctx.newPage();page.setDefaultTimeout(15000);
   page.on('pageerror',e=>errors.push('pageerror: '+e.message));
