@@ -132,8 +132,8 @@ const {open}=require('./helpers.cjs'),assert=require('node:assert/strict');
 
  await step('Printimi A4 landscape: frame-i merr @page landscape dhe gjithë përmbajtjen',async()=>{
    await ev(()=>{window.__cap=null;const orig=HTMLElement.prototype.remove;HTMLElement.prototype.remove=function(){if(this&&this.id==='biobesPrintFrame'){try{window.__cap=this.contentDocument.documentElement.innerHTML}catch(e){}}return orig.apply(this,arguments)};printOnly('printTraceDossier','Kartela e gjurmueshmërisë')});
-   await p.waitForTimeout(900);
-   const f=await ev(()=>{const h=window.__cap||'';return{land:h.includes('@page{size:A4 landscape'),title:h.includes('KARTELA E GJURMUESHMËRISË'),tables:(h.match(/<table/g)||[]).length,svg:h.includes('<svg')}});
+   await p.waitForTimeout(600);
+   const f=await ev(()=>{const fr=document.getElementById('biobesPrintFrame');const h=(fr&&fr.contentDocument)?fr.contentDocument.documentElement.innerHTML:(window.__cap||'');return{land:h.includes('@page{size:A4 landscape'),title:h.includes('KARTELA E GJURMUESHMËRISË'),tables:(h.match(/<table/g)||[]).length,svg:h.includes('<svg')}});
    assert.ok(f.title,'frame i printimit nuk u kap');
    assert.equal(f.land,true,'@page landscape mungon');
    assert.ok(f.tables>=4,'tabelat në print: '+f.tables);assert.ok(f.svg,'grafiku në print mungon');

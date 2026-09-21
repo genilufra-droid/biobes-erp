@@ -285,7 +285,7 @@ let __labelIds={printWarehouseLabel:'80mm 60mm',printLabel:'80mm 60mm',vyQrLabel
 if(__labelIds[elementId]){let __a4=!!(arguments[2]&&arguments[2].paper==='A4');css=css.replace(/@page\b[^{]*\{[^}]*\}/g,'');css+=' @page{size:'+(__a4?'A4 portrait':__labelIds[elementId])+';margin:0} html,body{width:100%!important;height:100%!important;margin:0!important;padding:0!important;background:#fff!important;overflow:hidden!important;box-sizing:border-box} body{display:flex!important;align-items:center;justify-content:center} #'+elementId+'{max-width:calc(100% - 4mm)!important;max-height:calc(100% - 4mm)!important;min-height:0!important;margin:0!important;box-sizing:border-box;overflow:hidden;break-inside:avoid;page-break-inside:avoid;page-break-after:avoid} #printWarehouseLabel{width:min(72mm,100%)!important;height:min(52mm,100%)!important;padding:2mm!important;border:0.4mm solid #111!important;display:flex!important;flex-direction:column;gap:1mm;font-family:Arial,Helvetica,sans-serif!important;color:#111!important;background:#fff!important} #printWarehouseLabel h2{font-size:10px!important;line-height:1.15!important;margin:0!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} #printWarehouseLabel .wl-code{font-size:15px!important;line-height:1.1!important} #printWarehouseLabel .wl-body{display:grid!important;grid-template-columns:minmax(0,1fr) 22mm!important;gap:2mm!important;align-items:stretch;flex:1 1 auto;min-height:0} #printWarehouseLabel table{font-size:8.5px!important;line-height:1.1!important;width:100%!important;height:100%;table-layout:auto!important;border-collapse:collapse} #printWarehouseLabel td:first-child{width:1%!important;white-space:nowrap} #printWarehouseLabel td:last-child{overflow-wrap:anywhere} #printWarehouseLabel td{padding:0.3mm 1mm!important;border:0.2mm solid #333!important;vertical-align:middle!important} #printWarehouseLabel .wl-side{width:22mm!important} #warehouseQr{width:20mm!important;height:20mm!important;padding:1mm!important;margin:0 auto!important;display:block!important;background:#fff!important} #warehouseQr canvas,#warehouseQr img{width:20mm!important;height:20mm!important;margin:0!important} #warehouseQr img{display:block!important} #warehouseQr img~canvas,#warehouseQr canvas[style*=none]{display:none!important} #printWarehouseLabel small{font-size:7px!important;line-height:1.15!important;margin-top:0.5mm;display:block}'+(__a4?' body{align-items:flex-start!important;justify-content:flex-start!important} #'+elementId+'{margin:12mm 0 0 12mm!important} #printWarehouseLabel{width:72mm!important;height:52mm!important}':'')}
 if(elementId==='printSupplierCard')css+=' @page{size:A4 portrait;margin:10mm} #printSupplierCard{width:100%;max-width:190mm;margin:auto} #printSupplierCard .kpis{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important} #printSupplierCard .kpi strong{font-size:16px!important} #printSupplierCard [role=tablist]{display:none!important} #printSupplierCard .table-wrap{overflow:visible!important} #printSupplierCard table{min-width:0!important;width:100%!important;table-layout:fixed} #printSupplierCard td,#printSupplierCard th{overflow-wrap:anywhere;font-size:10px}';
 if(elementId==='printTraceDossier')css+=' @page{size:A4 landscape;margin:8mm} #printTraceDossier{width:100%!important;min-width:0!important;padding:0!important} #printTraceDossier svg{max-width:100%!important;height:auto!important;min-width:0!important} #printTraceDossier .td-wrap{overflow:visible!important;border:0!important} #printTraceDossier .td-graph{page-break-inside:avoid} #printTraceDossier tr{page-break-inside:avoid} #printTraceDossier .td-sign{margin-top:10mm}';
-frame.contentDocument.open();frame.contentDocument.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title||'Dokument')}</title><style>${css} body{background:#fff;margin:0;padding:8mm}.modal,.card{box-shadow:none!important}.mandate,.doc-sheet,.order-sheet,#printLedger{margin:0 auto!important}@media print{body{padding:0!important}}</style></head><body>${el.outerHTML}<\/body></html>`);frame.contentDocument.close();frame.contentWindow.addEventListener('afterprint',()=>frame.remove(),{once:true});setTimeout(()=>{if(frame.isConnected){frame.contentWindow.focus();frame.contentWindow.print()}},350);setTimeout(()=>frame.remove(),60000)}
+frame.contentDocument.open();frame.contentDocument.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title||'Dokument')}</title><style>${css} body{background:#fff;margin:0;padding:8mm}.modal,.card{box-shadow:none!important}.mandate,.doc-sheet,.order-sheet,#printLedger{margin:0 auto!important}@media print{body{padding:0!important}}</style></head><body>${el.outerHTML}<\/body></html>`);frame.contentDocument.close();frame.contentWindow.addEventListener('afterprint',()=>setTimeout(()=>frame.remove(),1500),{once:true});setTimeout(()=>{if(frame.isConnected){frame.contentWindow.focus();frame.contentWindow.print()}},350);setTimeout(()=>frame.remove(),60000)}
 printMandate=function(){printOnly('printMandate','Mandat pagese')};printLedger=function(){printOnly('printLedger','Kartela e furnitorit')};printOrder=function(){printOnly('printOrder','Porosia')};doPrintWeight=function(){printOnly('printWeight','Formulari i peshimit')};printLotLabel=function(){printOnly('printLabel','Etiketa e lotit')};
 // Rebuild payment lists so document numbers and supplier ledger payments are real links.
 views.payments=function(){return head('Pagesat','Parapagime, pagesa cash/bankë dhe mandat-pagesa',`<button class="btn primary" onclick="paymentForm()">+ Pagesë e re</button>`)+tableCard(['Nr. dokumentit','Data','Furnitori','Mënyra','Shuma','Për','Veprime'],state.payments.map(x=>[`<a class="link" onclick="paymentCard('${x.id}')">${x.id}</a>`,x.date,`<a class="link" onclick="supplierCard('${x.supplier}')">${esc(by('suppliers',x.supplier).name)}</a>`,x.method,n(x.amount,0)+' '+x.currency,x.note,`<button class="btn small" onclick="paymentCard('${x.id}')">Hap mandatin</button> <button class="btn small" onclick="paymentCard('${x.id}',true)">Printo</button>`]))}
@@ -11413,6 +11413,43 @@ readFileDataPromise=function(file){
     }
   }catch(e){}
   return rfdBase(file);
+};
+})();
+</script>
+<script id="biobes-mobile-print-v1">
+/* Print i besueshëm në telefon për të gjitha dokumentet (printOnly):
+   - Android/desktop: iframe-i jashtë ekranit me PËRMASA REALE (1200x900) — 0x0
+     prodhon faqe bosh në Android sepse përmbajtja layoutohet me gjerësi 0.
+   - iOS Safari: nuk e mbështet iframe.contentWindow.print() → përmbajtja e
+     ndërtuar kopjohet në #biobesPrintRoot dhe printohet me window.print(). */
+(function(){
+const st=document.createElement('style');
+st.textContent='#biobesPrintRoot{position:fixed;left:-10000px;top:0;width:1200px;background:#fff;z-index:-1}'+
+'@media screen{#biobesPrintRoot{visibility:hidden}}'+
+'@media print{body.biobes-print-active>*:not(#biobesPrintRoot){display:none!important}'+
+'body.biobes-print-active #biobesPrintRoot{position:static!important;left:0!important;top:0!important;width:auto!important;visibility:visible!important;z-index:auto!important}}';
+document.head.appendChild(st);
+function isIOS(){try{return /iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)}catch(e){return false}}
+const printOnlyBase=printOnly;
+printOnly=function(elementId,title){
+  printOnlyBase.apply(this,arguments);
+  try{
+    const frame=document.getElementById('biobesPrintFrame');
+    if(!frame)return;
+    frame.style.cssText='position:fixed;left:-10000px;top:0;width:1200px;height:900px;border:0';
+    if(!isIOS())return;
+    const doc=frame.contentDocument;
+    if(!doc||!doc.body)return;
+    document.getElementById('biobesPrintRoot')?.remove();
+    const root=document.createElement('div');root.id='biobesPrintRoot';
+    root.innerHTML='<style>'+[...doc.querySelectorAll('style')].map(s=>s.textContent).join('\n')+'</style>'+doc.body.innerHTML;
+    document.body.appendChild(root);
+    frame.remove(); // anulon print-in e iframe-it të planifikuar pas 350ms (iOS nuk e mbështet)
+    document.body.classList.add('biobes-print-active');
+    const done=()=>{try{document.body.classList.remove('biobes-print-active');root.remove()}catch(e){}};
+    window.addEventListener('afterprint',done,{once:true});
+    setTimeout(()=>{try{window.print()}catch(e){}setTimeout(done,2500)},100);
+  }catch(e){}
 };
 })();
 </script>

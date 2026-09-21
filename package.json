@@ -25,7 +25,8 @@
     "test:trace-graph": "node tests/trace-graph-audit.cjs",
     "test:server-backups": "node tests/server-backups-audit.cjs",
     "test:photo-compress": "node tests/photo-compress-audit.cjs",
-    "test:import-nipt": "node tests/import-nipt-audit.cjs"
+    "test:import-nipt": "node tests/import-nipt-audit.cjs",
+    "test:mobile-print": "node tests/mobile-print-audit.cjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"
