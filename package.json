@@ -17,6 +17,7 @@
     "test:label-print": "node tests/label-print-audit.cjs",
     "test:weigh-rack": "node tests/weigh-rack-audit.cjs",
     "test:doc-numbers": "node tests/doc-numbering-audit.cjs",
+    "test:doc-number-sync": "node tests/doc-number-sync-audit.cjs",
     "test:bank-csv": "node tests/bank-csv-audit.cjs",
     "test:lot-code": "node tests/lot-code-audit.cjs",
     "test:manual": "node tests/manual-audit.cjs",
