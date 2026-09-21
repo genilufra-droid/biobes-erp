@@ -8,7 +8,7 @@ const LOCAL='http://127.0.0.1:8000/';
 const API_HOST='biobes-api.onrender.com'; // CSP-ja e app-it lejon vetëm këtë host; kërkesat ndërpriten nga rruga e testit
 
 function fakeServer(opts){
-  const store={C1:null,C2:null},versions={C1:0,C2:0},calls=[];
+  const store={C1:null,C2:null},versions={C1:0,C2:0},calls=[],patches=[];
   const mkCo=(id,code,name)=>({id,code,name,nipt:'',city:'',country:'AL',vatRate:20,currency:'ALL',active:true,users:0,stateVersion:0,hasState:false});
   let companies=[mkCo('C1','BB','BioBes Sh.p.k.')];
   if(opts.multi){companies.push(mkCo('C2','XX','Kompania Dytë'));store.C2=null;versions.C2=0;}
@@ -37,6 +37,24 @@ function fakeServer(opts){
       store[co]=body.state;versions[co]=(versions[co]||0)+1;
       const c=companies.find(x=>x.id===co);if(c){c.stateVersion=versions[co];c.hasState=true}
       return json(200,{ok:true,version:versions[co]});
+    }
+    if(p==='/api/state/patch'&&m==='POST'){
+      // Ruajtja për dokument: zbatohen vetëm op-et e dërguara (si serveri real).
+      let body={};try{body=JSON.parse(req.postData()||'{}')}catch(e){}
+      if(store[co]===null)return json(409,{ok:false,empty:true,version:0});
+      const st=JSON.parse(JSON.stringify(store[co]));
+      for(const op of (body.ops||[])){
+        const kind=String(op.kind);
+        if(op.op==='set'){st[kind]=op.doc;continue}
+        if(!Array.isArray(st[kind]))st[kind]=[];
+        const list=st[kind];const i=list.findIndex(x=>x&&String(x.id)===String(op.id));
+        if(op.op==='delete'){if(i>=0)list.splice(i,1);continue}
+        if(i>=0)list[i]=op.doc;else list.push(op.doc);
+      }
+      store[co]=st;versions[co]=(versions[co]||0)+1;
+      const cc=companies.find(x=>x.id===co);if(cc){cc.stateVersion=versions[co];cc.hasState=true}
+      patches.push({co,ops:(body.ops||[]).length});
+      return json(200,{ok:true,version:versions[co],company:co,applied:(body.ops||[]).length});
     }
     if(p==='/api/admin/companies'&&m==='GET'){
       const withU=companies.map(c=>Object.assign({},c,{

@@ -12922,8 +12922,164 @@ try{setTimeout(()=>{try{applyRoleSecurity()}catch(e){}},0)}catch(e){}
     return r;
   };
 
-  /* ---------- 5) Pa shkrime blind + gjurmim i ruajtjes ---------- */
+  /* ---------- 4b) RUAJTJA PËR DOKUMENT (F2.3) ----------
+     Në vend që çdo ruajtje të dërgojë gjithë gjendjen (~2.7 MB), dërgohen vetëm
+     dokumentet që ndryshuan: krahasohet gjendja aktuale me bazën e fundit të
+     sinkronizuar dhe dërgohen op-e {kind, op, id, doc, prev} te /api/state/patch.
+     Serveri i aplikon brenda një transaksioni me bllokim rreshti: dy pajisje që
+     shkruajnë dokumente të ndryshme kalojnë TË DYJA pa konflikt. Nëse ndryshimi
+     është i madh (> 300 op-e ose > 1 MB) kalohet automatikisht në ruajtjen e plotë. */
+  var DOC_SAVE_MAX_OPS = 300, DOC_SAVE_MAX_BYTES = 1024 * 1024;
+  function sameJson(a, b) { try { return JSON.stringify(a === undefined ? null : a) === JSON.stringify(b === undefined ? null : b); } catch (e) { return false; } }
+
+  function buildDocOps(base, now) {
+    var ops = [];
+    base = base || {};
+    now = now || {};
+    var keys = {}, k;
+    for (k in base) keys[k] = 1;
+    for (k in now) keys[k] = 1;
+    for (k in keys) {
+      var b = base[k], n = now[k];
+      if (sameJson(b, n)) continue;
+      if (Array.isArray(b) || Array.isArray(n)) {
+        var bl = Array.isArray(b) ? b : [], nl = Array.isArray(n) ? n : [];
+        var map = {}, i;
+        for (i = 0; i < bl.length; i++) { var d = bl[i]; if (d && d.id != null) map['i:' + d.id] = d; }
+        for (i = 0; i < nl.length; i++) {
+          var e = nl[i];
+          if (!e || e.id == null) continue;
+          var kk = 'i:' + e.id;
+          var prevDoc = map[kk];
+          delete map[kk];
+          if (!sameJson(prevDoc, e)) ops.push({ kind: k, op: 'upsert', id: String(e.id), doc: e, prev: prevDoc === undefined ? null : prevDoc });
+        }
+        for (var key2 in map) ops.push({ kind: k, op: 'delete', id: String(map[key2].id) });
+      } else {
+        ops.push({ kind: k, op: 'set', doc: n, prev: b === undefined ? null : b });
+      }
+    }
+    return ops;
+  }
+
+  async function pushDocPatch() {
+    if (CLOUD.docPatchUnsupported) return null;   // server i vjetër: kalohet në ruajtjen e plotë
+    var base = null;
+    try { base = syncBaseSnapshotGet(); } catch (e) { base = null; }
+    if (!base) return null;                       // pa bazë → ruajtja e plotë
+    var ops = buildDocOps(base, state);
+    if (!ops.length) {                            // asgjë për të dërguar: vetëm statusi
+      try { syncSetDirty(false); } catch (e) {}
+      return { skipped: true };
+    }
+    if (ops.length > DOC_SAVE_MAX_OPS) { CLOUD.docFull = (CLOUD.docFull || 0) + 1; return null; }
+    var payload = { ops: ops, baseVersion: (typeof serverVersion !== 'undefined' ? serverVersion : null), wipeAck: (function () { try { return wipeAckGet(); } catch (e) { return null; } })() };
+    var body = JSON.stringify(payload);
+    if (body.length > DOC_SAVE_MAX_BYTES) { CLOUD.docFull = (CLOUD.docFull || 0) + 1; return null; }
+    CLOUD.docOps = ops.length;
+    CLOUD.docBytes = body.length;
+    var r;
+    try { r = await apiCall('/api/state/patch', { method: 'POST', body: body }); } catch (e) { return null; }
+    if (r && r.status === 200 && r.data && r.data.ok !== false && r.data.version != null) {
+      CLOUD.docPatches = (CLOUD.docPatches || 0) + 1;
+      try { serverVersion = r.data.version; } catch (e) {}
+      try { syncSetDirty(false); syncBaseSnapshotSet(state); } catch (e) {}
+      try { wipeAckSet(null); } catch (e) {}
+      CLOUD.syncAt = Date.now(); badgeSet();
+      return { ok: true, applied: r.data.applied };
+    }
+    if (r && r.status === 404) { CLOUD.docPatchUnsupported = true; return null; }      // server pa endpoint → e plota
+    if (r && r.status === 409 && r.data && r.data.empty) return null;                  // server pa gjendje → e plota
+    if (r && r.status === 409 && r.data && r.data.conflict) {                          // konflikt per dokument
+      CLOUD.docConflicts = (CLOUD.docConflicts || 0) + 1;
+      await resolveDocConflict(r.data);
+      return null;                                                                     // kalohet në ruajtjen e plotë të sigurt
+    }
+    if (r && r.status === 409 && r.data && r.data.wiped) { try { await honorServerWipe(r.data.wipedAt); } catch (e) {} return { stopped: true }; }
+    if (r && r.status === 401) { try { serverToken = null; serverOnline = false; updateSyncUI(); serverRelogin(); } catch (e) {} return { stopped: true }; }
+    if (r && r.status === 200) return null;                                            // përgjigje e papritur → e plota
+    if (r && r.status === 400) { CLOUD.docErrors = (CLOUD.docErrors || 0) + 1; try { toast('Ruajtja u refuzua: ' + ((r.data && r.data.error) || '')); } catch (e) {} return { stopped: true }; }
+    return null;
+  }
+
+  /* Bashkim 3-palësh FUSHË PËR FUSHË: kur dy përdorues ndryshojnë të njëjtin
+     dokument, ruhen ndryshimet e TË DYJAVE (fushat e ndryshuara nga njëri merren
+     nga ai, të tjerat mbeten). Për vlera skalare që ndryshojnë në të dyja palët
+     fiton pajisja jonë (puna e përdoruesit nuk humbet pa e ditur). */
+  function isPlain(v) { return v && typeof v === 'object' && !Array.isArray(v); }
+  function mergeDoc3(server, base, local) {
+    if (sameJson(server, local)) return local;
+    if (sameJson(server, base)) return local;
+    if (sameJson(local, base)) return server;
+    if (isPlain(server) && isPlain(local)) {
+      var out = {}, k, keys = {};
+      [base, server, local].forEach(function (o) { if (isPlain(o)) Object.keys(o).forEach(function (x) { keys[x] = 1; }); });
+      for (k in keys) out[k] = mergeDoc3(server ? server[k] : undefined, base ? base[k] : undefined, local ? local[k] : undefined);
+      return out;
+    }
+    if (Array.isArray(server) && Array.isArray(local)) {
+      var byId = {}, order = [];
+      function add(list) {
+        (list || []).forEach(function (el) {
+          var id = (el && el.id != null) ? String(el.id) : null;
+          if (id == null) { order.push({ __one: el }); return; }
+          if (!byId[id]) { byId[id] = { srv: null, base: null, loc: null }; order.push({ id: id }); }
+        });
+      }
+      add(base); add(server); add(local);
+      function find(list, id) { for (var i = 0; i < (list || []).length; i++) if (list[i] && String(list[i].id) === String(id)) return list[i]; return null; }
+      var res = [];
+      order.forEach(function (o) {
+        if (o.__one !== undefined) { res.push(o.__one); return; }
+        var m = mergeDoc3(find(server, o.id), find(base, o.id), find(local, o.id));
+        if (m !== null && m !== undefined) res.push(m);
+      });
+      return res;
+    }
+    return local;
+  }
+  function smartMerge(server, base, local) {
+    if (!server || typeof server !== 'object') return local;
+    if (!local || typeof local !== 'object') return server;
+    var out = {}, k, keys = {};
+    [base, server, local].forEach(function (o) { if (o && typeof o === 'object') Object.keys(o).forEach(function (x) { keys[x] = 1; }); });
+    for (k in keys) out[k] = mergeDoc3(server[k], base ? base[k] : undefined, local[k]);
+    return out;
+  }
+
+  // Konflikti për dokumentin e njëjtë: merret gjendja e serverit, bashkohet fushë
+  // për fushë me punën vendore, ruhet edhe një kopje vendore dhe vazhdohet.
+  async function resolveDocConflict(info) {
+    try {
+      try { await openDB(); db.transaction('app', 'readwrite').objectStore('app').put(state, 'pre-docconflict:' + Date.now()); } catch (e) {}
+      var g = null; try { g = await apiCall('/api/state'); } catch (e) {}
+      if (!g || !g.ok || !g.data || !g.data.state) return;
+      var base = null; try { base = syncBaseSnapshotGet(); } catch (e) { base = null; }
+      var merged = g.data.state;
+      try { merged = smartMerge(g.data.state, base, state); }
+      catch (e) { try { if (typeof mergeStates === 'function') merged = mergeStates(g.data.state, base, state); } catch (e2) { merged = g.data.state; } }
+      skipPush = true;
+      try { state = merged; try { normalizeState(); } catch (e) {} save(); } finally { setTimeout(function () { skipPush = false; }, 0); }
+      try { serverVersion = g.data.version; } catch (e) {}
+      try { syncSetDirty(true); syncBaseSnapshotSet(g.data.state); } catch (e) {}
+      render();
+      badgeSet();
+    } catch (e) {}
+  }
+
+  /* ---------- 5) Pa shkrime blind + ruajtja për dokument ---------- */
   window.pushState = async function (force) {
+    // 1) Provohet ruajtja PËR DOKUMENT (e lehtë, pa konflikte midis përdoruesve).
+    //    Kalohet në ruajtjen e plotë kur: s'ka bazë, ndryshimi është i madh,
+    //    serveri s'ka gjendje, u zbulua konflikt për dokumentin e njëjtë ose ka gabim.
+    try {
+      {
+        var pr = await pushDocPatch();
+        if (pr && pr.ok) return pr;
+        if (pr && pr.skipped) return pr;
+        if (pr && pr.stopped) return pr;
+      }
+    } catch (e) { CLOUD.docErrors = (CLOUD.docErrors || 0) + 1; }
     try {
       if (force) { // "blind" lejohet vetëm kur serveri s'ka gjendje fare
         var v = await apiCall('/api/state/version');
@@ -12933,6 +13089,7 @@ try{setTimeout(()=>{try{applyRoleSecurity()}catch(e){}},0)}catch(e){}
         }
       }
     } catch (e) {}
+    CLOUD.docFull = (CLOUD.docFull || 0) + 1;
     var r = await basePush.call(this, force);
     try {
       if (r === undefined || r === null) { /* pa kthim — statusi përditësohet nga updateSyncUI */ }

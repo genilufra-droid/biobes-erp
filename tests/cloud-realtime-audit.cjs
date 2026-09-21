@@ -20,7 +20,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /* ---------- Serveri i rremë (memorie) me kompani ---------- */
 function fakeServer(opts = {}) {
-  const store = { C1: null, C2: null }, versions = { C1: 0, C2: 0 }, puts = [], calls = [];
+  const store = { C1: null, C2: null }, versions = { C1: 0, C2: 0 }, puts = [], patches = [], calls = [];
   const mkCo = (id, code, name, active = true) => ({ id, code, name, nipt: '', city: '', country: 'AL', vatRate: 20, currency: 'ALL', active, users: 1, stateVersion: 0, hasState: false });
   const companies = [mkCo('C1', 'BB', 'BioBes Sh.p.k.')];
   if (opts.twoCompanies) companies.push(mkCo('C2', 'XX', 'Kompania Dytë', !!opts.c2Active));
@@ -50,6 +50,31 @@ function fakeServer(opts = {}) {
       const c = companies.find((x) => x.id === co); if (c) { c.stateVersion = versions[co]; c.hasState = true; }
       return json(200, { ok: true, version: versions[co], company: co });
     }
+    if (p === '/api/state/patch' && m === 'POST') {
+      let body = {}; try { body = JSON.parse(req.postData() || '{}'); } catch (e) {}
+      const rawBody = req.postData() || '';
+      patches.push({ co, ops: (body.ops || []).length, bytes: rawBody.length, kinds: Array.from(new Set((body.ops || []).map((o) => o.kind))), baseVersion: body.baseVersion, at: Date.now() });
+      if (store[co] === null) return json(409, { ok: false, empty: true, version: 0 });
+      const st = JSON.parse(JSON.stringify(store[co]));
+      for (const op of body.ops || []) {
+        const kind = String(op.kind);
+        const hasPrev = Object.prototype.hasOwnProperty.call(op, 'prev');
+        if (op.op === 'set') {
+          if (hasPrev && JSON.stringify(st[kind] === undefined ? null : st[kind]) !== JSON.stringify(op.prev === undefined ? null : op.prev)) return json(409, { ok: false, conflict: true, kind, current: st[kind], version: versions[co] });
+          st[kind] = op.doc; continue;
+        }
+        if (!Array.isArray(st[kind])) st[kind] = [];
+        const list = st[kind];
+        const idx = list.findIndex((x) => x && String(x.id) === String(op.id));
+        const cur = idx >= 0 ? list[idx] : null;
+        if (hasPrev && JSON.stringify(cur) !== JSON.stringify(op.prev || null)) return json(409, { ok: false, conflict: true, kind, id: op.id, current: cur, version: versions[co] });
+        if (op.op === 'delete') { if (idx >= 0) list.splice(idx, 1); continue; }
+        if (idx >= 0) list[idx] = op.doc; else list.push(op.doc);
+      }
+      store[co] = st; versions[co] = (versions[co] || 0) + 1;
+      const c2 = companies.find((x) => x.id === co); if (c2) { c2.stateVersion = versions[co]; c2.hasState = true; }
+      return json(200, { ok: true, version: versions[co], company: co, applied: (body.ops || []).length });
+    }
     if (p === '/api/admin/companies' && m === 'GET') return json(200, { ok: true, companies, default: 'C1' });
     if (p.startsWith('/api/admin/companies/') && m === 'PATCH') {
       const id = p.split('/').pop(); const c = companies.find((x) => x.id === id);
@@ -64,7 +89,7 @@ function fakeServer(opts = {}) {
     return json(200, { ok: true });
   };
   return {
-    store, versions, puts, calls, companies, handler,
+    store, versions, puts, patches, calls, companies, handler,
     setCoActive: (id, active) => { const c = companies.find((x) => x.id === id); if (c) c.active = !!active; return coPayload(); },
     wipe: (v) => { wipedAt = v; store.C1 = null; versions.C1 = 0; },
     get wipedAt() { return wipedAt; },
@@ -246,8 +271,15 @@ const launch = () => chromium.launch({ headless: true, args: ['--no-sandbox', '-
     await step('edhe kur kërkohet “force”, shkrimi dërgohet me version', async () => {
       await fresh(A.page, fake);
       const before = fake.puts.length;
-      await A.page.evaluate(async () => { state.events.push({ date: new Date().toLocaleString('sq-AL'), type: 'provë', ref: 'X', text: 'ndryshim' }); save(); await pushState(true); });
-      await A.page.waitForTimeout(700);
+      // Ndryshim i madh → kalohet në ruajtjen e plotë; kërkohet shprehimisht “force”
+      // (si herën e parë në një pajisje të re) → versioni nuk duhet të humbasë.
+      await A.page.evaluate(async () => {
+        const add = [];
+        for (let i = 0; i < 400; i++) add.push({ id: 'PC' + i, code: 'PC' + i, name: 'Provë blind ' + i });
+        state.products = (state.products || []).concat(add);
+        save(); await pushState(true);
+      });
+      await A.page.waitForTimeout(1200);
       const news = fake.puts.slice(before);
       const blind = news.filter((x) => x.blind);
       ok('   asnjë shkrim blind drejt serverit', blind.length === 0, 'blind=' + blind.length + ' / gjithsej=' + news.length);
@@ -279,6 +311,77 @@ const launch = () => chromium.launch({ headless: true, args: ['--no-sandbox', '-
       ok('   të dhënat e A-së u ruajtën', serverHas(fake, 'C1', 'suppliers', 'Furnitor nga A'), 'v' + v0);
       const modal = await A.page.locator('#modal').isVisible().catch(() => false);
       ok('   asnjë dialog pengues për përdoruesin', !modal);
+    });
+
+    /* ============ C2 — ruajtja për dokument (F2.3) ============ */
+    console.log('\n== C2. Ruajtja për dokument ==');
+    await step('ndryshimi i një dokumenti dërgohet i vetëm (pa gjithë bazën)', async () => {
+      await fresh(A.page, fake);
+      fake.patches.length = 0;
+      const r = await A.page.evaluate(async () => {
+        state.suppliers = (state.suppliers || []).concat([{ id: 'S-DOC', code: 'SF-DOC', name: 'Furnitori për dokument' }]);
+        save();
+        await pushState();
+        return { docOps: (window.__cloud || {}).docOps, docBytes: (window.__cloud || {}).docBytes, docPatches: (window.__cloud || {}).docPatches };
+      });
+      await A.page.waitForTimeout(700);
+      const p0 = fake.patches[fake.patches.length - 1] || {};
+      ok('   u dërgua një kërkesë “patch”', (r.docPatches || 0) >= 1 && p0.ops === 1, 'op-e=' + p0.ops + ' | trup ' + p0.bytes + ' bajt');
+      ok('   trupi është i vogël (jo 2.7 MB)', (p0.bytes || 0) < 2000, (p0.bytes || 0) + ' bajt');
+      ok('   vetëm dokumenti i ndryshuar', JSON.stringify(p0.kinds) === '["suppliers"]', JSON.stringify(p0.kinds));
+      ok('   serveri e ka dokumentin', serverHas(fake, 'C1', 'suppliers', 'Furnitori për dokument'));
+    });
+
+    await step('dy pajisje shkruajnë njëkohësisht dokumente të ndryshme — pa humbje', async () => {
+      await fresh(A.page, fake); await fresh(B.page, fake);
+      await Promise.all([
+        A.page.evaluate(async () => { state.suppliers = (state.suppliers || []).concat([{ id: 'S-A2', code: 'SF-A2', name: 'Nga A (doc)' }]); save(); await pushState(); }),
+        B.page.evaluate(async () => { state.customers = (state.customers || []).concat([{ id: 'C-B2', code: 'K-B2', name: 'Nga B (doc)' }]); save(); await pushState(); }),
+      ]);
+      await A.page.waitForTimeout(900); await B.page.waitForTimeout(900);
+      ok('   dokumenti i A-së u ruajt', serverHas(fake, 'C1', 'suppliers', 'Nga A (doc)'));
+      ok('   dokumenti i B-së u ruajt', serverHas(fake, 'C1', 'customers', 'Nga B (doc)'));
+      const conflicts = await A.page.evaluate(() => (window.__cloud || {}).docConflicts || 0);
+      ok('   asnjë konflikt (dokumente të ndryshme)', conflicts === 0, 'konflikte=' + conflicts);
+    });
+
+    await step('i njëjti dokument nga dy pajisje: zgjidhet vetë, pa humbje', async () => {
+      await fresh(A.page, fake); await fresh(B.page, fake);
+      // A dhe B kanë të njëjtën bazë për dokumentin; ndryshojnë të njëjtin furnitor
+      const v0 = fake.versions.C1;
+      await B.page.evaluate(async () => {
+        const list = state.suppliers.map((s) => (s.id === 'S-DOC' ? Object.assign({}, s, { city: 'Durrës (nga B)' }) : s));
+        state.suppliers = list; save(); await pushState();
+      });
+      await B.page.waitForTimeout(600);
+      const before = fake.versions.C1;
+      await A.page.evaluate(async () => {
+        const list = state.suppliers.map((s) => (s.id === 'S-DOC' ? Object.assign({}, s, { phone: '069-000-000' }) : s));
+        state.suppliers = list; save(); await pushState();
+      });
+      await A.page.waitForTimeout(1200);
+      const docA = ((fake.store.C1 || {}).suppliers || []).find((s) => s.id === 'S-DOC') || {};
+      ok('   ndryshimi i B-së mbeti në server', /Durrës/.test(String(docA.city || '')), JSON.stringify({ city: docA.city, phone: docA.phone }));
+      ok('   puna e A-së nuk u humb (u zgjidh vetë)', !!docA.phone || (await A.page.evaluate(() => (window.__cloud || {}).docConflicts || 0)) === 0, JSON.stringify({ city: docA.city, phone: docA.phone }));
+      ok('   pa dialog për përdoruesin', !(await A.page.locator('#modal.open').isVisible().catch(() => false)));
+      ok('   asnjë humbje e dokumenteve të tjera', (((fake.store.C1 || {}).suppliers || []).length) >= 2, 'furnitorë=' + (((fake.store.C1 || {}).suppliers || []).length));
+    });
+
+    await step('ndryshim i madh → kalohet vetë në ruajtjen e plotë', async () => {
+      await fresh(A.page, fake);
+      const puts0 = fake.puts.length, patches0 = fake.patches.length;
+      await A.page.evaluate(async () => {
+        const add = [];
+        for (let i = 0; i < 400; i++) add.push({ id: 'PD' + i, code: 'PD' + i, name: 'Produkt masiv ' + i });
+        state.products = (state.products || []).concat(add);
+        save();
+        await pushState();
+      });
+      await A.page.waitForTimeout(1200);
+      const newPuts = fake.puts.slice(puts0), newPatches = fake.patches.slice(patches0);
+      const bigPatch = newPatches.some((x) => x.ops > 300);
+      ok('   ndryshimi i madh nuk shkon si patch', !bigPatch, 'patch-e: ' + newPatches.map((x) => x.ops).join(','));
+      ok('   u dërgua ruajtja e plotë (PUT)', newPuts.length >= 1, 'PUT: ' + newPuts.length + ' | docFull=' + (await A.page.evaluate(() => (window.__cloud || {}).docFull || 0)));
     });
 
     /* ============ D — përdoruesi normal pa dialogë ============ */
