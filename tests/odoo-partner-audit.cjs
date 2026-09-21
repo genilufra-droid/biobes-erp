@@ -145,6 +145,47 @@ const LABELS=['KODI','NIPT / VAT','EORI','PERSONI I KONTAKTIT','TELEFONI','EMAIL
   assert.equal(keep.email,'arben@odoo.al');assert.equal(keep.city,'Tirana','fushat e tjera nuk u fshinë');
  });
 
+ await step('KREATE + EDITIM: të pesta formularët kanë të njëjtat 15 fusha (furnitor = klient)',async()=>{
+  const ids=await ev(()=>({s:state.suppliers[0].id,c:(state.customers||[])[0].id}));
+  const CANON=['KODI','EMRI / KOMPANIA','NIPT / VAT','EORI','PERSONI I KONTAKTIT','TELEFONI','EMAIL','WEBSITE','ADRESA','QYTETI','QARKU / ZONA','SHTETI','MONEDHA E FATURIMIT','AFATI I PAGESËS (DITË)','STATUSI'];
+  const dump=async(fn,arg)=>{
+   await ev(()=>{try{closeModal()}catch(e){}});await p.waitForTimeout(120);
+   await ev(fn,arg);await p.waitForTimeout(500);
+   return ev(()=>{const b=document.getElementById('modalBody');
+    return{od:b.classList.contains('od-form'),labels:[...b.querySelectorAll('.field label')].map(x=>x.innerText),
+     secs:[...b.querySelectorAll('.od-sec')].length,order:[...b.querySelectorAll('.field input,.field select,.field textarea')].map(x=>x.id).filter(Boolean)}});
+  };
+  const paths=[['Furnitor i ri',()=>entityForm('supplier')],['Ndrysho furnitorin (e)',i=>editEntity('supplier',i),ids.s],
+   ['Ndrysho furnitorin (sef)',i=>supplierEditForm(i),ids.s],['Klient i ri',()=>customerForm()],['Ndrysho klientin',i=>customerForm(i),ids.c]];
+  const results=[];
+  for(const [name,fn,arg] of paths){const r=await dump(fn,arg);results.push([name,r]);}
+  results.forEach(([n,r])=>{
+   assert.ok(r.od,n+': klasa od-form');assert.equal(r.secs,4,n+': 4 grupe');
+   assert.deepEqual(r.labels.slice(0,15),CANON,n+': 15 fushat kanonike në të njëjtin rend');
+   const SUF={nipt:'Nipt',eori:'Eori',contact:'Contact',email:'Email',website:'Website',address:'Address',city:'City',region:'Region',country:'Country',currency:'Currency',terms:'Terms',active:'Active',opening:'Opening'};
+   Object.keys(SUF).forEach(k=>{
+    const id=r.order.filter(x=>/^(f|e|sef|cf)(Nipt|Vat|Eori|Contact|Email|Website|Address|City|Region|Country|Currency|Terms|Active|Opening)$/.test(x)&&(k==='nipt'?/(Nipt|Vat)$/.test(x):x.endsWith(SUF[k])));
+    assert.ok(id.length>0,n+': mungon fusha '+k);
+   });
+  });
+  await ev(()=>{try{closeModal()}catch(e){}});
+ });
+
+ await step('Ruajtja në EDITIM ruan Website/Qyteti/Shteti (të dyja palët)',async()=>{
+  const code='ODE-'+Date.now().toString().slice(-5);
+  await ev(()=>customerForm());await p.waitForTimeout(500);
+  await p.locator('#cfCode').fill(code);await p.locator('#cfName').fill('Klient Edit Test');
+  await p.locator('#cfWebsite').fill('https://edit.example');await p.locator('#cfCity').fill('Durrës');await p.locator('#cfCountry').fill('Shqipëri');
+  await p.locator('#modalFoot button').filter({hasText:'Ruaj'}).first().click();await p.waitForTimeout(700);
+  const id=await ev(c=>{const x=(state.customers||[]).find(y=>y.code===c);return x?x.id:null},code);
+  assert.ok(id,'klienti u krijua');
+  await ev(i=>customerForm(i),id);await p.waitForTimeout(500);
+  await p.locator('#cfCity').fill('Tiranë');await p.locator('#cfWebsite').fill('https://edit2.example');
+  await p.locator('#modalFoot button').filter({hasText:'Ruaj'}).first().click();await p.waitForTimeout(700);
+  const after=await ev(i=>{const x=by('customers',i);return{city:x.city,country:x.country,website:x.website}},id);
+  assert.deepEqual(after,{city:'Tiranë',country:'Shqipëri',website:'https://edit2.example'});
+ });
+
  await step('Pa gabime JS',async()=>{assert.deepEqual(errors.filter(e=>!/Failed to load resource/.test(e)),[])});
  await browser.close();
  console.log(`\n${passed} passed, ${failed} failed`);process.exit(failed?1:0);
