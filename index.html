@@ -573,7 +573,7 @@ closeModalWindow=function(){modalNavStack.length=0;let bg=document.getElementByI
 </script>
 <style>.module-live-search{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px}.module-live-search input{flex:1;min-width:110px;border:0;outline:0;padding:6px;font-size:14px}.module-live-search button{white-space:nowrap}.module-live-search .search-count{color:var(--muted);font-size:12px;white-space:nowrap}</style>
 <script>
-function installModuleLiveSearch(){if(['dashboard','settings','registries','reports','trace','warehouse'].includes(page))return;if(['products','suppliers'].includes(page))return;if(document.querySelector('#main .module-live-search'))return;let tables=[...document.querySelectorAll('#main .table-wrap table')].filter(t=>!t.closest('.doc-sheet,.order-sheet,.purchase-doc'));if(!tables.length)return;let box=document.createElement('div');box.className='module-live-search';const hasNativeXlsx=[...document.querySelectorAll('#main button')].some(b=>!b.closest('.module-live-search')&&/Excel/.test(b.textContent||'')&&/xlsx/i.test(b.getAttribute('onclick')||''));box.innerHTML=`<span style="font-size:18px">⌕</span><input type="search" placeholder="Kërko live në këtë modul..."><span class="search-count"></span>${hasNativeXlsx?'':'<button class="btn small" type="button" data-mexp="xlsx" data-right="${page}:print" title="Eksporto rreshtat e dukshëm (të filtruar) në Excel">⬇ Excel</button>'}<button class="btn small" type="button" data-mexp="pdf" data-right="${page}:print" title="Eksporto rreshtat e dukshëm (të filtruar) në PDF përmes printimit">🖨 PDF</button><button class="btn small" type="button" data-mclear="1">Pastro</button>`;let target=tables[0].closest('.card')||tables[0].parentElement;target.parentNode.insertBefore(box,target);let inp=box.querySelector('input'),count=box.querySelector('.search-count');function filter(){let q=inp.value.trim().toLocaleLowerCase('sq'),visible=0,total=0;tables.forEach(table=>[...table.tBodies].forEach(tb=>[...tb.rows].forEach(row=>{if(row.querySelector('.empty'))return;total++;let show=!q||row.textContent.toLocaleLowerCase('sq').includes(q);row.style.display=show?'':'none';if(show)visible++})));count.textContent=q?visible+' / '+total+' rezultate':total+' regjistrime'}function collect(){let headers=null,rows=[];tables.forEach((table,ti)=>{let ths=[...table.querySelectorAll('thead th')].map(th=>th.textContent.replace(/\s+/g,' ').trim());let vr=[...table.tBodies].flatMap(tb=>[...tb.rows]).filter(r=>!r.querySelector('.empty')&&r.style.display!=='none').map(r=>[...r.cells].map(td=>{let c=td.cloneNode(true);c.querySelectorAll('button,.btn').forEach(b=>b.remove());return c.innerText.replace(/\s+/g,' ').trim()}));if(ti===0){headers=ths;rows=vr}else{rows.push(ths);rows=rows.concat(vr)}});return{headers:headers||[],rows}}function modTitle(){let h=document.querySelector('#main h1,#main h2,#main .page-head b,#main .head b');return (h?h.textContent:'').trim()||page}window.moduleExportCollect=collect;const xBtn=box.querySelector('[data-mexp="xlsx"]');if(xBtn)xBtn.onclick=()=>{let c=collect();if(!c.rows.length)return toast('S\'ka rreshta të dukshëm për eksport');makeXlsx('BioBes-'+page+'-'+new Date().toISOString().slice(0,10)+'.xlsx',c.headers,c.rows);try{securityAudit('MODULE_EXPORT','Excel: '+modTitle()+' — '+c.rows.length+' rreshta')}catch(e){}toast('Eksporti Excel u shkarkua ('+c.rows.length+' rreshta)')};box.querySelector('[data-mexp="pdf"]').onclick=()=>{let c=collect();if(!c.rows.length)return toast('S\'ka rreshta të dukshëm për eksport');document.getElementById('moduleExportSheet')?.remove();let d=document.createElement('div');d.id='moduleExportSheet';d.style.cssText='position:fixed;left:-10000px;top:0;width:1100px;background:#fff';d.innerHTML='<div class="table-wrap"><h2 style="margin:0 0 6px">'+esc(modTitle())+' — '+esc(new Date().toLocaleString('sq-AL'))+(inp.value.trim()?' · filtri: '+esc(inp.value.trim()):'')+'</h2><table><thead><tr>'+c.headers.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+c.rows.map(r=>'<tr>'+r.map(v=>'<td>'+esc(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';document.body.appendChild(d);try{securityAudit('MODULE_EXPORT','PDF: '+modTitle()+' — '+c.rows.length+' rreshta')}catch(e){}printOnly('moduleExportSheet',modTitle());setTimeout(()=>d.remove(),500)};inp.addEventListener('input',filter);box.querySelector('[data-mclear]').onclick=()=>{inp.value='';filter();inp.focus()};filter()}
+function installModuleLiveSearch(){if(['dashboard','settings','registries','reports','trace','warehouse'].includes(page))return;if(['products','suppliers'].includes(page))return;if(document.querySelector('#main .module-live-search'))return;let tables=[...document.querySelectorAll('#main .table-wrap table')].filter(t=>!t.closest('.doc-sheet,.order-sheet,.purchase-doc'));if(!tables.length)return;let box=document.createElement('div');box.className='module-live-search';const hasNativeXlsx=[...document.querySelectorAll('#main button')].some(b=>!b.closest('.module-live-search')&&/Excel/.test(b.textContent||'')&&/xlsx/i.test(b.getAttribute('onclick')||''));box.innerHTML=`<span style="font-size:18px">⌕</span><input type="search" placeholder="Kërko live në këtë modul..."><span class="search-count"></span>${hasNativeXlsx?'':'<button class="btn small" type="button" data-mexp="xlsx" data-right="${page}:print" title="Eksporto rreshtat e dukshëm (të filtruar) në Excel">⬇ Excel</button>'}<button class="btn small" type="button" data-mexp="pdf" data-right="${page}:print" title="Eksporto rreshtat e dukshëm (të filtruar) në PDF përmes printimit">🖨 PDF</button><button class="btn small" type="button" data-mclear="1">Pastro</button>`;let target=tables[0].closest('.card')||tables[0].parentElement;target.parentNode.insertBefore(box,target);let inp=box.querySelector('input'),count=box.querySelector('.search-count');function filter(){let q=inp.value.trim().toLocaleLowerCase('sq'),visible=0,total=0;tables.forEach(table=>[...table.tBodies].forEach(tb=>[...tb.rows].forEach(row=>{if(row.querySelector('.empty'))return;total++;let show=!q||row.textContent.toLocaleLowerCase('sq').includes(q);row.style.display=show?'':'none';if(show)visible++})));count.textContent=q?visible+' / '+total+' rezultate':total+' regjistrime'}function collect(){let headers=null,rows=[];tables.forEach((table,ti)=>{let ths=[...table.querySelectorAll('thead th')].map(th=>th.textContent.replace(/\s+/g,' ').trim());let vr=[...table.tBodies].flatMap(tb=>[...tb.rows]).filter(r=>!r.querySelector('.empty')&&r.style.display!=='none').map(r=>[...r.cells].map(td=>{let c=td.cloneNode(true);c.querySelectorAll('button,.btn').forEach(b=>b.remove());return c.innerText.replace(/\s+/g,' ').trim()}));if(ti===0){headers=ths;rows=vr}else{rows.push(ths);rows=rows.concat(vr)}});return{headers:headers||[],rows}}function modTitle(){let h=document.querySelector('#main h1,#main h2,#main .page-head b,#main .head b');return (h?h.textContent:'').trim()||page}window.moduleExportCollect=collect;xBtn=box.querySelector('[data-mexp="xlsx"]');if(xBtn)xBtn.onclick=()=>{let c=collect();if(!c.rows.length)return toast('S\'ka rreshta të dukshëm për eksport');window.moduleExportXlsx({title:modTitle(),page,filter:inp.value.trim(),headers:c.headers,rows:c.rows,filename:'BioBes-'+page+'-'+new Date().toISOString().slice(0,10)+'.xlsx'})};box.querySelector('[data-mexp="pdf"]').onclick=()=>{let c=collect();if(!c.rows.length)return toast('S\'ka rreshta të dukshëm për eksport');window.moduleExportPdf({title:modTitle(),page,filter:inp.value.trim(),headers:c.headers,rows:c.rows,id:'moduleExportSheet'})};inp.addEventListener('input',filter);box.querySelector('[data-mclear]').onclick=()=>{inp.value='';filter();inp.focus()};filter()}
 const renderWithGlobalTableSearch=render;render=function(){renderWithGlobalTableSearch();setTimeout(installModuleLiveSearch,0)}
 </script>
 <script>
@@ -11631,7 +11631,7 @@ commitModuleImport=function(){
    var foot=document.getElementById('modalFoot');
    if(foot){var b=document.createElement('button');b.className='btn';b.textContent='⬇ Excel me totalet (kontroll)';b.onclick=function(){exportCompare(k,pl,q.data)};foot.insertBefore(b,foot.children[0]||null)}
    var info=body?body.querySelector('.card p'):null;
-  }catch(e){console.error(VERSION,'import-preview',e)}
+  }catch(e){console.error("BioBes",'import-preview',e)}
   return r;
  };parseModuleImport=parseModuleImport;window.parseModuleImport=parseModuleImport}catch(e){}
  /* ---------- commit: skip identikët, përditëso ndryshimet, krijo të rejat ---------- */
@@ -11665,11 +11665,11 @@ commitModuleImport=function(){
       var m=document.getElementById('modal'),b=document.getElementById('modalBody');
       if(m&&m.classList.contains('open')&&b)b.insertAdjacentHTML('afterbegin',html);
       else modal('Përmbledhje importi — '+importLabel(k),html,'<button class="btn primary" onclick="closeModal()">Mbyll</button>');
-     }catch(e){console.error(VERSION,'import-summary',e)}
+     }catch(e){console.error("BioBes",'import-summary',e)}
     },120);
    }
    return res;
-  }catch(e){console.error(VERSION,'import-upsert',e);return __puCommit.apply(this,arguments)}
+  }catch(e){console.error("BioBes",'import-upsert',e);return __puCommit.apply(this,arguments)}
  };
  window.commitModuleImport=commitModuleImport;window.biobesImportPlan=planned;
 }catch(e){console.error('biobes-import-upsert-v1',e)}})();
@@ -11763,7 +11763,7 @@ commitModuleImport=function(){
    if(!b||b.querySelector('.od-sheet'))return;
    var h=sheet(kind,id);if(!h)return;
    b.insertAdjacentHTML('afterbegin',h);
-  }catch(e){console.error(VERSION,'odoo-partner',e)}
+  }catch(e){console.error("BioBes",'odoo-partner',e)}
  }
  function wrap(name,kind){
   var base=window[name];if(typeof base!=='function')return;
@@ -11773,5 +11773,376 @@ commitModuleImport=function(){
  wrap('supplierCard','supplier');wrap('customerCard','customer');
  window.biobesOdooPartnerSheet=sheet;
 }catch(e){console.error('biobes-odoo-partner-v1',e)}})();
+</script>
+<script>
+/* biobes-odoo-form-v1 — formularët e furnitorit dhe klientit në stil Odoo, njësoj për të dy:
+   etiketa të vogla gri, fusha me vijë poshtë, grupe të titulluara, të njëjtat fusha për të dyja palët. */
+(function(){try{
+ if(window.__biobesOdooFormV1)return;window.__biobesOdooFormV1=1;
+ var CSS='.od-form .form-grid{gap:13px 26px}'
+ +'.od-form .field label{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:#6b7280;font-weight:600;margin:0 0 2px}'
+ +'.od-form .field input,.od-form .field select,.od-form .field textarea{border:0;border-bottom:1px solid #d7dbe0;border-radius:0;background:transparent;padding:5px 2px;font-size:14px;color:#111827;width:100%}'
+ +'.od-form .field input:focus,.od-form .field select:focus,.od-form .field textarea:focus{outline:0;border-bottom:2px solid #20744a;background:#f8fbf9}'
+ +'.od-form .field input::placeholder{color:#9ca3af}'
+ +'.od-form .od-sec{grid-column:1/-1;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#374151;border-bottom:1px solid #e6e8eb;padding:5px 0 4px;margin:3px 0 -3px}'
+ +'.od-form .field.od-req label::after{content:" *";color:#b32635}'
+ +'.od-form .od-pav{grid-column:1/-1;display:flex;gap:13px;align-items:center;background:#f8fbf9;border:1px solid #e6ece9;border-radius:9px;padding:10px 13px;margin-bottom:4px}'
+ +'.od-form .od-pav i{width:50px;height:50px;border-radius:8px;background:#eef6f1;border:1px solid #d7e8de;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;color:#20744a;font-style:normal;flex:0 0 auto}'
+ +'.od-form .od-pav b{display:block;font-size:15px;color:#1f2937}'
+ +'.od-form .od-pav small{font-size:12px;color:#6b7280}';
+ var st=document.createElement('style');st.textContent=CSS;document.head.appendChild(st);
+ /* fushat që mungojnë te njëra palë plotësohen te tjetra — të dyja palët dalin me të njëjtat fusha */
+ var COMMON=[['NIPT / VAT','Nipt','nipt'],['EORI','Eori','eori'],['Personi i kontaktit','Contact','contact'],['Email','Email','email'],['Adresa','Address','address'],['Monedha e faturimit','Currency','currency'],['Afati i pagesës (ditë)','Terms','paymentTerms'],['Statusi','Active','']];
+ var CUSTONLY=[['Website','Website','website'],['Qarku / Zona','Region','region']];
+ var ORDER=['kodi','emri','emri / kompania','nipt / vat','nipt / vat id','eori','eori (eksport be)','personi i kontaktit','telefoni','email','website','adresa','qyteti','qarku / zona','qarku/zona','shteti','monedha e faturimit','afati i pagesës (ditë)','statusi'];
+ var SEC=[['kodi','TË DHËNAT E PALËS'],['adresa','ADRESA DHE KONTAKTI'],['monedha e faturimit','FATURIMI DHE FINANCAT']];
+ function lab(el){return (el.querySelector('label')?.textContent||'').replace(/\*/g,'').trim().toLowerCase()}
+ function hasId(id){return !!document.querySelector('#modalBody [id="'+id+'"]')}
+ function fieldHtml(prefix,spec,rec){
+  var id=prefix+spec[1],key=spec[2],v='';
+  if(rec&&key)v=rec[key]===undefined||rec[key]===null?'':rec[key];
+  if(key==='nipt'&&rec&&!v)v=rec.vat||'';
+  if(spec[1]==='Active'){
+   var on=!(rec&&rec.active===false);
+   return '<div class="field"><label>'+spec[0]+'</label><select id="'+id+'"><option value="1"'+(on?' selected':'')+'>Aktiv</option><option value="0"'+(on?'':' selected')+'>Joaktiv</option></select></div>';
+  }
+  return '<div class="field"><label>'+spec[0]+'</label><input id="'+id+'" value="'+(v===''?'':esc(v))+'"></div>';
+ }
+ function enhance(prefix,rec,kind,title,sub){
+  try{
+   var b=document.getElementById('modalBody');if(!b)return;
+   var grid=b.querySelector('.form-grid');if(!grid)return;
+   b.classList.add('od-form');
+   if(!grid.querySelector('.od-pav')){
+    var fmtName=function(t){return String(t||'').trim().split(/\s+/).slice(0,2).map(function(w){return w[0]||''}).join('').toUpperCase()||'👤'};
+    var ini=fmtName(rec&&rec.name);
+    grid.insertAdjacentHTML('afterbegin','<div class="od-pav"><i id="'+prefix+'Avatar">'+esc(ini)+'</i><div><b>'+esc(title||'')+'</b><small>'+esc(sub||'')+'</small></div></div>');
+    var nEl=document.getElementById(prefix+'Name');
+    if(nEl)nEl.addEventListener('input',function(){var a=document.getElementById(prefix+'Avatar');if(a)a.textContent=fmtName(nEl.value)});
+   }
+   var specs=COMMON.concat(kind==='customer'?CUSTONLY:[]);
+   if(kind==='customer'&&hasId('cfVat'))specs=specs.filter(function(x){return x[1]!=='Nipt'});
+   try{
+    var CANON={code:'Kodi',name:'Emri / Kompania',vat:'NIPT / VAT',nipt:'NIPT / VAT',eori:'EORI',contact:'Personi i kontaktit',phone:'Telefoni',email:'Email',website:'Website',address:'Adresa',city:'Qyteti',region:'Qarku / Zona',country:'Shteti',currency:'Monedha e faturimit',terms:'Afati i pagesës (ditë)',active:'Statusi',notes:'Shënime'};
+    [].slice.call(grid.querySelectorAll('.field')).forEach(function(f){
+     var i=f.querySelector('input,select');if(!i||!i.id)return;
+     var suf=i.id.replace(/^(cf|sef|f|e)/,''),canon=CANON[suf]||CANON[suf.toLowerCase()];
+     if(!canon)return;
+     var lb=f.querySelector('label');if(!lb)return;
+     var req=/\*/.test(lb.textContent||'');
+     lb.textContent=canon;
+     if(req)f.classList.add('od-req');
+    });
+   }catch(e){}
+   var add=specs.filter(function(s){return !hasId(prefix+s[1])}).map(function(s){return fieldHtml(prefix,s,rec)}).join('');
+   if(add)grid.insertAdjacentHTML('beforeend',add);
+   var fields=[].slice.call(grid.querySelectorAll('.field'));
+   var known=function(f){return ORDER.indexOf(lab(f))>=0};
+   var anchor=fields.filter(function(f){return !known(f)})[0]||null;
+   ORDER.forEach(function(l){var el=[].slice.call(grid.querySelectorAll('.field')).filter(function(f){return lab(f)===l})[0];if(el)grid.insertBefore(el,anchor)});
+   SEC.forEach(function(s){
+    var el=[].slice.call(grid.querySelectorAll('.field')).filter(function(f){return lab(f)===s[0]})[0];
+    if(el&&!(el.previousElementSibling&&el.previousElementSibling.classList.contains('od-sec')))
+     el.insertAdjacentHTML('beforebegin','<div class="od-sec">'+s[1]+'</div>');
+   });
+   var ob=[].slice.call(grid.querySelectorAll('.field')).filter(function(f){var i=f.querySelector('input,select');return i&&/Opening$/.test(i.id)})[0];
+   if(ob&&!(ob.previousElementSibling&&ob.previousElementSibling.classList.contains('od-sec')))
+    ob.insertAdjacentHTML('beforebegin','<div class="od-sec">GJENDJA FILLESTARE (HAPJA E BILANCIT)</div>');
+   [].slice.call(grid.querySelectorAll('.field')).forEach(function(f){var i=f.querySelector('input,select');if(i&&/^(f|e|sef|cf)?(Code|Name)$/.test(i.id))f.classList.add('od-req')});
+   try{var sc=document.scrollingElement||document.documentElement;if(sc)sc.scrollTop=0;b.scrollTop=0;var par=b.closest('.modal-card,.modal-box,#modal');if(par)par.scrollTop=0}catch(e){}
+  }catch(e){console.error("BioBes",'odoo-form',e)}
+ }
+ function recFor(prefix){
+  try{
+   var c=document.getElementById(prefix+'Code');if(!c)return null;
+   var code=String(c.value||'').trim();if(!code)return null;
+   return (state.suppliers||[]).filter(function(x){return x&&String(x.code||'').trim()===code})[0]||null;
+  }catch(e){return null}
+ }
+ function readExtras(prefix,specs){
+  var o={};
+  (specs||[]).forEach(function(s){
+   var id=prefix+s[1];if(id==='cfNipt'&&hasId('cfVat'))id='cfVat';
+   var el=document.getElementById(id);if(!el)return;
+   var v=String(el.value==null?'':el.value).trim();
+   if(s[2]==='paymentTerms'){o.paymentTerms=+v||0;return}
+   if(s[2]==='Active'||s[1]==='Active'){o.active=v!=='0';return}
+   if(s[1]==='Nipt'){o.nipt=v;o.vat=v;return}
+   if(!s[2])return;
+   o[s[2]]=v;
+  });
+  var c=document.getElementById(prefix+'Code');o.__code=c?String(c.value||'').trim():'';
+  return o;
+ }
+ function applyExtras(o,kind){
+  try{
+   if(!o||!o.__code)return;
+   var arr=kind==='customer'?(state.customers||[]):(state.suppliers||[]);
+   var rec=arr.filter(function(x){return x&&String(x.code||'').trim()===o.__code}).slice(-1)[0];
+   if(!rec)return;
+   Object.keys(o).forEach(function(k){if(k!=='__code'&&o[k]!==undefined)rec[k]=o[k]});
+   save();
+  }catch(e){console.error("BioBes",'odoo-form-save',e)}
+ }
+ function wrapSave2(name,prefix,kind){
+  var base=window[name];if(typeof base!=='function')return;
+  window[name]=function(){
+   var specs=COMMON.concat(kind==='customer'?CUSTONLY:[]),ex=null;
+   try{ex=readExtras(prefix,specs)}catch(e){}
+   var r=base.apply(this,arguments);
+   try{setTimeout(function(){applyExtras(ex,kind)},0)}catch(e){}
+   return r;
+  };
+ }
+ wrapSave2('addSupplier','f','supplier');
+ wrapSave2('saveEditSupplier','e','supplier');
+ wrapSave2('saveSupplierEdit','sef','supplier');
+ wrapSave2('saveCustomerForm','cf','customer');
+ function hook(name,detect){
+  var base=window[name];if(typeof base!=='function')return;
+  window[name]=function(){
+   var r=base.apply(this,arguments);
+   setTimeout(function(){try{detect()}catch(e){}},70);
+   return r;
+  };
+ }
+ hook('entityForm',function(){if(document.getElementById('fWebsite'))enhance('f',null,'supplier','Furnitor i ri','Plotësoni të dhënat e palës')});
+ hook('editEntity',function(){if(document.getElementById('eRegion'))enhance('e',recFor('e'),'supplier','Ndrysho furnitorin','Përditësoni të dhënat e palës')});
+ hook('supplierEditForm',function(){if(document.getElementById('sefName'))enhance('sef',recFor('sef'),'supplier','Ndrysho furnitorin','Përditësoni të dhënat e palës')});
+ hook('customerForm',function(){if(document.getElementById('cfCode'))enhance('cf',recFor('cf'),'customer','Klient','Të dhënat e palës — njësoj si furnitori')});
+ window.biobesOdooFormEnhance=enhance;
+}catch(e){console.error('biobes-odoo-form-v1',e)}})();
+</script>
+<script>
+/* biobes-export-pro-v1 — eksporti i regjistrave (Excel + PDF) 100% si në sistem:
+   të njëjtat kolona, i njëjti rend, e njëjta pamje e qelizave, koka e gjelbër e tabelës,
+   rreshti TOTALI në fund për kolonat numerike (për krahasim me Excel-in tuaj). */
+(function(){try{
+ if(window.__biobesExportProV1)return;window.__biobesExportProV1=1;
+ function numish(h){return /(shuma|vlera|vlefta|total|totali|cmimi|çmimi|cmim|çmim|price|amount|neto|bruto|sasi|qty|pesh|kg|pages|detyrim|kredi|debit|balanc|gjend|tvsh|vat|kosto|cost|kurs|rate|përqindje|perqindje|%)/i.test(String(h||''))}
+ function cellNum(v,hdr){
+  var s=String(v==null?'':v).trim();if(!s)return null;
+  if(/^-?\d{1,3}(?:[.,\s]\d{3})+(?:[.,]\d+)?$/.test(s))return parseLocal(s);
+  if(/^-?\d+[.,]\d{1,4}$/.test(s))return parseLocal(s);
+  if(/^\d+$/.test(s)&&numish(hdr)&&!/^0\d/.test(s))return +s;
+  return null;
+ }
+ function colNumeric(ci,headers,rows){
+  var seen=0;
+  for(var i=0;i<rows.length;i++){var r=rows[i];if(!r||!r.length)continue;var v=r[ci];if(v===undefined||v===null||String(v).trim()==='')continue;
+   if(cellNum(v,headers[ci])===null)return false;seen++}
+  return seen>0;
+ }
+ function width(ci,headers,rows){
+  var w=String(headers[ci]||'').length;
+  for(var i=0;i<rows.length&&i<300;i++){var r=rows[i];if(!r)continue;var v=String(r[ci]==null?'':r[ci]);if(v.length>w)w=v.length}
+  return Math.max(12,Math.min(42,w+3));
+ }
+ function buildXlsx(o){
+  var headers=o.headers||[],rows=(o.rows||[]).filter(function(r){return r&&r.length}),last=excelCol(headers.length||1);
+  var numeric=headers.map(function(_,i){return colNumeric(i,headers,rows)});
+  var totals=headers.map(function(_,i){if(!numeric[i])return null;var s=0;(rows).forEach(function(r){var n=cellNum(r[i],headers[i]);if(n!==null)s+=n});return Math.round(s*100)/100});
+  var cols=headers.map(function(_,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+width(i,headers,rows)+'" customWidth="1"/>'}).join('');
+  var cell=function(v,ref,style,num){num=num&&typeof v==='number'&&isFinite(v);return '<c r="'+ref+'" t="'+(num?'n':'inlineStr')+'" s="'+style+'">'+(num?'<v>'+v+'</v>':'<is><t>'+xmlEsc(String(v==null?'':v))+'</t></is>')+'</c>'};
+  var head=headers.map(function(h,i){return cell(h,excelCol(i+1)+'3',1)}).join('');
+  var body=rows.map(function(r,ri){return '<row r="'+(ri+4)+'" ht="20" customHeight="1">'+headers.map(function(_,ci){return cell(r[ci]==null?'':r[ci],excelCol(ci+1)+(ri+4),ri%2?3:2)}).join('')+'</row>'}).join('');
+  var totRow='<row r="'+(rows.length+4)+'" ht="24" customHeight="1">'+headers.map(function(_,ci){return cell(ci===0?'TOTALI':(totals[ci]===null?'':totals[ci]),excelCol(ci+1)+(rows.length+4),totals[ci]===null?6:7,totals[ci]!==null&&ci>0)}).join('')+'</row>';
+  var meta=(o.meta||['BioBes ERP','Data: '+new Date().toLocaleString('sq-AL'),'Moduli: '+(o.title||o.page||''),'Filtri: '+(o.filter||'pa filtër'),'Rreshtat e dukshëm: '+rows.length]).join('   ·   ');
+  var sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+   +'<sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="3" topLeftCell="A4" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+   +'<sheetFormatPr defaultRowHeight="20"/><cols>'+cols+'</cols><sheetData>'
+   +'<row r="1" ht="30" customHeight="1">'+cell(o.title||'Regjistri', 'A1',4)+'</row>'
+   +'<row r="2" ht="22" customHeight="1">'+cell(meta,'A2',5)+'</row>'
+   +'<row r="3" ht="30" customHeight="1">'+head+'</row>'
+   +body+totRow
+   +'</sheetData><mergeCells count="2"><mergeCell ref="A1:'+last+'1"/><mergeCell ref="A2:'+last+'2"/></mergeCells>'
+   +'<autoFilter ref="A3:'+last+(rows.length+3)+'"/>'
+   +'<pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>'
+   +'<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0" paperSize="9"/></worksheet>';
+  var notesRows=[['BIOBES ERP — EKSPORT REGJISTRI'],['Moduli: '+(o.page||'')+' — '+(o.title||'')],['Data: '+new Date().toLocaleString('sq-AL')],['Filtri: '+(o.filter||'asnjë')+' — vetëm rreshtat e dukshëm'],['Rreshta: '+rows.length],[''],['Qelizat janë saktësisht si në sistem (i njëjti tekst dhe format).'],['Rreshti TOTALI në fund mblidh kolonat numerike automatikisht.'],['Kolona boshe në TOTALI = kolonë teksti (data, kode, emra, njësi).']].map(function(x,i){return '<row r="'+(i+1)+'"><c r="A'+(i+1)+'" t="inlineStr" s="'+(i===0?1:0)+'"><is><t>'+xmlEsc(x[0])+'</t></is></c></row>'}).join('');
+  var noteSheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews><cols><col min="1" max="1" width="80" customWidth="1"/></cols><sheetData>'+notesRows+'</sheetData><pageMargins left="0.5" right="0.5" top="0.5" bottom="0.5" header="0.2" footer="0.2"/></worksheet>';
+  var styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+   +'<numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.00"/></numFmts>'
+   +'<fonts count="5"><font><sz val="10"/><name val="Aptos"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Aptos"/></font><font><b/><color rgb="FF195C3B"/><sz val="16"/><name val="Aptos Display"/></font><font><i/><color rgb="FF66766D"/><sz val="10"/><name val="Aptos"/></font><font><b/><color rgb="FF195C3B"/><sz val="10.5"/><name val="Aptos"/></font></fonts>'
+   +'<fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF20744A"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF1F8F4"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE3F0E8"/><bgColor indexed="64"/></patternFill></fill></fills>'
+   +'<borders count="2"><border/><border><left style="thin"><color rgb="FFD5E2DA"/></left><right style="thin"><color rgb="FFD5E2DA"/></right><top style="thin"><color rgb="FFD5E2DA"/></top><bottom style="thin"><color rgb="FFD5E2DA"/></bottom></border></borders>'
+   +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+   +'<cellXfs count="8">'
+   +'<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+   +'<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>'
+   +'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf>'
+   +'<xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf>'
+   +'<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0"/>'
+   +'<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0"/>'
+   +'<xf numFmtId="0" fontId="4" fillId="4" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf>'
+   +'<xf numFmtId="164" fontId="4" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment vertical="center"/></xf>'
+   +'</cellXfs></styleSheet>';
+  var tab=(String(o.title||o.page||'Regjistri').replace(/[\\\/\?\*\[\]:]/g,' ').slice(0,28)||'Regjistri');
+  var files=[
+   {name:'[Content_Types].xml',data:'<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'},
+   {name:'_rels/.rels',data:'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+   {name:'xl/workbook.xml',data:'<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="'+xmlEsc(tab)+'" sheetId="1" r:id="rId1"/><sheet name="UDHEZIME" sheetId="2" r:id="rId2"/></sheets></workbook>'},
+   {name:'xl/_rels/workbook.xml.rels',data:'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
+   {name:'xl/styles.xml',data:styles},
+   {name:'xl/worksheets/sheet1.xml',data:sheet},
+   {name:'xl/worksheets/sheet2.xml',data:noteSheet}];
+  var blob=new Blob([zipStore(files)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=o.filename;a.style.display='none';document.body.appendChild(a);a.click();setTimeout(function(){a.remove();URL.revokeObjectURL(url)},800);
+  return {rows:rows.length,columns:headers.length,totals:totals};
+ }
+ window.moduleExportXlsx=function(o){
+  var name=(o.filename||('BioBes-'+o.page+'-'+new Date().toISOString().slice(0,10)+'.xlsx'));
+  var r=buildXlsx(Object.assign({},o,{filename:name}));
+  try{securityAudit('MODULE_EXPORT','Excel: '+(o.title||o.page)+' — '+r.rows+' rreshta, '+r.columns+' kolona')}catch(e){}
+  toast('Eksporti Excel u shkarkua ('+r.rows+' rreshta, '+r.columns+' kolona + TOTALI)');
+  return r;
+ };
+ window.moduleExportPdf=function(o){
+  var headers=o.headers||[],rows=(o.rows||[]).filter(function(r){return r&&r.length});
+  var numeric=headers.map(function(_,i){return colNumeric(i,headers,rows)});
+  var totals=headers.map(function(_,i){if(!numeric[i])return '';var s=0;rows.forEach(function(r){var n=cellNum(r[i],headers[i]);if(n!==null)s+=n});return fmt2(s)});
+  document.getElementById(o.id||'moduleExportSheet')?.remove();
+  var d=document.createElement('div');d.id=o.id||'moduleExportSheet';
+  d.style.cssText='position:fixed;left:-10000px;top:0;width:1120px;background:#fff';
+  d.innerHTML='<div style="background:#fff;border:1px solid #d5e2da;padding:16px">'
+   +'<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #20744a;padding-bottom:6px;margin-bottom:8px">'
+   +'<b style="color:#195c3b;font-size:18px">'+esc(o.title||'Regjistri')+'</b>'
+   +'<span style="color:#66766d;font-size:11px">BioBes ERP · '+esc(new Date().toLocaleString('sq-AL'))+'</span></div>'
+   +'<div style="color:#66766d;font-size:11px;margin-bottom:8px">Moduli: '+esc(o.page||'')+(o.filter?' · filtri: '+esc(o.filter):' · pa filtër')+' · rreshtat e dukshëm: '+rows.length+'</div>'
+   +'<div class="table-wrap"><table><thead><tr>'+headers.map(function(h){return '<th>'+esc(h)+'</th>'}).join('')+'</tr></thead>'
+   +'<tbody>'+rows.map(function(r){return '<tr>'+headers.map(function(_,i){return '<td>'+esc(r[i]==null?'':r[i])+'</td>'}).join('')+'</tr>'}).join('')+'</tbody>'
+   +'<tfoot><tr>'+headers.map(function(_,i){return '<th>'+(i===0?'TOTALI':esc(totals[i]))+'</th>'}).join('')+'</tr></tfoot>'
+   +'</table></div></div>';
+  document.body.appendChild(d);
+  try{securityAudit('MODULE_EXPORT','PDF: '+(o.title||o.page)+' — '+rows.length+' rreshta')}catch(e){}
+  printOnly(d.id,o.title||'Regjistri');
+  setTimeout(function(){d.remove()},500);
+  return {rows:rows.length,columns:headers.length};
+ };
+}catch(e){console.error('biobes-export-pro-v1',e)}})();
+</script>
+<script>
+/* biobes-openings-alpha-v1 — gjendjet fillestare të çdo moduli të importuara nga Import Center
+   reflektohen në raportet Alpha dhe Odoo:
+   1) Situacioni i klientit: kolona "Detyrimi i mëparshëm" merr gjendjen fillestare të klientit;
+   2) Arkët/Përbankat: gjendja e mëparshme (gjendja fillestare) e arkës/bankës;
+   3) Magazina: kostoja e loteve të hapjes përdoret kur s'ka blerje të mëparshme;
+   4) Importi i arkës: shtohet kolona e gjendjes fillestare (si te bankat). */
+(function(){try{
+ if(window.__biobesOpeningsAlphaV1)return;window.__biobesOpeningsAlphaV1=1;
+ function obDL(){try{return window.obDate?(' — '+window.obDate()):''}catch(e){return ''}}
+ /* palët (furnitor/klient): openingBalance ruhet në ALL; bankat/arkat: në monedhën e vet */
+ function obAllPartner(rec){try{return Math.round((+rec.openingBalance||0)*100)/100}catch(e){return 0}}
+ function obAllAccount(rec){
+  try{
+   var v=+rec.openingBalance||0;if(!v)return 0;
+   var cur=String(rec.currency||rec.openingCurrency||'ALL').toUpperCase();
+   if(cur==='ALL')return Math.round(v*100)/100;
+   var rate=+rec.openingRate>0?+rec.openingRate:(typeof obRateFor==='function'?obRateFor(cur):0)||1;
+   return Math.round(v*rate*100)/100;
+  }catch(e){return 0}
+ }
+ /* 1) Situacioni i klientit/furnitorit: gjendja fillestare te "Detyrimi i mëparshëm"
+   (baza e Alpha-s e mbulon: këtu vetëm sigurohemi që klienti me gjendje fillestare nuk bie jashtë listës) */
+ try{
+  var actB=window.activeSalesCustomers;
+  if(typeof actB==='function'){
+   window.activeSalesCustomers=function(){
+    var l=actB.apply(this,arguments)||[];
+    try{(state.customers||[]).forEach(function(c){if(c&&c.id&&obAllPartner(c)&&!l.some(function(x){return x&&x.id===c.id}))l.push(c)})}catch(e){}
+    return l;
+   };
+   try{eval('activeSalesCustomers=window.activeSalesCustomers')}catch(e){}
+  }
+ }catch(e){}
+ /* 2) Arkë/Bankë: gjendja e mëparshme në monedhën e palës -> ALL */
+ try{
+  var cpb=window.cashPriorBalance;
+  if(typeof cpb==='function'){
+   window.cashPriorBalance=function(rows){
+    try{
+     var f=alphaCashFilters,opening=0;
+     if(f.cashRegister){var cr=(cashRegisters()||[]).filter(function(x){return x.id===f.cashRegister})[0];if(cr)opening+=obAllAccount(cr)}
+     if(f.bankAccount){var ba=(bankAccounts()||[]).filter(function(x){return x.id===f.bankAccount})[0];if(ba)opening+=obAllAccount(ba)}
+     if(opening)return opening;
+    }catch(e){}
+    return cpb.apply(this,arguments);
+   };
+   try{eval('cashPriorBalance=window.cashPriorBalance')}catch(e){}
+  }
+ }catch(e){}
+ /* 2b) Ditari/Gjendja e arkës: rresht "Gjendje Fillestare" për arkën/bankën me gjendje fillestare */
+ try{
+  var acr=window.alphaCashRows;
+  if(typeof acr==='function'){
+   window.alphaCashRows=function(){
+    var rows=acr.apply(this,arguments)||[];
+    try{
+     (cashRegisters()||[]).forEach(function(c){
+      if(!c||!c.id)return;var v=obAllAccount(c);if(!v)return;
+      if(rows.some(function(x){return x.cashRegister===c.id}))return;
+      rows.push({id:'OPEN-'+c.id,date:'',reg:'',type:'Gjendje Fillestare',party:'',description:'Gjendja fillestare e arkës'+obDL(),method:'Arkë',currency:String(c.currency||'ALL').toUpperCase(),rate:1,income:0,outcome:0,invoice:'',cashRegister:c.id,bankAccount:'',branch:'',docGroup1:'',docGroup2:'',docGroup3:'',status:'Konfirmuar',opening:v});
+     });
+     (typeof bankAccounts==='function'?bankAccounts():[]).forEach(function(b){
+      if(!b||!b.id)return;var v=obAllAccount(b);if(!v)return;
+      if(rows.some(function(x){return x.bankAccount===b.id}))return;
+      rows.push({id:'OPEN-'+b.id,date:'',reg:'',type:'Gjendje Fillestare',party:'',description:'Gjendja fillestare e bankës'+obDL(),method:'Bankë',currency:String(b.currency||'ALL').toUpperCase(),rate:1,income:0,outcome:0,invoice:'',cashRegister:'',bankAccount:b.id,branch:'',docGroup1:'',docGroup2:'',docGroup3:'',status:'Konfirmuar',opening:v});
+     });
+     rows.sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''))});
+    }catch(e){console.error("BioBes",'alpha-cash-opening',e)}
+    return rows;
+   };
+   try{eval('alphaCashRows=window.alphaCashRows')}catch(e){}
+  }
+ }catch(e){}
+ /* 3) Magazina: kostoja e loteve të gjendjes fillestare kur s'ka blerje të mëparshme */
+ try{
+  var hpc=window.historicalProductCost;
+  if(typeof hpc==='function'){
+   window.historicalProductCost=function(productId,date){
+    var cost=hpc.apply(this,arguments);
+    try{
+     if(!(cost>0)){
+      var open=(state.lots||[]).filter(function(l){return l&&l.product===productId&&!l.weighing&&(+l.unitCost>0)&&(!date||!l.date||l.date<=date)});
+      if(open.length){var qty=open.reduce(function(a,l){return a+(+l.net||0)},0),val=open.reduce(function(a,l){return a+(+l.net||0)*(+l.unitCost||0)},0);if(qty>0&&val>0)cost=val/qty}
+     }
+    }catch(e){}
+    return cost;
+   };
+   try{eval('historicalProductCost=window.historicalProductCost')}catch(e){}
+  }
+ }catch(e){}
+ /* 4) Importi i arkës (cashRegisters) me gjendje fillestare — si te bankat */
+ try{
+  if(typeof IMPORT_SCHEMAS!=='undefined'&&IMPORT_SCHEMAS.cashRegisters&&IMPORT_SCHEMAS.cashRegisters.indexOf('openingBalance')<0)
+   IMPORT_SCHEMAS.cashRegisters.push('openingBalance');
+  if(typeof IMPORT_SCHEMAS!=='undefined'&&IMPORT_SCHEMAS.cashRegisters&&IMPORT_SCHEMAS.cashRegisters.indexOf('ledgerAccount')<0)
+   IMPORT_SCHEMAS.cashRegisters.push('ledgerAccount');
+  var base=window.commitModuleImport;
+  if(typeof base==='function'){
+   window.commitModuleImport=function(){
+    try{
+     var q=window.pendingModuleImport;
+     if(q&&Array.isArray(q.data)&&['cashRegisters','bankAccounts'].indexOf(q.k)>=0)q.data.forEach(function(it){
+      var d=it&&it.data;if(!d)return;
+      if(d.openingBalance!==undefined)d.openingBalance=importNum(d.openingBalance);
+      if(d.openingCurrency!==undefined)d.openingCurrency=String(d.openingCurrency||'ALL').toUpperCase();
+     });
+    }catch(e){}
+    return base.apply(this,arguments);
+   };
+   try{eval('commitModuleImport=window.commitModuleImport')}catch(e){}
+  }
+ }catch(e){}
+ window.biobesOpeningAll=function(id){
+  try{
+   var a=(state.suppliers||[]).filter(function(x){return x.id===id})[0]||(state.customers||[]).filter(function(x){return x.id===id})[0];
+   if(a)return obAllPartner(a);
+   var b=(bankAccounts()||[]).filter(function(x){return x.id===id})[0];if(b)return obAll(b);
+   var c=(cashRegisters()||[]).filter(function(x){return x.id===id})[0];if(c)return obAll(c);
+  }catch(e){}
+  return 0;
+ };
+}catch(e){console.error('biobes-openings-alpha-v1',e)}})();
 </script>
 </body></html>

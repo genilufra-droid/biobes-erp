@@ -1,6 +1,6 @@
 /* tests/registry-export-audit.cjs — kudo ku ka kërkim live: butonat ⬇ Excel dhe 🖨 PDF
    eksportojnë VETËM rreshtat e dukshëm (të filtruar), me kolonat e tabelës. */
-const {open}=require('./helpers.cjs'),assert=require('node:assert/strict');
+const {open}=require('./helpers.cjs'),fs=require('node:fs'),assert=require('node:assert/strict');
 (async()=>{
  let passed=0,failed=0;
  const {browser,page:p,errors}=await open(false);
@@ -44,24 +44,34 @@ const {open}=require('./helpers.cjs'),assert=require('node:assert/strict');
   await p.locator('.module-live-search input').fill(q);await p.waitForTimeout(250);
  });
 
- await step('⬇ Excel: shkarkon xlsx me emër të modulit + datën; toast me numrin e rreshtave',async()=>{
+ await step('⬇ Excel: 100% si në sistem — të njëjtat kolona dhe TEKSTI i njëjtë i qelizave',async()=>{
+  const onScreen=await ev(()=>{const t=document.querySelector('#main .table-wrap table');
+   return {heads:[...t.querySelectorAll('thead th')].map(x=>x.innerText.trim()),
+    rows:[...t.tBodies].flatMap(tb=>[...tb.rows]).filter(r=>!r.querySelector('.empty')&&r.style.display!=='none').map(r=>[...r.cells].map(td=>{const c=td.cloneNode(true);c.querySelectorAll('button,.btn').forEach(b=>b.remove());return c.innerText.replace(/\s+/g,' ').trim()}))}});
   const dl=p.waitForEvent('download',{timeout:6000});
   await p.locator('.module-live-search button[data-mexp="xlsx"]').click();
   const d=await dl;
   assert.match(d.suggestedFilename(),/^BioBes-purchases-\d{4}-\d{2}-\d{2}\.xlsx$/,'emër: '+d.suggestedFilename());
-  await p.waitForTimeout(300);
-  assert.match(await ev(()=>document.getElementById('toast').textContent),/Eksporti Excel u shkarkua \(\d+ rreshta\)/);
+  const buf=fs.readFileSync(await d.path()).toString('utf8');
+  const xmlEsc=v=>v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  onScreen.heads.forEach(h=>assert.ok(buf.includes(xmlEsc(h)),'kolona mungon në Excel: '+h));
+  onScreen.rows.forEach(r=>r.forEach(v=>{if(v)assert.ok(buf.includes(xmlEsc(v)),'qeliza jo identike: '+v)}));
+  assert.ok(buf.includes('TOTALI'),'rreshti TOTALI');
+  assert.ok(buf.includes('Eksporti u shkarkua')||buf.includes('Blerje'),'titulli i modulit në krye');
+  assert.ok(/numFmt numFmtId="164"|#,##0\.00/.test(buf),'formati numerik për totalet');
+  assert.match(await ev(()=>document.getElementById('toast').textContent),/Eksporti Excel u shkarkua \(\d+ rreshta/);
+  assert.match(await ev(()=>document.getElementById('toast').textContent),/TOTALI/);
  });
 
  await step('🖨 PDF: frame i printimit përmban vetëm rreshtat e filtruar (+ titullin dhe filtrin)',async()=>{
   await p.locator('.module-live-search button[data-mexp="pdf"]').click();
   await p.waitForTimeout(200);
-  const r=await ev(()=>{const f=document.getElementById('biobesPrintFrame');if(!f)return null;const t=f.contentDocument.body.innerText;return{has:!!f.contentDocument.getElementById('moduleExportSheet'),txt:t,filtri:t.includes('filtri:'),titull:/Blerje/.test(t)}});
+  const r=await ev(()=>{const f=document.getElementById('biobesPrintFrame');if(!f)return null;const t=f.contentDocument.body.innerText;return{has:!!f.contentDocument.getElementById('moduleExportSheet'),txt:t,filtri:t.includes('filtri:'),titull:/Blerje/.test(t),tot:t.includes('TOTALI')}});
   assert.ok(r,'frame mungon');
   const q2=await ev(()=>state.suppliers[0].name.split(' ')[0]);
   const q3=await ev(()=>state.suppliers[1].name.split(' ')[0]);
   assert.equal(r.has,true);assert.equal(r.txt.includes(q2),true);assert.equal(r.txt.includes(q3),false,'rreshtat e jashtëm nuk duhet të jenë në PDF');
-  assert.equal(r.filtri,true);assert.equal(r.titull,true);
+  assert.equal(r.filtri,true);assert.equal(r.titull,true);assert.equal(r.tot,true,'rreshti TOTALI në PDF');
   await p.waitForTimeout(2200);
   assert.equal(await ev(()=>!!document.getElementById('moduleExportSheet')),false,'fleta duhet pastruar');
  });
