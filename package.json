@@ -31,7 +31,8 @@
     "test:import-upsert": "node tests/import-upsert-audit.cjs",
     "test:odoo-partner": "node tests/odoo-partner-audit.cjs",
     "test:openings-alpha": "node tests/openings-alpha-audit.cjs",
-    "test:trace-dossier": "node tests/trace-dossier-audit.cjs"
+    "test:trace-dossier": "node tests/trace-dossier-audit.cjs",
+    "test:returns": "node tests/returns-audit.cjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"
