@@ -445,7 +445,7 @@ function wipeEverythingLocal(){['weighings','lots','payments','customerPayments'
 let autoBackupBusy=false,autoBackupTimer=null;
 function autoBackupState(){if(!state||typeof state!=='object')return{enabled:true,count:0,lastBackupAt:0};if(!state.autoBackup||typeof state.autoBackup!=='object')state.autoBackup={enabled:true,count:0,lastBackupAt:0,lastBackupLocal:'',lastBackupSize:0};return state.autoBackup}
 function isDailyBackupDue(){let a=autoBackupState(),now=new Date(),last=a.lastBackupAt||0;if(!last)return true;if(Date.now()-last>=86400000)return true;if(now.getHours()===5){let ld=new Date(last);return ld.toDateString()!==now.toDateString()}return false}
-async function performDailyBackup(manual){if(!manual&&!isDailyBackupDue())return;if(autoBackupBusy)return;autoBackupBusy=true;try{let a=autoBackupState(),at=new Date().toISOString(),snap={format:'BIOBES-AUTO-1',at,schemaVersion:state.schemaVersion||1,data:clone(state)},size=0;try{size=new Blob([JSON.stringify(snap)]).size;localStorage.setItem('biobesAutoBackup',JSON.stringify(snap));localStorage.setItem('biobesAutoBackupMeta',JSON.stringify({at,size,count:(a.count||0)+1}))}catch(e){size=0}a.lastBackupAt=Date.now();a.lastBackupLocal=at;a.lastBackupSize=size;a.count=(a.count||0)+1;state.autoBackup=a;save();try{securityAudit('AUTO_BACKUP','Backup automatik ditor #'+a.count+(manual?' (manual)':''))}catch(e){}let serverOk=false;if(serverBaseUrl()){try{let r=await apiCall('/api/backups',{method:'POST',body:JSON.stringify({label:'Backup ditor '+at.slice(0,10)})});serverOk=!!(r&&r.ok)}catch(e){}if(!serverOk){try{await pushState(true);serverOk=true}catch(e){}}}if(manual)toast('Backup u krye')}catch(e){try{console.error('AutoBackup',e)}catch(_){}}finally{autoBackupBusy=false}}
+async function performDailyBackup(manual){if(!manual&&!isDailyBackupDue())return;if(autoBackupBusy)return;autoBackupBusy=true;try{let a=autoBackupState(),at=new Date().toISOString(),snap={format:'BIOBES-AUTO-1',at,schemaVersion:state.schemaVersion||1,data:clone(state)},size=0;try{size=new Blob([JSON.stringify(snap)]).size;localStorage.setItem('biobesAutoBackup',JSON.stringify(snap));localStorage.setItem('biobesAutoBackupMeta',JSON.stringify({at,size,count:(a.count||0)+1}))}catch(e){size=0}a.lastBackupAt=Date.now();a.lastBackupLocal=at;a.lastBackupSize=size;a.count=(a.count||0)+1;state.autoBackup=a;save();try{securityAudit('AUTO_BACKUP','Backup automatik ditor #'+a.count+(manual?' (manual)':''))}catch(e){}let serverOk=false;if(serverBaseUrl()){try{let r=await apiCall('/api/backups',{method:'POST',body:JSON.stringify({label:'Backup ditor '+at.slice(0,10)})});serverOk=!!(r&&r.ok)}catch(e){}}if(!serverOk){try{console.warn('Backup-i në server nuk u krye — mbetet kopja vendore; ruajtja e të dhënave nuk ndërpritet')}catch(_){}}if(manual)toast('Backup u krye')}catch(e){try{console.error('AutoBackup',e)}catch(_){}}finally{autoBackupBusy=false}}
 function restoreAutoBackup(){let raw='';try{raw=localStorage.getItem('biobesAutoBackup')||''}catch(e){}if(!raw)return toast('Nuk ka backup automatik të ruajtur');try{let snap=JSON.parse(raw),data=(snap&&(snap.data||snap.state))||snap;if(!data||!Array.isArray(data.products)||!Array.isArray(data.suppliers))throw new Error('strukturë e pavlefshme');if(!confirm('Të rikthehet backup-i automatik i '+(snap&&snap.at?new Date(snap.at).toLocaleString('sq-AL'):'panjohur')+'? Të dhënat aktuale zëvendësohen.'))return;backup();state=clone(data);state.schemaVersion=state.schemaVersion||1;try{normalizeState(state)}catch(e){}securityState();save();render();try{securityAudit('AUTO_BACKUP_RESTORE','Rikthim nga backup automatik')}catch(e){}closeModal();toast('Backup-i automatik u rikthye')}catch(e){toast('Rikthimi dështoi: '+e.message)}}
 function startAutoBackupScheduler(){if(autoBackupTimer)return;try{performDailyBackup(false)}catch(e){}autoBackupTimer=setInterval(()=>{try{performDailyBackup(false)}catch(e){}},3600000)}
 const DEFAULT_BACKEND_URL='https://biobes-api.onrender.com';
@@ -13129,11 +13129,14 @@ try{setTimeout(()=>{try{applyRoleSecurity()}catch(e){}},0)}catch(e){}
       }
     } catch (e) { CLOUD.docErrors = (CLOUD.docErrors || 0) + 1; }
     try {
-      if (force) { // "blind" lejohet vetëm kur serveri s'ka gjendje fare
+      // Shkrim pa version ("blind") lejohet VETËM kur serveri s'ka gjendje fare.
+      // Dy raste: (a) u kërkua me forcë, (b) versioni i serverit nuk njihet ende
+      // (p.sh. ruajtje e radhitur gjatë hyrjes) — në të dyja rastet merret versioni.
+      if (force || (typeof serverVersion === 'undefined' || serverVersion == null)) {
         var v = await apiCall('/api/state/version');
         if (v && v.ok && v.data && +v.data.version > 0) {
-          force = false; CLOUD.blindBlocked = (CLOUD.blindBlocked || 0) + 1;
-          try { if (serverVersion == null) serverVersion = +v.data.version; } catch (e) {}
+          if (force) { force = false; CLOUD.blindBlocked = (CLOUD.blindBlocked || 0) + 1; }
+          if (serverVersion == null) { serverVersion = +v.data.version; CLOUD.blindBlocked = (CLOUD.blindBlocked || 0) + 1; }
         }
       }
     } catch (e) {}
