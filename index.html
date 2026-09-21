@@ -12346,12 +12346,12 @@ var baseCall=apiCall,baseLoad=load,baseSave=save,baseKey=syncServerKey,baseRende
 function lsGet(k){try{return localStorage.getItem(k)||''}catch(e){return''}}
 function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 function lsDel(k){try{localStorage.removeItem(k)}catch(e){}}
-function companyOf(id){return (mc.companies||[]).filter(function(c){return c&&c.id===id})[0]||{}}
+function companyOf(id){var src=(mc.all&&mc.all.length?mc.all:mc.companies)||[];return src.filter(function(c){return c&&c.id===id})[0]||(mc.companies||[]).filter(function(c){return c&&c.id===id})[0]||{}}
 function labelOf(c){return [c&&c.code,c&&c.name].filter(Boolean).join(' — ')}
 function storeKey(id){return 'state:'+(id||mc.active)}
 function activeKey(){return (mc.enabled&&mc.active)?storeKey(mc.active):'state'}
-function apiPath(p){if(!mc.enabled||!mc.active)return p;if(!/^\/api\/(state|backups|audit)/.test(p||''))return p;if(/[?&]company=/.test(p))return p;return p+(p.indexOf('?')>=0?'&':'?')+'company='+encodeURIComponent(mc.active)}
-function dotColor(id){var list=mc.companies||[],i=0;for(var k=0;k<list.length;k++)if(list[k].id===id)i=k;var cols=['#20744A','#1D4E89','#8A5A00','#7A2E5C','#3B5B6B'];return cols[i%cols.length]}
+function apiPath(p){if(!mc.enabled||!mc.active)return p;if(!/^\/api\/(state|backups|audit|auth\/me|access\/)/.test(p||''))return p;if(/[?&]company=/.test(p))return p;return p+(p.indexOf('?')>=0?'&':'?')+'company='+encodeURIComponent(mc.active)}
+function dotColor(id){var list=(mc.all&&mc.all.length?mc.all:mc.companies)||[],i=0;for(var k=0;k<list.length;k++)if(list[k].id===id)i=k;var cols=['#20744A','#1D4E89','#8A5A00','#7A2E5C','#3B5B6B'];return cols[i%cols.length]}
 
 /* ---------- 1) API-ja: kompania në çdo kërkesë ---------- */
 window.apiCall=function(path,opts){return baseCall(apiPath(path),opts)};
@@ -12414,22 +12414,23 @@ function adoptLegacy(id){
 function parseMe(d){
   d=d||{};
   var list=(Array.isArray(d.companies)?d.companies:[]).filter(function(c){return c&&c.id});
-  var advert=('multiCompany' in d)?!!d.multiCompany:(list.length>1);
-  if(!advert||list.length<2)return false;
-  // Vetëm kompanitë AKTIVE hyjnë në ndërrues; të çaktivizuarat mbeten vetëm te moduli i kompanive.
+  // Ndërruesi shfaqet sapo llogaria ka ≥2 kompani: edhe të çaktivizuarat shfaqen në
+  // listë (të shënuara e të pazgjedhshme). Ndarja e të dhënave aktivizohet kur ka
+  // më shumë se një kompani AKTIVE.
+  if(list.length<2)return false;
+  mc.all=list.map(function(c){return{id:c.id,code:c.code||'',name:c.name||'',active:c.active!==false}});
   var active=list.filter(function(c){return c.active!==false});
   if(!active.length){mc.enabled=false;mc.companies=[];return false}
-  mc.all=list.map(function(c){return{id:c.id,code:c.code||'',name:c.name||'',active:c.active!==false}});
   mc.companies=active.map(function(c){return{id:c.id,code:c.code||'',name:c.name||'',active:true}});
   var dft='';for(var i=0;i<list.length;i++)if(list[i].isDefault||list[i].is_default)dft=list[i].id;
   var want=d.defaultCompany||dft;
   if(!(mc.companies.filter(function(c){return c.id===want})[0]))want=(mc.companies[0]||{}).id;
   mc.defaultId=want;
-  lsSet(LS_LIST,JSON.stringify(mc.companies));lsSet(LS_DEFAULT,mc.defaultId);
+  lsSet(LS_LIST,JSON.stringify(mc.all));lsSet(LS_DEFAULT,mc.defaultId);
   var saved=lsGet(LS_ACTIVE);
   var keep=(mc.companies.filter(function(c){return c.id===saved})[0]||{}).id;
   mc.active=keep||mc.defaultId;
-  mc.enabled=true;lsSet(LS_ACTIVE,mc.active);
+  mc.enabled=(active.length>1);lsSet(LS_ACTIVE,mc.active);
   return true;
 }
 function cachedList(){
@@ -12440,10 +12441,13 @@ function activateFromCache(){
     var list=cachedList();
     if(list.length<2)return false;
     if(!serverBaseUrl()||!serverToken)return false;
-    mc.companies=list;mc.defaultId=lsGet(LS_DEFAULT)||list[0].id;
+    mc.all=list.map(function(c){return{id:c.id,code:c.code||'',name:c.name||'',active:c.active!==false}});
+    mc.companies=mc.all.filter(function(c){return c.active!==false});
+    if(!mc.companies.length)return false;
+    mc.defaultId=lsGet(LS_DEFAULT)||mc.companies[0].id;
     var saved=lsGet(LS_ACTIVE);
-    var keep=(list.filter(function(c){return c.id===saved})[0]||{}).id;
-    mc.active=keep||mc.defaultId;mc.enabled=true;
+    var keep=(mc.companies.filter(function(c){return c.id===saved})[0]||{}).id;
+    mc.active=keep||mc.defaultId;mc.enabled=(mc.companies.length>1);
     return true;
   }catch(e){return false}
 }
@@ -12510,7 +12514,7 @@ function paint(){
     var host=document.querySelector('header.top');
     if(!host)return;
     var el=document.getElementById('mcChip');
-    if(!(mc.enabled&&(mc.companies||[]).length>1)){if(el)el.remove();chipLabel='';return}
+    if(!((mc.all||mc.companies||[]).length>1)){if(el)el.remove();chipLabel='';return}
     if(!el){
       el=document.createElement('div');el.id='mcChip';el.className='mc-chip';
       var logo=host.querySelector('.logo');
@@ -12539,7 +12543,7 @@ window.mcMenu=function(ev){
   if(ev&&ev.preventDefault)ev.preventDefault();
   if(document.getElementById('mcMenu'))return closeMenu();
   var host=document.getElementById('mcChip');
-  if(!host||!mc.enabled)return;
+  if(!host)return;
   var m=document.createElement('div');m.id='mcMenu';m.className='mc-menu';
   m.innerHTML=(mc.companies||[]).map(function(c){
     return '<button type="button" class="mc-item'+(c.id===mc.active?' active':'')+'" onclick="mcSwitch(\''+String(c.id).replace(/'/g,"\\'")+'\')"><span class="mc-dot" style="background:'+dotColor(c.id)+'"></span>'+esc(labelOf(c)||c.id)+'</button>';
@@ -12738,6 +12742,506 @@ window.companyMembershipSave=async function(id){
   loadCompaniesModule();
 };
 try{setTimeout(()=>{try{applyRoleSecurity()}catch(e){}},0)}catch(e){}
+})();
+</script>
+
+<script id="biobes-cloud-realtime-v1">
+/* ===== BioBes Cloud Realtime v1 — kohë reale + serveri autoritar =====
+   Zgjidh problemet e raportuara nga pronari:
+   1) "Nuk sinkronizohet kohë reale": lidhje e vazhdueshme me serverin (SSE
+      /api/events). Çdo ndryshim i një përdoruesi tjetër shfaqet në ekran
+      brenda ~1 sekonde — pa rifreskim faqe, pa dalje/hyrje.
+   2) "Të dhëna jo të njëjta": pas shkarkimit automatik ekrani rifreskohet
+      "në vend" (ruhen faqja, pozicioni dhe filtrat). Nëse po shkruani në një
+      formular, shfaqet një njoftim i vogël: "Të dhënat u përditësuan".
+   3) "Shkrime blind që mbishkruajnë njëra-tjetrën": kur serveri ka gjendje,
+      ruajtja dërgohet gjithmonë me kontroll versioni; konflikti zgjidhet
+      automatikisht me bashkim + ridërgesë.
+   4) "User-ve u shfaqet backup pas reset-it": përdoruesit normalë nuk shohin
+      më dialogë epoke/backup — pajisja thjesht ndjek serverin. Vetëm admini
+      ka rikthim/backup te Konfigurime.
+   5) Kompanitë rifreskohen vetë: njoftimi 'companies-changed' e përditëson
+      ndërruesin pa Ctrl+F5; të drejtat rifreskohen me 'rights-changed'.
+   Raportet e Alpha-s nuk preken. Shënim: moduli punon vetëm kur ka lidhje
+   me serverin; pa të, sjellja mbetet si më parë (ruajtje lokale + kujtues). */
+(function () {
+  'use strict';
+  var CLOUD = { sse: 'off', lastEventAt: 0, lastRenderAt: 0, renders: 0, applied: 0, skipped: 0, syncAt: 0, version: null };
+  window.__cloud = CLOUD;
+
+  var basePull = pullState, basePush = pushState, baseConflict = showSyncConflict, baseWipe = honorServerWipe;
+  var es = null, badge = null, pillEl = null, pillTimer = null, applyTimer = null, lastInputAt = 0, started = false, reconnectTimer = null;
+
+  function cur() {
+    try { if (typeof serverUser !== 'undefined' && serverUser) return serverUser; } catch (e) {}
+    try { return JSON.parse(sessionStorage.getItem('biobesServerUser') || 'null'); } catch (e) { return null; }
+  }
+  function isAdmin() { var u = cur(); if (!u) return true; return /ADMIN/i.test(String(u.role || '')); }
+  function tok() { try { return serverToken || ''; } catch (e) { return ''; } }
+  function baseUrl() { try { return (typeof serverBaseUrl === 'function' && serverBaseUrl()) || ''; } catch (e) { return ''; } }
+  function mine() { try { return (window.__mc && window.__mc.enabled && window.__mc.active) ? window.__mc.active : ''; } catch (e) { return ''; } }
+  function E(s) { try { return esc(s); } catch (e) { return String(s == null ? '' : s); } }
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function hhmmss(ts) { var d = new Date(ts || Date.now()); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); }
+  function mainEl() { return document.getElementById('main'); }
+  function modalOpen() {
+    try {
+      var el = document.getElementById('modal');
+      if (!el) return false;
+      if (el.classList && el.classList.contains('open')) return true;
+      var st = window.getComputedStyle(el);
+      return st.display !== 'none' && st.visibility !== 'hidden' && el.offsetHeight > 0;
+    } catch (e) { return false; }
+  }
+
+  /* ---------- 1) Treguesi i cloud-it (poshtë majtas) ---------- */
+  function ensureBadge() {
+    if (badge && document.body.contains(badge)) return badge;
+    badge = document.createElement('div');
+    badge.id = 'cloudStatus';
+    badge.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:2147482000;font:600 12px/1.2 system-ui,Segoe UI,sans-serif;padding:6px 11px;border-radius:999px;background:#0f2f22;color:#d8f3e6;box-shadow:0 2px 8px rgba(0,0,0,.28);opacity:.94;pointer-events:none;max-width:70vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    document.body.appendChild(badge);
+    return badge;
+  }
+  function badgeSet() {
+    try {
+      if (!tok() || !baseUrl()) { if (badge) badge.style.display = 'none'; return; }
+      var b = ensureBadge(); b.style.display = '';
+      var online = true; try { online = !!serverOnline; } catch (e) {}
+      if (!online) {
+        b.textContent = '☁ Pa lidhje me serverin — ndryshimet ruhen dhe dërgohen vetë';
+        b.style.background = '#5a1f1f'; b.style.color = '#ffd9d9'; return;
+      }
+      if (CLOUD.sse === 'open') {
+        b.textContent = '☁ I sinkronizuar ' + hhmmss(CLOUD.syncAt || Date.now()) + (CLOUD.version != null ? ' · v' + CLOUD.version : '') + (mine() ? ' · ' + mine() : '');
+        b.style.background = '#0f2f22'; b.style.color = '#d8f3e6';
+      } else {
+        b.textContent = '☁ Duke u lidhur drejtpërdrejt me serverin…';
+        b.style.background = '#4a3b00'; b.style.color = '#ffe9a8';
+      }
+    } catch (e) {}
+  }
+
+  /* ---------- 2) Njoftimi "Të dhënat u përditësuan" ---------- */
+  function hidePill() { if (pillEl) pillEl.style.display = 'none'; }
+  function pill(text) {
+    try {
+      if (!pillEl) {
+        pillEl = document.createElement('button');
+        pillEl.id = 'cloudPill'; pillEl.type = 'button';
+        pillEl.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:2147482600;font:600 13px system-ui,Segoe UI,sans-serif;padding:10px 14px;border-radius:10px;border:0;background:#20744A;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.32);cursor:pointer;max-width:70vw';
+        pillEl.onclick = function () { hidePill(); applyRemote('pill'); };
+        document.body.appendChild(pillEl);
+      }
+      pillEl.textContent = '⟳ ' + text;
+      pillEl.style.display = '';
+      if (pillTimer) clearTimeout(pillTimer);
+      pillTimer = setTimeout(hidePill, 15000);
+    } catch (e) {}
+  }
+
+  /* ---------- 3) Lidhja e vazhdueshme (SSE) ---------- */
+  function sseConnect() {
+    var url = baseUrl(); if (!url || !tok()) return;
+    if (es) { try { es.close(); } catch (e) {} es = null; }
+    try {
+      es = new EventSource(url.replace(/\/$/, '') + '/api/events?token=' + encodeURIComponent(tok()));
+    } catch (e) { return; }
+    es.onopen = function () { CLOUD.sse = 'open'; CLOUD.sseErrors = 0; CLOUD.syncAt = Date.now(); badgeSet(); };
+    es.addEventListener('hello', function () { CLOUD.sse = 'open'; CLOUD.sseErrors = 0; CLOUD.syncAt = Date.now(); badgeSet(); });
+    es.addEventListener('state-changed', function (ev) { onStateEvent(ev); });
+    es.addEventListener('companies-changed', function () { refreshCompanies(); });
+    es.addEventListener('rights-changed', function () { try { window.mcRightsRefresh(); } catch (e) {} });
+    es.onerror = function () {
+      CLOUD.sseErrors = (CLOUD.sseErrors || 0) + 1;
+      CLOUD.sse = 'closed'; badgeSet();
+      // Nëse lidhja direkte nuk mund të hapet (p.sh. server i vjetër), nuk bëhet
+      // tentativë çdo sekondë: provohet sërish pas një minute; sinkronizimi me
+      // interval (poll) vazhdon normalisht ndërkohë.
+      if (CLOUD.sseErrors >= 4) {
+        try { es.close(); } catch (e) {}
+        es = null;
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(function () { CLOUD.sseErrors = 0; sseConnect(); }, 60000);
+      }
+    };
+  }
+  function onStateEvent(ev) {
+    var d = {}; try { d = JSON.parse(ev.data || '{}'); } catch (e) { return; }
+    CLOUD.lastEventAt = Date.now();
+    var my = mine();
+    if (d.company && my && String(d.company) !== String(my)) return;   // kompani tjetër — nuk na takon
+    var u = cur();
+    if (u && d.actor && String(d.actor) === String(u.username)) {     // ndryshimi u bë nga kjo pajisje
+      if (d.version != null) { CLOUD.version = +d.version; CLOUD.syncAt = Date.now(); }
+      badgeSet();
+      return;
+    }
+    if (d.version != null) CLOUD.version = +d.version;
+    if (d.wiped) { applyRemote('wipe'); return; }
+    scheduleApply('sse');
+  }
+  function scheduleApply(reason) {
+    if (applyTimer) clearTimeout(applyTimer);
+    applyTimer = setTimeout(function () { applyTimer = null; applyRemote(reason); }, 180);
+  }
+  async function applyRemote(reason) {
+    if (!tok() || !baseUrl()) return;
+    if (modalOpen()) { CLOUD.skipped++; pill('Të dhënat u përditësuan — kliko për t’i shfaqur'); return; }
+    if (Date.now() - lastInputAt < 2500) {
+      CLOUD.skipped++;
+      pill('Dikush tjetër përditësoi të dhënat — kliko për t’i shfaqur');
+      setTimeout(function () { if (Date.now() - lastInputAt >= 2500) scheduleApply('retry'); }, 3000);
+      return;
+    }
+    var sc = 0; try { var m = mainEl(); sc = m ? m.scrollTop : 0; } catch (e) {}
+    try { await basePull(); } catch (e) {}
+    try { render(); } catch (e) {}
+    try { var m2 = mainEl(); if (m2) m2.scrollTop = sc; } catch (e) {}
+    CLOUD.renders++; CLOUD.lastRenderAt = Date.now(); CLOUD.applied++; CLOUD.syncAt = Date.now();
+    badgeSet();
+    if (reason === 'wipe') toast('Të dhënat u përditësuan nga serveri');
+  }
+
+  /* ---------- 4) Rifreskimi i ekranit edhe pas poll-it klasik ---------- */
+  window.pullState = async function () {
+    var sc = 0; try { var m = mainEl(); sc = m ? m.scrollTop : 0; } catch (e) {}
+    var r = null; try { r = await basePull.apply(this, arguments); } catch (e) { r = null; }
+    try {
+      if (r && !r.offline && !r.conflict) {
+        if (modalOpen()) { pill('Të dhënat u përditësuan — kliko për t’i shfaqur'); }
+        else {
+          render();
+          try { var m2 = mainEl(); if (m2) m2.scrollTop = sc; } catch (e) {}
+          CLOUD.renders++; CLOUD.lastRenderAt = Date.now();
+        }
+        CLOUD.syncAt = Date.now();
+      }
+      badgeSet();
+    } catch (e) {}
+    return r;
+  };
+
+  /* ---------- 4b) RUAJTJA PËR DOKUMENT (F2.3) ----------
+     Në vend që çdo ruajtje të dërgojë gjithë gjendjen (~2.7 MB), dërgohen vetëm
+     dokumentet që ndryshuan: krahasohet gjendja aktuale me bazën e fundit të
+     sinkronizuar dhe dërgohen op-e {kind, op, id, doc, prev} te /api/state/patch.
+     Serveri i aplikon brenda një transaksioni me bllokim rreshti: dy pajisje që
+     shkruajnë dokumente të ndryshme kalojnë TË DYJA pa konflikt. Nëse ndryshimi
+     është i madh (> 300 op-e ose > 1 MB) kalohet automatikisht në ruajtjen e plotë. */
+  var DOC_SAVE_MAX_OPS = 300, DOC_SAVE_MAX_BYTES = 1024 * 1024;
+  function sameJson(a, b) { try { return JSON.stringify(a === undefined ? null : a) === JSON.stringify(b === undefined ? null : b); } catch (e) { return false; } }
+
+  function buildDocOps(base, now) {
+    var ops = [];
+    base = base || {};
+    now = now || {};
+    var keys = {}, k;
+    for (k in base) keys[k] = 1;
+    for (k in now) keys[k] = 1;
+    for (k in keys) {
+      var b = base[k], n = now[k];
+      if (sameJson(b, n)) continue;
+      if (Array.isArray(b) || Array.isArray(n)) {
+        var bl = Array.isArray(b) ? b : [], nl = Array.isArray(n) ? n : [];
+        var map = {}, i;
+        for (i = 0; i < bl.length; i++) { var d = bl[i]; if (d && d.id != null) map['i:' + d.id] = d; }
+        for (i = 0; i < nl.length; i++) {
+          var e = nl[i];
+          if (!e || e.id == null) continue;
+          var kk = 'i:' + e.id;
+          var prevDoc = map[kk];
+          delete map[kk];
+          if (!sameJson(prevDoc, e)) ops.push({ kind: k, op: 'upsert', id: String(e.id), doc: e, prev: prevDoc === undefined ? null : prevDoc });
+        }
+        for (var key2 in map) ops.push({ kind: k, op: 'delete', id: String(map[key2].id) });
+      } else {
+        ops.push({ kind: k, op: 'set', doc: n, prev: b === undefined ? null : b });
+      }
+    }
+    return ops;
+  }
+
+  async function pushDocPatch() {
+    if (CLOUD.docPatchUnsupported) return null;   // server i vjetër: kalohet në ruajtjen e plotë
+    var base = null;
+    try { base = syncBaseSnapshotGet(); } catch (e) { base = null; }
+    if (!base) return null;                       // pa bazë → ruajtja e plotë
+    var ops = buildDocOps(base, state);
+    if (!ops.length) {                            // asgjë për të dërguar: vetëm statusi
+      try { syncSetDirty(false); } catch (e) {}
+      return { skipped: true };
+    }
+    if (ops.length > DOC_SAVE_MAX_OPS) { CLOUD.docFull = (CLOUD.docFull || 0) + 1; return null; }
+    var payload = { ops: ops, baseVersion: (typeof serverVersion !== 'undefined' ? serverVersion : null), wipeAck: (function () { try { return wipeAckGet(); } catch (e) { return null; } })() };
+    var body = JSON.stringify(payload);
+    if (body.length > DOC_SAVE_MAX_BYTES) { CLOUD.docFull = (CLOUD.docFull || 0) + 1; return null; }
+    CLOUD.docOps = ops.length;
+    CLOUD.docBytes = body.length;
+    var r;
+    try { r = await apiCall('/api/state/patch', { method: 'POST', body: body }); } catch (e) { return null; }
+    if (r && r.status === 200 && r.data && r.data.ok !== false && r.data.version != null) {
+      CLOUD.docPatches = (CLOUD.docPatches || 0) + 1;
+      try { serverVersion = r.data.version; } catch (e) {}
+      try { syncSetDirty(false); syncBaseSnapshotSet(state); } catch (e) {}
+      try { wipeAckSet(null); } catch (e) {}
+      CLOUD.syncAt = Date.now(); badgeSet();
+      return { ok: true, applied: r.data.applied };
+    }
+    if (r && r.status === 404) { CLOUD.docPatchUnsupported = true; return null; }      // server pa endpoint → e plota
+    if (r && r.status === 409 && r.data && r.data.empty) return null;                  // server pa gjendje → e plota
+    if (r && r.status === 409 && r.data && r.data.conflict) {                          // konflikt per dokument
+      CLOUD.docConflicts = (CLOUD.docConflicts || 0) + 1;
+      await resolveDocConflict(r.data);
+      return null;                                                                     // kalohet në ruajtjen e plotë të sigurt
+    }
+    if (r && r.status === 409 && r.data && r.data.wiped) { try { await honorServerWipe(r.data.wipedAt); } catch (e) {} return { stopped: true }; }
+    if (r && r.status === 401) { try { serverToken = null; serverOnline = false; updateSyncUI(); serverRelogin(); } catch (e) {} return { stopped: true }; }
+    if (r && r.status === 200) return null;                                            // përgjigje e papritur → e plota
+    if (r && r.status === 400) { CLOUD.docErrors = (CLOUD.docErrors || 0) + 1; try { toast('Ruajtja u refuzua: ' + ((r.data && r.data.error) || '')); } catch (e) {} return { stopped: true }; }
+    return null;
+  }
+
+  /* Bashkim 3-palësh FUSHË PËR FUSHË: kur dy përdorues ndryshojnë të njëjtin
+     dokument, ruhen ndryshimet e TË DYJAVE (fushat e ndryshuara nga njëri merren
+     nga ai, të tjerat mbeten). Për vlera skalare që ndryshojnë në të dyja palët
+     fiton pajisja jonë (puna e përdoruesit nuk humbet pa e ditur). */
+  function isPlain(v) { return v && typeof v === 'object' && !Array.isArray(v); }
+  function mergeDoc3(server, base, local) {
+    if (sameJson(server, local)) return local;
+    if (sameJson(server, base)) return local;
+    if (sameJson(local, base)) return server;
+    if (isPlain(server) && isPlain(local)) {
+      var out = {}, k, keys = {};
+      [base, server, local].forEach(function (o) { if (isPlain(o)) Object.keys(o).forEach(function (x) { keys[x] = 1; }); });
+      for (k in keys) out[k] = mergeDoc3(server ? server[k] : undefined, base ? base[k] : undefined, local ? local[k] : undefined);
+      return out;
+    }
+    if (Array.isArray(server) && Array.isArray(local)) {
+      var byId = {}, order = [];
+      function add(list) {
+        (list || []).forEach(function (el) {
+          var id = (el && el.id != null) ? String(el.id) : null;
+          if (id == null) { order.push({ __one: el }); return; }
+          if (!byId[id]) { byId[id] = { srv: null, base: null, loc: null }; order.push({ id: id }); }
+        });
+      }
+      add(base); add(server); add(local);
+      function find(list, id) { for (var i = 0; i < (list || []).length; i++) if (list[i] && String(list[i].id) === String(id)) return list[i]; return null; }
+      var res = [];
+      order.forEach(function (o) {
+        if (o.__one !== undefined) { res.push(o.__one); return; }
+        var m = mergeDoc3(find(server, o.id), find(base, o.id), find(local, o.id));
+        if (m !== null && m !== undefined) res.push(m);
+      });
+      return res;
+    }
+    return local;
+  }
+  function smartMerge(server, base, local) {
+    if (!server || typeof server !== 'object') return local;
+    if (!local || typeof local !== 'object') return server;
+    var out = {}, k, keys = {};
+    [base, server, local].forEach(function (o) { if (o && typeof o === 'object') Object.keys(o).forEach(function (x) { keys[x] = 1; }); });
+    for (k in keys) out[k] = mergeDoc3(server[k], base ? base[k] : undefined, local[k]);
+    return out;
+  }
+
+  // Konflikti për dokumentin e njëjtë: merret gjendja e serverit, bashkohet fushë
+  // për fushë me punën vendore, ruhet edhe një kopje vendore dhe vazhdohet.
+  async function resolveDocConflict(info) {
+    try {
+      try { await openDB(); db.transaction('app', 'readwrite').objectStore('app').put(state, 'pre-docconflict:' + Date.now()); } catch (e) {}
+      var g = null; try { g = await apiCall('/api/state'); } catch (e) {}
+      if (!g || !g.ok || !g.data || !g.data.state) return;
+      var base = null; try { base = syncBaseSnapshotGet(); } catch (e) { base = null; }
+      var merged = g.data.state;
+      try { merged = smartMerge(g.data.state, base, state); }
+      catch (e) { try { if (typeof mergeStates === 'function') merged = mergeStates(g.data.state, base, state); } catch (e2) { merged = g.data.state; } }
+      skipPush = true;
+      try { state = merged; try { normalizeState(); } catch (e) {} save(); } finally { setTimeout(function () { skipPush = false; }, 0); }
+      try { serverVersion = g.data.version; } catch (e) {}
+      try { syncSetDirty(true); syncBaseSnapshotSet(g.data.state); } catch (e) {}
+      render();
+      badgeSet();
+    } catch (e) {}
+  }
+
+  /* ---------- 5) Pa shkrime blind + ruajtja për dokument ---------- */
+  window.pushState = async function (force) {
+    // 1) Provohet ruajtja PËR DOKUMENT (e lehtë, pa konflikte midis përdoruesve).
+    //    Kalohet në ruajtjen e plotë kur: s'ka bazë, ndryshimi është i madh,
+    //    serveri s'ka gjendje, u zbulua konflikt për dokumentin e njëjtë ose ka gabim.
+    try {
+      {
+        var pr = await pushDocPatch();
+        if (pr && pr.ok) return pr;
+        if (pr && pr.skipped) return pr;
+        if (pr && pr.stopped) return pr;
+      }
+    } catch (e) { CLOUD.docErrors = (CLOUD.docErrors || 0) + 1; }
+    try {
+      if (force) { // "blind" lejohet vetëm kur serveri s'ka gjendje fare
+        var v = await apiCall('/api/state/version');
+        if (v && v.ok && v.data && +v.data.version > 0) {
+          force = false; CLOUD.blindBlocked = (CLOUD.blindBlocked || 0) + 1;
+          try { if (serverVersion == null) serverVersion = +v.data.version; } catch (e) {}
+        }
+      }
+    } catch (e) {}
+    CLOUD.docFull = (CLOUD.docFull || 0) + 1;
+    var r = await basePush.call(this, force);
+    try {
+      if (r === undefined || r === null) { /* pa kthim — statusi përditësohet nga updateSyncUI */ }
+      if (typeof serverVersion !== 'undefined' && serverVersion != null) CLOUD.version = +serverVersion;
+      CLOUD.syncAt = Date.now(); badgeSet();
+    } catch (e) {}
+    return r;
+  };
+
+  /* ---------- 6) Konfliktet ----------
+     Zgjidhen vetë nga moduli ekzistues «AUTO-RESOLVE» (serveri = burimi i së vërtetës:
+     ruhet një snapshot i brendshëm i kopjes lokale dhe merret gjendja e serverit).
+     Këtu nuk shtohet dialog i dytë — pa dublikim, pa pyetje për përdoruesin. */
+
+  /* ---------- 7) Pas reset-it: pajisja ndjek serverin, pa dialogë ---------- */
+  window.honorServerWipe = async function (wipedAt) {
+    if (isAdmin()) return baseWipe.apply(this, arguments);
+    try {
+      try { wipeAckSet(wipedAt); } catch (e) {}
+      var g = null; try { g = await apiCall('/api/state'); } catch (e) {}
+      skipPush = true;
+      try {
+        state = (g && g.ok && g.data && g.data.state) ? g.data.state : clone(initial);
+        try { normalizeState(); } catch (e) {}
+        save();
+      } finally { setTimeout(function () { skipPush = false; }, 0); }
+      try { serverVersion = (g && g.data && g.data.version) || 0; } catch (e) {}
+      try { syncSetDirty(false); syncBaseSnapshotSet(state); } catch (e) {}
+      CLOUD.applied++;
+      render();
+      toast('Të dhënat u përditësuan nga serveri');
+      return true;
+    } catch (e) { return baseWipe.apply(this, arguments); }
+  };
+
+  /* ---------- 7b) Të drejtat PER KOMPANI ----------
+     Kur ndërron kompania, grupet/modulet e përdoruesit mund të jenë të tjera.
+     Rifreskohen menjëherë: kërkesa /api/auth/me shkon me kompaninë aktive
+     (shih apiPath), pastaj rindërtohet menyja dhe zbatohen të drejtat. */
+  window.mcRightsRefresh = function () {
+    try { if (typeof serverUser !== 'undefined' && serverUser) serverUser.rights = null; } catch (e) {}
+    try { if (typeof rtRefreshServerRights === 'function') rtRefreshServerRights(); } catch (e) {}
+    setTimeout(function () {
+      try { if (typeof renderNav === 'function') renderNav(); } catch (e) {}
+      try { if (typeof applyRoleSecurity === 'function') applyRoleSecurity(); } catch (e) {}
+    }, 600);
+  };
+  try {
+    if (typeof mcSwitch === 'function') {
+      var bSwitch = mcSwitch;
+      window.mcSwitch = async function () {
+        var out = await bSwitch.apply(this, arguments);
+        try { window.mcRightsRefresh(); } catch (e) {}
+        return out;
+      };
+    }
+  } catch (e) {}
+
+  /* ---------- 8) Kompanitë: rifreskim automatik (pa Ctrl+F5) ---------- */
+  function refreshCompanies() {
+    try { if (typeof mcBootstrap === 'function') mcBootstrap(true); } catch (e) {}
+    try { if (typeof rtRefreshServerRights === 'function') rtRefreshServerRights(); } catch (e) {}
+    badgeSet();
+  }
+  /* Menuja e kompanive: shfaq TË GJITHA kompanitë e llogarisë; të çaktivizuarat
+     shfaqen të shënuara dhe të pazgjedhshme (ndryshon vetëm admini). */
+  window.mcMenu = function (ev) {
+    if (ev && ev.preventDefault) ev.preventDefault();
+    var old = document.getElementById('mcMenu');
+    if (old) { try { old.remove(); } catch (e) {} return; }
+    var host = document.getElementById('mcChip');
+    if (!host) return;
+    var mc = window.__mc || {};
+    var all = (mc.all && mc.all.length ? mc.all : (mc.companies || []));
+    if (!all.length) return;
+    if (!document.getElementById('mcMenuStyle')) {
+      var st = document.createElement('style'); st.id = 'mcMenuStyle';
+      st.textContent = '.mc-item[disabled]{opacity:.55;cursor:not-allowed}';
+      document.head.appendChild(st);
+    }
+    var m = document.createElement('div'); m.id = 'mcMenu'; m.className = 'mc-menu';
+    m.innerHTML = all.map(function (c) {
+      var isActive = String(c.id) === String(mc.active);
+      var off = c.active === false;
+      var dot = '<span class="mc-dot" style="background:' + (off ? '#9aa5a0' : '#20744A') + '"></span>';
+      var label = (c.code ? E(c.code) + ' — ' : '') + E(c.name || c.id) + (off ? ' · jo aktive' : '');
+      if (off) return '<button type="button" class="mc-item" disabled title="Kompania është e çaktivizuar — aktivizoje nga Konfigurime → Kompanitë">' + dot + label + '</button>';
+      return '<button type="button" class="mc-item' + (isActive ? ' active' : '') + '" onclick="mcSwitch(\'' + String(c.id).replace(/'/g, "\\'") + '\')">' + dot + label + (isActive ? ' ✓' : '') + '</button>';
+    }).join('') +
+      '<div class="mc-hint">Të dhënat e secilës kompani janë të ndara — fatura, stok, bankë e raporte.</div>';
+    host.appendChild(m);
+    setTimeout(function () {
+      document.addEventListener('mousedown', function (e) {
+        var mm = document.getElementById('mcMenu'), cc = document.getElementById('mcChip');
+        if (!mm) return;
+        if (cc && cc.contains(e.target)) return;
+        try { mm.remove(); } catch (_e) {}
+      }, true);
+    }, 0);
+  };
+
+  /* ---------- 9) Dalja nga sistemi: mbyllje e lidhjes ---------- */
+  try {
+    if (typeof logoutUser === 'function') {
+      var bL = logoutUser;
+      window.logoutUser = function () {
+        try { if (es) { es.close(); es = null; } CLOUD.sse = 'off'; } catch (e) {}
+        try { if (badge) badge.style.display = 'none'; hidePill(); } catch (e) {}
+        return bL.apply(this, arguments);
+      };
+    }
+  } catch (e) {}
+
+  /* ---------- 10) Nisja ---------- */
+  function start() {
+    if (started) return; started = true;
+    try {
+      if (typeof afterServerLogin === 'function') {
+        var bA = afterServerLogin;
+        window.afterServerLogin = async function () {
+          var out = await bA.apply(this, arguments);
+          try { sseConnect(); setTimeout(badgeSet, 300); } catch (e) {}
+          return out;
+        };
+      }
+    } catch (e) {}
+    try {
+      if (typeof serverLoginRetry === 'function') {
+        var bR = serverLoginRetry;
+        window.serverLoginRetry = async function () {
+          var r = await bR.apply(this, arguments);
+          try { if (r && r.ok) sseConnect(); } catch (e) {}
+          return r;
+        };
+      }
+    } catch (e) {}
+    sseConnect();
+    setInterval(function () {
+      badgeSet();
+      try { if (!es || es.readyState === 2) sseConnect(); } catch (e) {}
+    }, 15000);
+    setInterval(refreshCompanies, 60000);
+    try {
+      document.addEventListener('keydown', function () { lastInputAt = Date.now(); }, true);
+      document.addEventListener('input', function () { lastInputAt = Date.now(); }, true);
+      document.addEventListener('focusin', function () { }, true);
+    } catch (e) {}
+    setTimeout(badgeSet, 800);
+  }
+  if (document.readyState === 'complete' || document.readyState === 'interactive') setTimeout(start, 400);
+  else document.addEventListener('DOMContentLoaded', function () { setTimeout(start, 400); });
+  window.__cloudReconnect = function () { sseConnect(); };
 })();
 </script>
 
