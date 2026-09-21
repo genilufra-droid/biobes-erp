@@ -29,7 +29,8 @@
     "test:mobile-print": "node tests/mobile-print-audit.cjs",
     "test:registry-export": "node tests/registry-export-audit.cjs",
     "test:import-upsert": "node tests/import-upsert-audit.cjs",
-    "test:odoo-partner": "node tests/odoo-partner-audit.cjs"
+    "test:odoo-partner": "node tests/odoo-partner-audit.cjs",
+    "test:openings-alpha": "node tests/openings-alpha-audit.cjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"

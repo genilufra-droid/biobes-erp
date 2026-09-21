@@ -83,6 +83,68 @@ const LABELS=['KODI','NIPT / VAT','EORI','PERSONI I KONTAKTIT','TELEFONI','EMAIL
   await closeAll();
  });
 
+ await step('Formulari "Furnitor i ri": fusha Odoo, grupe, etiketa majuskule, të njëjtat fusha si klienti',async()=>{
+  await ev(()=>entityForm('supplier'));await p.waitForTimeout(500);
+  const r=await ev(()=>{const b=document.getElementById('modalBody');return{
+   cls:b.classList.contains('od-form'),banner:!!b.querySelector('.od-pav'),
+   secs:[...b.querySelectorAll('.od-sec')].map(x=>x.innerText),
+   labels:[...b.querySelectorAll('.field label')].map(x=>x.innerText),
+   under:(()=>{const i=document.getElementById('fNipt');const cs=getComputedStyle(i);return{border:cs.borderBottomWidth,bt:cs.borderTopWidth,radius:cs.borderRadius}})(),
+   ids:['fNipt','fEori','fContact','fEmail','fAddress','fCurrency','fTerms','fActive','fOpening'].map(x=>!!document.getElementById(x))}});
+  assert.ok(r.cls,'klasa od-form');assert.ok(r.banner,'banner-i i avatarit');
+  assert.deepEqual(r.secs,['TË DHËNAT E PALËS','ADRESA DHE KONTAKTI','FATURIMI DHE FINANCAT','GJENDJA FILLESTARE (HAPJA E BILANCIT)']);
+  ['KODI','EMRI / KOMPANIA','NIPT / VAT','EORI','PERSONI I KONTAKTIT','TELEFONI','EMAIL','WEBSITE','ADRESA','QYTETI','QARKU / ZONA','SHTETI','MONEDHA E FATURIMIT','AFATI I PAGESËS (DITË)','STATUSI'].forEach(l=>assert.ok(r.labels.includes(l),'mungon '+l));
+  assert.equal(r.under.border,'1px','fusha me vijë poshtë (si Odoo)');assert.equal(r.under.bt,'0px');assert.equal(r.under.radius,'0px');
+  assert.ok(r.ids.every(Boolean),'fusha të reja në formular');
+ });
+
+ await step('Ruajtja e formularit të ri ruan TË GJITHA fushat (jo vetëm 7)',async()=>{
+  const code='OD-'+Date.now().toString().slice(-5);
+  await p.locator('#fCode').fill(code);await p.locator('#fName').fill('Odoo Furnitor Shpk');
+  await p.locator('#fNipt').fill('L77777777C');await p.locator('#fEori').fill('AL999888777');
+  await p.locator('#fContact').fill('Arben Kontakt');await p.locator('#fEmail').fill('arben@odoo.al');
+  await p.locator('#fAddress').fill('Rr. Kavajës 77');await p.locator('#fCity').fill('Tirana');
+  await p.locator('#fCountry').fill('Albania');await p.locator('#fPhone').fill('0691112223');
+  await p.locator('#fCurrency').fill('EUR');await p.locator('#fTerms').fill('15');
+  await p.locator('#modalFoot button').filter({hasText:'Ruaj'}).first().click();
+  await p.waitForTimeout(700);
+  const s=await ev(cd=>{const x=state.suppliers.find(y=>y.code===cd);return x?{nipt:x.nipt,eori:x.eori,contact:x.contact,email:x.email,address:x.address,city:x.city,country:x.country,phone:x.phone,currency:x.currency,paymentTerms:x.paymentTerms}:null},code);
+  assert.ok(s,'furnitori nuk u ruajt');
+  assert.deepEqual(s,{nipt:'L77777777C',eori:'AL999888777',contact:'Arben Kontakt',email:'arben@odoo.al',address:'Rr. Kavajës 77',city:'Tirana',country:'Albania',phone:'0691112223',currency:'EUR',paymentTerms:15});
+  assert.equal(await ev(cd=>!!by('suppliers',state.suppliers.find(y=>y.code===cd).id),code),true,'regjistrimi u ruajt');
+ });
+
+ await step('Formulari "Klient i ri": i njëjti grup fushash, ruajtja ruan të gjitha',async()=>{
+  const code='ODC-'+Date.now().toString().slice(-5);
+  await ev(()=>customerForm());await p.waitForTimeout(500);
+  const labs=await ev(()=>[...document.querySelectorAll('#modalBody .field label')].map(x=>x.innerText));
+  ['KODI','EMRI / KOMPANIA','NIPT / VAT','EORI','PERSONI I KONTAKTIT','TELEFONI','EMAIL','WEBSITE','ADRESA','QYTETI','QARKU / ZONA','SHTETI','MONEDHA E FATURIMIT','AFATI I PAGESËS (DITË)','STATUSI'].forEach(l=>assert.ok(labs.includes(l),'klienti: mungon '+l));
+  assert.equal(labs.filter(l=>!/GJENDJA FILLESTARE|KUPTIMI I GJENDJES|MONEDHA E GJENDJES|KURSI \(1/.test(l)).length,15,'klienti duhet të ketë të njëjtat 15 fusha');
+  await p.locator('#cfCode').fill(code);await p.locator('#cfName').fill('Odoo Klient GmbH');
+  await p.locator('#cfVat').fill('DE811234567');await p.locator('#cfContact').fill('Hans Müller');
+  await p.locator('#cfPhone').fill('+4915112233445');await p.locator('#cfEmail').fill('hans@odoo.de');
+  await p.locator('#cfWebsite').fill('https://odoo.de');await p.locator('#cfAddress').fill('Hauptstrasse 5');
+  await p.locator('#cfCity').fill('München');await p.locator('#cfRegion').fill('Bavaria');
+  await p.locator('#modalFoot button').filter({hasText:'Ruaj'}).first().click();
+  await p.waitForTimeout(700);
+  const c=await ev(cd=>{const x=(state.customers||[]).find(y=>y.code===cd);return x?{vat:x.vat,contact:x.contact,phone:x.phone,email:x.email,website:x.website,address:x.address,city:x.city,region:x.region}:null},code);
+  assert.ok(c,'klienti nuk u ruajt');
+  assert.deepEqual(c,{vat:'DE811234567',contact:'Hans Müller',phone:'+4915112233445',email:'hans@odoo.de',website:'https://odoo.de',address:'Hauptstrasse 5',city:'München',region:'Bavaria'});
+ });
+
+ await step('Ndrysho furnitorin: fushat e ruajtura shfaqen të plotësuara në formular',async()=>{
+  const id=await ev(()=>state.suppliers.find(x=>x.code&&x.code.startsWith('OD-')).id);
+  await ev(i=>supplierEditForm(i),id);await p.waitForTimeout(500);
+  const v=await ev(()=>({city:$val('sefCity'),phone:$val('sefPhone'),website:$val('sefWebsite'),email:document.getElementById('sefEmail')?.value,address:document.getElementById('sefAddress')?.value,currency:document.getElementById('sefCurrency')?.value}));
+  assert.equal(v.phone,'0691112223');assert.equal(v.email,'arben@odoo.al');assert.equal(v.address,'Rr. Kavajës 77');assert.equal(v.currency,'EUR');
+  await p.locator('#sefPhone').fill('0699998887');
+  await p.locator('#modalFoot button').filter({hasText:'Ruaj'}).first().click();
+  await p.waitForTimeout(700);
+  assert.equal(await ev(i=>by('suppliers',i).phone,id),'0699998887','telefoni i riplotësuar u ruajt');
+  const keep=await ev(i=>({email:by('suppliers',i).email,city:by('suppliers',i).city}),id);
+  assert.equal(keep.email,'arben@odoo.al');assert.equal(keep.city,'Tirana','fushat e tjera nuk u fshinë');
+ });
+
  await step('Pa gabime JS',async()=>{assert.deepEqual(errors.filter(e=>!/Failed to load resource/.test(e)),[])});
  await browser.close();
  console.log(`\n${passed} passed, ${failed} failed`);process.exit(failed?1:0);
