@@ -11943,7 +11943,8 @@ return hit||byCode(a1)||byCode(a2);
   return Math.max(12,Math.min(42,w+3));
  }
  function buildXlsx(o){
-  var headers=o.headers||[],rows=(o.rows||[]).filter(function(r){return r&&r.length}),last=excelCol(headers.length||1);
+  var isTot=function(r){return r&&r.length&&/^(totali|total|gjithsej|nëntotali|nentotali)\b/i.test(String(r[0]).trim())};
+  var headers=o.headers||[],rows=(o.rows||[]).filter(function(r){return r&&r.length&&!isTot(r)}),last=excelCol(headers.length||1);
   var numeric=headers.map(function(_,i){return colNumeric(i,headers,rows)});
   var totals=headers.map(function(_,i){if(!numeric[i])return null;var s=0;(rows).forEach(function(r){var n=cellNum(r[i],headers[i]);if(n!==null)s+=n});return Math.round(s*100)/100});
   var cols=headers.map(function(_,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+width(i,headers,rows)+'" customWidth="1"/>'}).join('');
@@ -11994,6 +11995,25 @@ return hit||byCode(a1)||byCode(a2);
   a.href=url;a.download=o.filename;a.style.display='none';document.body.appendChild(a);a.click();setTimeout(function(){a.remove();URL.revokeObjectURL(url)},800);
   return {rows:rows.length,columns:headers.length,totals:totals};
  }
+ /* Çdo eksport regjistri/raporti (jo template importi, jo skedarë për sisteme të tjera)
+   kalon automatikisht në formatin "100% si në sistem" (kokë e gjelbër, filtri, TOTALI). */
+ var RAW=/template|import|qa-|vyapar|bartender/i;
+ try{
+  var mx=window.makeXlsx;
+  if(typeof mx==='function'){
+   window.makeXlsx=function(name,headers,rows){
+    try{
+     if(RAW.test(String(name||'')))return mx.apply(this,arguments);
+     var base=String(name||'Regjistri').replace(/\.xlsx$/i,'');
+     var t=base.replace(/[-_ ]?\d{4}[-_.]\d{2}[-_.]\d{2}.*$/,'').replace(/[-_]+/g,' ').trim()||base;
+     t=t.charAt(0).toUpperCase()+t.slice(1);
+     return window.moduleExportXlsx({filename:name||('BioBes-'+new Date().toISOString().slice(0,10)+'.xlsx'),title:t,page:t,
+      meta:['BioBes ERP','Data: '+new Date().toLocaleString('sq-AL'),'Skedari: '+name,'Rreshta: '+((rows||[]).length)],headers:headers||[],rows:rows||[]});
+    }catch(e){console.error('BioBes','export-style',e)}
+    return mx.apply(this,arguments);
+   };
+  }
+ }catch(e){}
  window.moduleExportXlsx=function(o){
   var name=(o.filename||('BioBes-'+o.page+'-'+new Date().toISOString().slice(0,10)+'.xlsx'));
   var r=buildXlsx(Object.assign({},o,{filename:name}));
@@ -12001,6 +12021,27 @@ return hit||byCode(a1)||byCode(a2);
   toast('Eksporti Excel u shkarkua ('+r.rows+' rreshta, '+r.columns+' kolona + TOTALI)');
   return r;
  };
+ /* Kartela e klientit: xlsx i vërtetë (jo .xls i vjetër me HTML) */
+ try{
+  var oldCard=window.exportCustomerLedgerXlsx;
+  window.exportCustomerLedgerXlsx=function(id){
+   try{
+    var cid=id||window.reportCustomerId||(state.customers&&state.customers[0]&&state.customers[0].id);
+    var c=(typeof by==='function'?by('customers',cid):null)||(state.customers||[]).filter(function(x){return x.id===cid})[0]||{};
+    var rows=[];
+    try{
+     if(typeof ccHistory==='function')rows=ccHistory(cid).map(function(r){return [r.date||'',r.veprimi||'',String(r.desc||'').replace(/<[^>]+>/g,''),+r.debit||0,+r.credit||0,r.status||'']});
+     else if(typeof customerTransactions==='function')rows=customerTransactions(cid).map(function(x){return [x.date||'',x.type||'',(x.ref||'')+(x.product?(' — '+x.product):''),+x.debitALL||0,+x.creditALL||0,(x.status||'')]});
+    }catch(e){console.error('BioBes','kartela-rows',e)}
+    if(!rows.length){toast('Kartela nuk ka lëvizje për eksport');return false}
+    window.moduleExportXlsx({filename:(c.code||cid||'klient')+'-Kartela-klientit-'+new Date().toISOString().slice(0,10)+'.xlsx',
+     title:'Kartela e klientit — '+(c.name||cid||''),page:'Kartela e klientit',filter:'',
+     headers:['Data','Veprimi','Përshkrimi','Debi (ALL)','Kredi (ALL)','Statusi'],rows:rows});
+    return true;
+   }catch(e){console.error('BioBes','kartela-xlsx',e)}
+   return oldCard&&oldCard.apply(this,arguments);
+  };
+ }catch(e){}
  window.moduleExportPdf=function(o){
   var headers=o.headers||[],rows=(o.rows||[]).filter(function(r){return r&&r.length});
   var numeric=headers.map(function(_,i){return colNumeric(i,headers,rows)});

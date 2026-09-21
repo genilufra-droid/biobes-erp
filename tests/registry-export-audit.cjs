@@ -1,6 +1,22 @@
 /* tests/registry-export-audit.cjs — kudo ku ka kërkim live: butonat ⬇ Excel dhe 🖨 PDF
    eksportojnë VETËM rreshtat e dukshëm (të filtruar), me kolonat e tabelës. */
-const {open}=require('./helpers.cjs'),fs=require('node:fs'),assert=require('node:assert/strict');
+const {open}=require('./helpers.cjs'),fs=require('node:fs'),zlib=require('node:zlib'),assert=require('node:assert/strict');
+/* lexon një xlsx (zip i pastruar) vetëm me modulet e Node-s */
+async function loadXlsx(buf){
+ const out={},eocd=buf.lastIndexOf(Buffer.from([0x50,0x4b,0x05,0x06]));
+ if(eocd<0)throw new Error('jo xlsx');
+ const n=buf.readUInt16LE(eocd+10),start=buf.readUInt32LE(eocd+16);
+ let off=start;
+ for(let i=0;i<n;i++){
+  if(buf.readUInt32LE(off)!==0x02014b50)break;
+  const method=buf.readUInt16LE(off+10),csize=buf.readUInt32LE(off+20),nameLen=buf.readUInt16LE(off+28),extraLen=buf.readUInt16LE(off+30),cmtLen=buf.readUInt16LE(off+32),local=buf.readUInt32LE(off+42),name=buf.slice(off+46,off+46+nameLen).toString('utf8');
+  const lNameLen=buf.readUInt16LE(local+26),lExtra=buf.readUInt16LE(local+28),dataStart=local+30+lNameLen+lExtra;
+  const raw=buf.slice(dataStart,dataStart+csize);
+  out[name]=method===0?raw.toString('utf8'):zlib.inflateRawSync(raw).toString('utf8');
+  off+=46+nameLen+extraLen+cmtLen;
+ }
+ return out;
+}
 (async()=>{
  let passed=0,failed=0;
  const {browser,page:p,errors}=await open(false);
@@ -97,6 +113,45 @@ const {open}=require('./helpers.cjs'),fs=require('node:fs'),assert=require('node
   assert.equal(await p.locator('.module-live-search button[data-mexp="xlsx"]').count(),0,'pa duplikatë Excel');
   assert.equal(await p.locator('.module-live-search button[data-mexp="pdf"]').count(),1);
   assert.equal(await p.getByRole('button',{name:'⬇ Excel',exact:true}).count(),1,'vetëm Excel-i vendas');
+ });
+
+ await step('Shpenzimet: eksporti i modulit del me të njëjtin stil (kokë, meta, një TOTALI i vetëm)',async()=>{
+  await p.evaluate(()=>go('expenses'));await p.waitForTimeout(900);
+  const dl=p.waitForEvent('download',{timeout:8000});
+  await p.evaluate(()=>{const b=[...document.querySelectorAll('#main button')].find(x=>/Excel/i.test(x.innerText));if(!b)throw new Error('pa buton Excel');b.click()});
+  const d=await dl;const raw=fs.readFileSync(await d.path());
+  const zip=await loadXlsx(raw);
+  const sheet=zip['xl/worksheets/sheet1.xml'];
+  const texts=[...sheet.matchAll(/<is><t>([\s\S]*?)<\/t><\/is>/g)].map(m=>m[1]);
+  assert.ok(/BioBes ERP/.test(texts.join(' ')),'rreshti i informacionit');
+  assert.equal(texts.filter(t=>t==='TOTALI').length,1,'një TOTALI i vetëm');
+  assert.ok(/20744A/.test(zip['xl/styles.xml']),'koka e gjelbër');
+  assert.ok(/numFmtId="164"/.test(zip['xl/styles.xml']),'formati numerik');
+  assert.equal(await ev(()=>page),'expenses');
+ });
+
+ await step('Kartela e klientit (eksport tjetër): xlsx i vlefshëm me stil dhe TOTALI',async()=>{
+  await p.evaluate(()=>{const c=(state.customers||[])[0];
+   if(!(state.customerPayments||[]).some(x=>x.customer===c.id)){customerPayments().push({id:'CP-XLSX-1',date:'2026-09-10',customer:c.id,method:'Bankë',amount:5000,currency:'ALL',rate:1,status:'Konfirmuar'});save()}
+   reportCustomerId=c.id});
+  const dl=p.waitForEvent('download',{timeout:8000});
+  await p.evaluate(()=>{const c=(state.customers||[])[0];exportCustomerLedgerXlsx(c.id)});
+  const d=await dl;
+  assert.match(d.suggestedFilename(),/Kartela-klientit-\d{4}-\d{2}-\d{2}\.xlsx$/,'emri: '+d.suggestedFilename());
+  const zip=await loadXlsx(fs.readFileSync(await d.path()));
+  const sheet=zip['xl/worksheets/sheet1.xml'];
+  assert.ok(/TOTALI/.test(sheet),'TOTALI në kartelë');
+  assert.ok(/20744A/.test(zip['xl/styles.xml']),'stil i njëjtë');
+ });
+
+ await step('Template-t e importit NUK ndryshojnë (formati i importit mbetet i paprekur)',async()=>{
+  const dl=p.waitForEvent('download',{timeout:8000});
+  await p.evaluate(()=>professionalImportTemplate('suppliers'));
+  const d=await dl;const zip=await loadXlsx(fs.readFileSync(await d.path()));
+  const sheet=zip['xl/worksheets/sheet1.xml'];
+  assert.ok(!/TOTALI/.test(sheet),'pa rresht TOTALI në template');
+  assert.ok(!/BioBes ERP   ·   Data/.test(sheet),'pa rresht informacioni të eksportit');
+  assert.ok(zip['xl/worksheets/sheet2.xml'],'fleta UDHEZIME ekziston');
  });
 
  await step('Pa gabime JS',async()=>{assert.deepEqual(errors,[])});
