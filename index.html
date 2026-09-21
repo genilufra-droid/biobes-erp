@@ -12324,4 +12324,257 @@ return hit||byCode(a1)||byCode(a2);
  }catch(e){}
 }catch(e){console.error('biobes-trace-fix-v1',e)}})();
 </script>
+<!-- biobes-multicompany-v1 -->
+<script>
+/* ===== BioBes Multi-company v1 (Modeli B — ndarje e plotë per kompani) =====
+   Çka bën: ndarjen e të dhënave per kompani në klient (IndexedDB `state:<id>`),
+   parametrin `company` në kërkesat API, çelësat e sinkronizimit per kompani dhe
+   ndërruesin e kompanisë në krye të ekranit.
+   KUR AKTIVIZOHET: vetëm kur serveri shpall më shumë se një kompani
+   (GET /api/auth/me → { multiCompany:true, companies:[…] }). Me serverin e sotëm
+   (një kompani) kjo pjesë mbetet e fjetur: pa ndërrues, pa çelësa të rinj,
+   pa asnjë ndryshim sjelljeje. Raportet e Alpha-s nuk preken. */
+(function(){
+'use strict';
+var LS_ACTIVE='biobesActiveCompany',LS_LIST='biobesCompanies',LS_DEFAULT='biobesDefaultCompany';
+var mc={enabled:false,companies:[],active:'',defaultId:'',ready:false,loadedFor:''};
+window.__mc=mc;
+var baseCall=apiCall,baseLoad=load,baseSave=save,baseKey=syncServerKey,baseRender=render;
+
+function lsGet(k){try{return localStorage.getItem(k)||''}catch(e){return''}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function lsDel(k){try{localStorage.removeItem(k)}catch(e){}}
+function companyOf(id){return (mc.companies||[]).filter(function(c){return c&&c.id===id})[0]||{}}
+function labelOf(c){return [c&&c.code,c&&c.name].filter(Boolean).join(' — ')}
+function storeKey(id){return 'state:'+(id||mc.active)}
+function activeKey(){return (mc.enabled&&mc.active)?storeKey(mc.active):'state'}
+function apiPath(p){if(!mc.enabled||!mc.active)return p;if(!/^\/api\/(state|backups|audit)/.test(p||''))return p;if(/[?&]company=/.test(p))return p;return p+(p.indexOf('?')>=0?'&':'?')+'company='+encodeURIComponent(mc.active)}
+function dotColor(id){var list=mc.companies||[],i=0;for(var k=0;k<list.length;k++)if(list[k].id===id)i=k;var cols=['#20744A','#1D4E89','#8A5A00','#7A2E5C','#3B5B6B'];return cols[i%cols.length]}
+
+/* ---------- 1) API-ja: kompania në çdo kërkesë ---------- */
+window.apiCall=function(path,opts){return baseCall(apiPath(path),opts)};
+
+/* ---------- 2) Ruajtja lokale per kompani ---------- */
+window.load=async function(){
+  if(!(mc.enabled&&mc.active))return baseLoad();
+  await openDB();
+  return new Promise(function(res){
+    var r=db.transaction('app','readonly').objectStore('app').get(activeKey());
+    r.onsuccess=function(){state=r.result||clone(initial);res(state)};
+    r.onerror=function(){try{state=normalizeState({});state._loadError=true;toast('Gabim leximi i memories lokale — u hap me bazë boshe. Rikthe nga backup!')}catch(e){state=clone(initial)}res()};
+  });
+};
+window.save=function(){
+  if(!(mc.enabled&&mc.active))return baseSave();
+  if(state&&state.events&&state.events.length>500)state.events=state.events.slice(-500);
+  if(!db)return;
+  var pushAfter=!(typeof skipPush!=='undefined'&&skipPush);
+  try{
+    var sq=db.transaction('app','readwrite').objectStore('app').put(state,activeKey()),done=false;
+    function finish(){if(done)return;done=true;if(!pushAfter)return;try{queuePush()}catch(_q){}}
+    if(sq&&typeof sq==='object'){sq.onsuccess=function(){finish()};sq.onerror=function(){toast('Ruajtja lokale dështoi — kontrollo hapësirën dhe provo përsëri');finish()}}
+    else finish();
+  }catch(e){console.error('save error',e);toast('Ruajtja lokale dështoi — kontrollo hapësirën dhe provo përsëri');try{queuePush()}catch(_e){}}
+};
+
+/* ---------- 3) Sinkronizimi: versioni/dirty per kompani ---------- */
+window.syncServerKey=function(){return baseKey()+(mc.enabled&&mc.active?'|'+mc.active:'')};
+
+function hasStore(id){
+  return openDB().then(function(){return new Promise(function(res){
+    try{
+      var r=db.transaction('app','readonly').objectStore('app').get('state:'+id);
+      r.onsuccess=function(){res(!!r.result)};r.onerror=function(){res(false)};
+    }catch(e){res(false)}
+  })});
+}
+function adoptLegacy(id){
+  if(!id||id!==mc.defaultId)return Promise.resolve(false);
+  return hasStore(id).then(function(has){
+    if(has)return false;
+    return new Promise(function(res){
+      try{
+        var r=db.transaction('app','readonly').objectStore('app').get('state');
+        r.onsuccess=function(){
+          var v=r.result;if(!v)return res(false);
+          try{
+            var w=db.transaction('app','readwrite').objectStore('app').put(v,'state:'+id);
+            w.onsuccess=function(){res(true)};w.onerror=function(){res(false)};
+          }catch(e){res(false)}
+        };
+        r.onerror=function(){res(false)};
+      }catch(e){res(false)}
+    });
+  });
+}
+
+/* ---------- 4) Njohja e multi-company nga serveri ---------- */
+function parseMe(d){
+  d=d||{};
+  var list=(Array.isArray(d.companies)?d.companies:[]).filter(function(c){return c&&c.id});
+  var advert=('multiCompany' in d)?!!d.multiCompany:(list.length>1);
+  if(!advert||list.length<2)return false;
+  mc.companies=list.map(function(c){return{id:c.id,code:c.code||'',name:c.name||'',active:c.active!==false}});
+  var dft='';for(var i=0;i<list.length;i++)if(list[i].isDefault||list[i].is_default)dft=list[i].id;
+  mc.defaultId=d.defaultCompany||dft||list[0].id;
+  lsSet(LS_LIST,JSON.stringify(mc.companies));lsSet(LS_DEFAULT,mc.defaultId);
+  var saved=lsGet(LS_ACTIVE);
+  var keep=(mc.companies.filter(function(c){return c.id===saved})[0]||{}).id;
+  mc.active=keep||mc.defaultId;
+  mc.enabled=true;lsSet(LS_ACTIVE,mc.active);
+  return true;
+}
+function cachedList(){
+  try{var a=JSON.parse(lsGet(LS_LIST)||'[]');return Array.isArray(a)?a.filter(function(c){return c&&c.id}):[]}catch(e){return[]}
+}
+function activateFromCache(){
+  try{
+    var list=cachedList();
+    if(list.length<2)return false;
+    if(!serverBaseUrl()||!serverToken)return false;
+    mc.companies=list;mc.defaultId=lsGet(LS_DEFAULT)||list[0].id;
+    var saved=lsGet(LS_ACTIVE);
+    var keep=(list.filter(function(c){return c.id===saved})[0]||{}).id;
+    mc.active=keep||mc.defaultId;mc.enabled=true;
+    return true;
+  }catch(e){return false}
+}
+async function detect(){
+  if(!serverBaseUrl()||!serverToken)return false;
+  var r=null;
+  try{r=await baseCall('/api/auth/me')}catch(e){return false}
+  if(!r||!r.ok||!r.data)return false;
+  return parseMe(r.data);
+}
+
+/* ---------- 5) Ngarkimi i kompanisë ---------- */
+async function activate(id){
+  var fresh=!(await hasStore(id));
+  try{await load()}catch(e){}
+  var pr=null;
+  try{if(fresh&&serverBaseUrl()&&serverToken)pr=await pullState()}catch(e){}
+  if(fresh&&(!pr||!pr.ok)){
+    try{
+      if(typeof stateLooksLikeSeed==='function'&&stateLooksLikeSeed()){
+        wipeBusinessArrays('Kompania «'+(labelOf(companyOf(id))||id)+'»: nuk ka të dhëna në server — fillim i pastër');
+      }
+    }catch(e){}
+  }
+  try{normalizeState()}catch(e){}
+  try{save()}catch(e){}
+  mc.loadedFor=id;mc.ready=true;
+}
+async function bootstrap(force){
+  try{await detect()}catch(e){}
+  if(!mc.enabled){paint();return false}
+  try{await adoptLegacy(mc.active)}catch(e){}
+  if(force||mc.loadedFor!==mc.active){
+    try{await activate(mc.active)}catch(e){}
+    try{render()}catch(e){}
+  }
+  paint();
+  return true;
+}
+window.mcBootstrap=function(force){return bootstrap(!!force)};
+
+/* ---------- 6) Ndërrimi i kompanisë ---------- */
+window.mcSwitch=async function(id){
+  if(!mc.enabled||!id)return;
+  closeMenu();
+  if(id===mc.active)return;
+  var t=companyOf(id);
+  if(!t){toast('Kompania nuk u gjet');return}
+  try{if(typeof syncIsDirty==='function'&&syncIsDirty()&&serverBaseUrl()&&serverToken)await pushState()}catch(e){}
+  try{closeModal()}catch(e){}
+  mc.active=id;lsSet(LS_ACTIVE,id);serverVersion=null;
+  try{syncSetDirty(false)}catch(e){}
+  try{await activate(id)}catch(e){toast('Ngarkimi i kompanisë dështoi: '+e.message)}
+  try{render()}catch(e){}
+  paint();
+  try{applyRoleSecurity()}catch(e){}
+  toast('Kompania aktive: '+(t.name||t.code||id));
+};
+
+/* ---------- 7) Ndërruesi në krye ---------- */
+var chipLabel='';
+function paint(){
+  try{
+    var host=document.querySelector('header.top');
+    if(!host)return;
+    var el=document.getElementById('mcChip');
+    if(!(mc.enabled&&(mc.companies||[]).length>1)){if(el)el.remove();chipLabel='';return}
+    if(!el){
+      el=document.createElement('div');el.id='mcChip';el.className='mc-chip';
+      var logo=host.querySelector('.logo');
+      if(logo&&logo.parentNode===host)host.insertBefore(el,logo.nextSibling);
+      else host.insertBefore(el,host.firstChild);
+    }
+    var c=companyOf(mc.active),l=labelOf(c)||mc.active||'';
+    if(l!==chipLabel){
+      chipLabel=l;
+      el.innerHTML='<button type="button" class="mc-btn" onclick="mcMenu(event)" title="Kompania aktive — kliko për të ndërruar kompani"><span class="mc-dot" style="background:'+dotColor(mc.active)+'"></span>'+esc(l)+' ▾</button>';
+    }
+  }catch(e){}
+}
+function mcOutside(e){
+  var m=document.getElementById('mcMenu'),c=document.getElementById('mcChip');
+  if(!m)return;
+  if(c&&c.contains(e.target))return;
+  closeMenu();
+}
+function closeMenu(){
+  var m=document.getElementById('mcMenu');
+  if(m)try{m.remove()}catch(e){}
+  try{document.removeEventListener('mousedown',mcOutside,true)}catch(e){}
+}
+window.mcMenu=function(ev){
+  if(ev&&ev.preventDefault)ev.preventDefault();
+  if(document.getElementById('mcMenu'))return closeMenu();
+  var host=document.getElementById('mcChip');
+  if(!host||!mc.enabled)return;
+  var m=document.createElement('div');m.id='mcMenu';m.className='mc-menu';
+  m.innerHTML=(mc.companies||[]).map(function(c){
+    return '<button type="button" class="mc-item'+(c.id===mc.active?' active':'')+'" onclick="mcSwitch(\''+String(c.id).replace(/'/g,"\\'")+'\')"><span class="mc-dot" style="background:'+dotColor(c.id)+'"></span>'+esc(labelOf(c)||c.id)+'</button>';
+  }).join('')+'<div class="mc-hint">Të dhënat e secilës kompani janë të ndara — fatura, stok, bankë e raporte.</div>';
+  host.appendChild(m);
+  setTimeout(function(){document.addEventListener('mousedown',mcOutside,true)},0);
+};
+
+/* ---------- 8) Lidhja me rrjedhën e sistemit ---------- */
+window.render=function(){var out=baseRender.apply(this,arguments);try{paint()}catch(e){}return out};
+if(typeof afterServerLogin==='function'){
+  var bA=afterServerLogin;
+  window.afterServerLogin=async function(){try{await bootstrap()}catch(e){}return bA.apply(this,arguments)};
+}
+if(typeof serverLoginRetry==='function'){
+  var bR=serverLoginRetry;
+  window.serverLoginRetry=async function(){var r=await bR.apply(this,arguments);try{if(r&&r.ok)await bootstrap(true)}catch(e){}return r};
+}
+if(typeof logoutUser==='function'){
+  var bL=logoutUser;
+  window.logoutUser=function(){
+    var out=bL.apply(this,arguments);
+    try{mc.enabled=false;mc.companies=[];mc.active='';mc.ready=false;mc.loadedFor='';lsDel(LS_ACTIVE);closeMenu();paint()}catch(e){}
+    return out;
+  };
+}
+/* aktivizim i menjëhershëm nga lista e ruajtur (pa pritur rrjetin) */
+if(activateFromCache()){
+  try{load().catch(function(){})}catch(e){}
+}
+try{setTimeout(function(){bootstrap()},0)}catch(e){}
+})();
+</script>
+<style>
+.mc-chip{position:relative;margin-left:10px}
+.mc-btn{display:inline-flex;align-items:center;gap:6px;background:#eef4f0;border:1px solid #b9cdc2;color:#173a2b;border-radius:999px;padding:5px 11px;font:600 13px system-ui,sans-serif;cursor:pointer;white-space:nowrap}
+.mc-dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:0 0 auto}
+.mc-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:10060;background:#fff;border:1px solid #93a9bc;box-shadow:0 6px 18px rgba(0,0,0,.14);border-radius:8px;min-width:240px;overflow:hidden}
+.mc-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:#fff;border:0;padding:9px 12px;font:14px system-ui,sans-serif;cursor:pointer}
+.mc-item:hover{background:#eef4f0}
+.mc-item.active{background:#e3efe8;font-weight:600}
+.mc-hint{padding:7px 12px;color:#6b7c74;font:12px system-ui,sans-serif;border-top:1px solid #e6ece8}
+@media(max-width:700px){.mc-chip{margin-left:6px}.mc-btn{font-size:12px;padding:4px 8px}.mc-menu{min-width:200px}}
+</style>
+
 </body></html>
