@@ -12416,9 +12416,15 @@ function parseMe(d){
   var list=(Array.isArray(d.companies)?d.companies:[]).filter(function(c){return c&&c.id});
   var advert=('multiCompany' in d)?!!d.multiCompany:(list.length>1);
   if(!advert||list.length<2)return false;
-  mc.companies=list.map(function(c){return{id:c.id,code:c.code||'',name:c.name||'',active:c.active!==false}});
+  // Vetëm kompanitë AKTIVE hyjnë në ndërrues; të çaktivizuarat mbeten vetëm te moduli i kompanive.
+  var active=list.filter(function(c){return c.active!==false});
+  if(!active.length){mc.enabled=false;mc.companies=[];return false}
+  mc.all=list.map(function(c){return{id:c.id,code:c.code||'',name:c.name||'',active:c.active!==false}});
+  mc.companies=active.map(function(c){return{id:c.id,code:c.code||'',name:c.name||'',active:true}});
   var dft='';for(var i=0;i<list.length;i++)if(list[i].isDefault||list[i].is_default)dft=list[i].id;
-  mc.defaultId=d.defaultCompany||dft||list[0].id;
+  var want=d.defaultCompany||dft;
+  if(!(mc.companies.filter(function(c){return c.id===want})[0]))want=(mc.companies[0]||{}).id;
+  mc.defaultId=want;
   lsSet(LS_LIST,JSON.stringify(mc.companies));lsSet(LS_DEFAULT,mc.defaultId);
   var saved=lsGet(LS_ACTIVE);
   var keep=(mc.companies.filter(function(c){return c.id===saved})[0]||{}).id;
@@ -12578,5 +12584,161 @@ try{setTimeout(function(){bootstrap()},0)}catch(e){}
 .mc-hint{padding:7px 12px;color:#6b7c74;font:12px system-ui,sans-serif;border-top:1px solid #e6ece8}
 @media(max-width:700px){.mc-chip{margin-left:6px}.mc-btn{font-size:12px;padding:4px 8px}.mc-menu{min-width:200px}}
 </style>
+
+<script id="biobes-companies-module-v1">
+/* BioBes ERP — Moduli «Kompanitë» (multi-company, Modeli B), vetëm ADMIN.
+   Te Konfigurime shfaqet NJË kartë e vetme që mbulon gjithçka: lista e kompanive
+   (me përdoruesin, versionin dhe gjendjen), shtimi/editimi/çaktivizimi i kompanive,
+   anëtarësia e përdoruesve per kompani dhe kalimi i shpejtë në një kompani.
+   Kartela shfaqet kur aplikacioni është i lidhur me serverin; butonat e ndryshimit
+   janë admin-only (fshihen automatikisht për përdoruesit e thjeshtë).
+   Raportet e Alpha-s nuk preken nga ky modul. */
+(function(){
+'use strict';
+function base(){try{return serverBaseUrl()}catch(e){return''}}
+function token(){try{return serverToken}catch(e){return null}}
+function online(){return !!(base()&&token())}
+function col(){try{return window.__mc&&window.__mc.active||''}catch(e){return''}}
+function canEdit(){try{return /admin/i.test((serverUser&&serverUser.role)||'')||(typeof isAdmin==='function'&&isAdmin())}catch(e){return false}}
+
+function cardHtml(){
+  return '<div class="card" data-admin-only style="border-color:#cfd8e6;background:#f6f8fc">'
+    +'<h3>🏢 Kompanitë (multi-company)</h3>'
+    +'<p class="hint">Të dhënat e secilës kompani janë <b>të ndara plotësisht</b> në server: stok, fatura, bankë, kontabilitet e raporte. Ndërruesi i kompanisë shfaqet në krye të ekranit sapo të ketë më shumë se një kompani.</p>'
+    +'<div class="actions" style="margin:6px 0 10px"><button class="btn primary" onclick="companyForm()">+ Kompani e re</button>'
+    +'<button class="btn" onclick="loadCompaniesModule()">↻ Rifresko</button>'
+    +(function(){try{return col()?'<span class="hint" style="margin-left:8px">Kompania aktive: <b>'+esc(col())+'</b></span>':''}catch(e){return''}})()
+    +'</div><div id="mcCompaniesBox"><p class="hint">Po ngarkohet…</p></div></div>';
+}
+const settingsBase=views.settings;
+views.settings=function(){
+  let h=settingsBase();
+  try{ if(h&&h.indexOf('mcCompaniesBox')<0) h=h+cardHtml(); setTimeout(()=>{try{loadCompaniesModule()}catch(e){}},70); }catch(e){}
+  return h;
+};
+
+function stateBadge(active){return active?'<span class="pill green">Aktive</span>':'<span class="pill red">Jo aktive</span>'}
+
+window.loadCompaniesModule=async function(){
+  const box=document.getElementById('mcCompaniesBox');
+  if(!box)return;
+  if(!online()){box.innerHTML='<p class="hint">S\'ka server të lidhur — kompanitë administrohen në serverin biobes-api. Plotësoni URL-në e serverit te Konfigurime → Sinkronizimi.</p>';return}
+  let r=null;try{r=await apiCall('/api/admin/companies')}catch(e){}
+  if(!r||!r.ok||!Array.isArray(r.data.companies)){
+    box.innerHTML='<p class="hint">Serveri nuk u përgjigj'+(r&&r.status===403?' (kjo kartë është vetëm për administratorin)':'')+'. Nëse versioni i serverit është i vjetër, multi-company aktivizohet pas përditësimit.</p>';return;
+  }
+  const list=r.data.companies, act=col();
+  if(!list.length){box.innerHTML='<p class="hint">Ende pa kompani në server.</p>';return}
+  box.innerHTML='<div class="table-wrap"><table><thead><tr><th>#</th><th>Kodi</th><th>Emri</th><th>NIPT</th><th>Qyteti</th><th>Monedha</th><th>TVSH %</th><th>Përdorues</th><th>Versioni</th><th>Gjendja</th><th>Veprime</th></tr></thead><tbody>'
+    +list.map(c=>{
+      const isAct=(c.id===act);
+      return '<tr'+(isAct?' style="background:#eef4ff"':'')+'><td>'+esc(c.id)+'</td><td>'+esc(c.code||'')+'</td><td>'+esc(c.name||'')+'</td><td>'+esc(c.nipt||'—')+'</td><td>'+esc(c.city||'—')+'</td><td>'+esc(c.currency||'')+'</td><td>'+esc(String(c.vatRate==null?'':c.vatRate))+'</td><td>'+(c.users||0)+'</td><td>'+(c.stateVersion||0)+(c.hasState?'':' <span class="hint">(bosh)</span>')+'</td><td>'+(isAct?'<span class="pill blue">Aktive tani</span> ':''+ '')+stateBadge(c.active!==false)+'</td><td>'
+        +'<button class="btn" data-admin-only onclick="companyForm(\''+esc(c.id)+'\')">Ndrysho</button> '
+        +'<button class="btn" data-admin-only onclick="companyMembership(\''+esc(c.id)+'\')">Përdoruesit</button> '
+        +'<button class="btn" data-admin-only onclick="companyToggle(\''+esc(c.id)+'\','+(c.active===false?'true':'false')+')">'+(c.active===false?'Aktivizo':'Çaktivizo')+'</button>'
+        +(isAct?'':' <button class="btn" onclick="mcSwitch(\''+esc(c.id)+'\')"'+((mcAllows(c.id))?'':' disabled title="Nuk jeni anëtar i kësaj kompanie"')+'>Kalo këtu</button>')
+        +'</td></tr>';
+    }).join('')+'</tbody></table></div>'
+    +'<p class="hint" style="margin-top:8px">Kompania e re nis <b>bosh</b> (pa të dhëna demo). Faturat numërohen veçmas për çdo kompani. Kompania që nuk përdoret më mirë <b>çaktivizohet</b> sesa fshihet — gjendja e saj mbetet në server dhe mund të rikthehet.</p>';
+  try{applyRoleSecurity()}catch(e){}
+};
+function mcAllows(id){try{const c=(window.__mc&&window.__mc.companies)||[];return c.some(x=>x.id===id)&&window.__mc.enabled}catch(e){return false}}
+
+window.companyForm=async function(id){
+  if(!online())return toast('Lidhuni me serverin para se të administroni kompanitë');
+  let c=null;
+  if(id){let r=null;try{r=await apiCall('/api/admin/companies')}catch(e){}if(r&&r.ok&&Array.isArray(r.data.companies))c=r.data.companies.find(x=>x.id===id)||null}
+  c=c||{};
+  modal((id?'Kompania ':'Kompani e re'),''
+    +'<div class="form-grid">'
+    +'<div class="field"><label>Kodi *</label><input id="coCode" value="'+esc(c.code||'')+'" maxlength="8" placeholder="p.sh. BB"></div>'
+    +'<div class="field"><label>Emri *</label><input id="coName" value="'+esc(c.name||'')+'" placeholder="p.sh. BioBes Sh.p.k."></div>'
+    +'<div class="field"><label>NIPT</label><input id="coNipt" value="'+esc(c.nipt||'')+'"></div>'
+    +'<div class="field"><label>Qyteti</label><input id="coCity" value="'+esc(c.city||'')+'"></div>'
+    +'<div class="field full"><label>Adresa</label><input id="coAddress" value="'+esc(c.address||'')+'"></div>'
+    +'<div class="field"><label>Shteti</label><input id="coCountry" value="'+esc(c.country||'AL')+'" maxlength="3"></div>'
+    +'<div class="field"><label>TVSH %</label><input id="coVat" inputmode="decimal" value="'+esc(String(c.vatRate==null?20:c.vatRate))+'"></div>'
+    +'<div class="field"><label>Monedha</label><input id="coCurrency" value="'+esc(c.currency||'ALL')+'" maxlength="8"></div>'
+    +'</div>'
+    +'<p class="hint">Kodi shfaqet në ndërruesin e kompanive dhe në printime; TVSH-ja dhe monedha përdoren nga dokumentet e kësaj kompanie.</p>',
+    '<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="companySave('+(id?'\''+esc(id)+'\'':'')+')">Ruaj</button>');
+  try{globalizeAllSelects(document.getElementById('modalBody'))}catch(e){}
+};
+window.companySave=async function(id){
+  const body={
+    code:(document.getElementById('coCode')||{}).value||'',
+    name:(document.getElementById('coName')||{}).value||'',
+    nipt:(document.getElementById('coNipt')||{}).value||'',
+    city:(document.getElementById('coCity')||{}).value||'',
+    address:(document.getElementById('coAddress')||{}).value||'',
+    country:(document.getElementById('coCountry')||{}).value||'AL',
+    vatRate:parseLocal((document.getElementById('coVat')||{}).value||'20'),
+    currency:(document.getElementById('coCurrency')||{}).value||'ALL'
+  };
+  if(String(body.name).trim().length<2)return toast('Shkruani emrin e kompanisë');
+  if(String(body.code).trim().length<2)return toast('Shkruani kodin (min 2 shkronja)');
+  let r=null;
+  try{r=await apiCall('/api/admin/companies'+(id?'/'+id:''),{method:id?'PATCH':'POST',body:JSON.stringify(body)})}catch(e){}
+  if(!r||!r.ok)return toast((r&&r.data&&r.data.error)||'Ruajtja dështoi');
+  closeModal();
+  toast(id?'Kompania u përditësua':'Kompania u krijua');
+  try{await mcBootstrap(true)}catch(e){}
+  loadCompaniesModule();
+};
+window.companyToggle=async function(id,makeActive){
+  if(!confirm((makeActive?'Të aktivizohet':'Të çaktivizohet')+' kompania '+id+'?'))return;
+  let r=null;
+  try{r=await apiCall('/api/admin/companies/'+id,{method:'PATCH',body:JSON.stringify({active:!!makeActive})})}catch(e){}
+  if(!r||!r.ok)return toast((r&&r.data&&r.data.error)||'Veprimi dështoi');
+  toast(makeActive?'Kompania u aktivizua':'Kompania u çaktivizua');
+  try{await mcBootstrap(true)}catch(e){}
+  loadCompaniesModule();
+};
+window.companyMembership=async function(id){
+  if(!online())return toast('Lidhuni me serverin');
+  let users=null,mem=null,co=null;
+  try{users=await apiCall('/api/admin/users');co=await apiCall('/api/admin/companies');}catch(e){}
+  if(!users||!users.ok||!Array.isArray(users.data.users))return toast('Lista e përdoruesve nuk u lexua');
+  const mine={};
+  for(const u of users.data.users){
+    try{const m=await apiCall('/api/admin/users/'+u.id+'/companies');mine[u.id]=(m&&m.ok&&Array.isArray(m.data.membership))?m.data.membership:[]}catch(e){mine[u.id]=[]}
+  }
+  const coList=(co&&co.ok&&Array.isArray(co.data.companies))?co.data.companies:[];
+  const cname=(coList.find(x=>x.id===id)||{}).name||id;
+  modal('Përdoruesit e kompanisë '+cname,''
+    +'<p class="hint">Shënoni kush punon në këtë kompani. Kush nuk është i shënuar, nuk e hap fare atë kompani (serveri kthen 403) — edhe sikur ta ndryshojë kompaninë nga shfletuesi.</p>'
+    +'<div class="table-wrap"><table><thead><tr><th>Përdoruesi</th><th>Roli</th><th>Anëtar</th><th>Të drejtat</th></tr></thead><tbody>'
+    +users.data.users.map(u=>{
+      const inCo=mine[u.id].some(x=>x.id===id);
+      const others=mine[u.id].filter(x=>x.id!==id).map(x=>esc(x.id)).join(', ');
+      return '<tr><td><b>'+esc(u.username)+'</b><br><span class="hint">'+esc(u.name||'')+'</span></td><td>'+esc(u.role||'')+'</td>'
+        +'<td><input type="checkbox" class="co-mem" data-user="'+esc(u.id)+'" '+(inCo?'checked':'')+(String(u.role)==='ROLE-ADMIN'?' disabled title="Administratori sheh gjithçka"':'')+'></td>'
+        +'<td>'+(others?'edhe: '+others:'<span class="hint">vetëm kjo</span>')+'</td></tr>';
+    }).join('')+'</tbody></table></div>',
+    '<button class="btn" onclick="closeModal()">Mbyll</button><button class="btn primary" onclick="companyMembershipSave(\''+esc(id)+'\')">Ruaj anëtarësinë</button>');
+};
+window.companyMembershipSave=async function(id){
+  const boxes=[...document.querySelectorAll('#modalBody .co-mem')];
+  let okCount=0,bad=[];
+  for(const b of boxes){
+    const uid=b.dataset.user;
+    let cur=[];try{const m=await apiCall('/api/admin/users/'+uid+'/companies');cur=(m&&m.ok&&Array.isArray(m.data.membership))?m.data.membership.map(x=>x.id):[]}catch(e){}
+    const has=cur.includes(id);
+    if(b.checked===has)continue;
+    const next=b.checked?cur.concat([id]):cur.filter(x=>x!==id);
+    if(!next.length){bad.push(uid);continue}
+    const dflt=cur.some(x=>x===id)||!cur.length?next[0]:cur[0];
+    let r=null;try{r=await apiCall('/api/admin/users/'+uid+'/companies',{method:'PUT',body:JSON.stringify({companies:next.map(x=>({id:x,isDefault:x===dflt}))})})}catch(e){}
+    if(r&&r.ok)okCount++;else bad.push(uid);
+  }
+  closeModal();
+  if(bad.length)toast('Disa përdorues nuk u ruajtën (duhet të kenë të paktën një kompani)');
+  else toast(okCount?('Anëtarësia u ruajt ('+okCount+')'):'Pa ndryshime');
+  try{await mcBootstrap(true)}catch(e){}
+  loadCompaniesModule();
+};
+try{setTimeout(()=>{try{applyRoleSecurity()}catch(e){}},0)}catch(e){}
+})();
+</script>
 
 </body></html>
