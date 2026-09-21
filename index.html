@@ -573,7 +573,7 @@ closeModalWindow=function(){modalNavStack.length=0;let bg=document.getElementByI
 </script>
 <style>.module-live-search{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px}.module-live-search input{flex:1;min-width:110px;border:0;outline:0;padding:6px;font-size:14px}.module-live-search button{white-space:nowrap}.module-live-search .search-count{color:var(--muted);font-size:12px;white-space:nowrap}</style>
 <script>
-function installModuleLiveSearch(){if(['dashboard','settings','registries','reports','trace','warehouse'].includes(page))return;if(['products','suppliers'].includes(page))return;if(document.querySelector('#main .module-live-search'))return;let tables=[...document.querySelectorAll('#main .table-wrap table')].filter(t=>!t.closest('.doc-sheet,.order-sheet,.purchase-doc'));if(!tables.length)return;let box=document.createElement('div');box.className='module-live-search';const hasNativeXlsx=[...document.querySelectorAll('#main button')].some(b=>!b.closest('.module-live-search')&&/Excel/.test(b.textContent||'')&&/xlsx/i.test(b.getAttribute('onclick')||''));box.innerHTML=`<span style="font-size:18px">⌕</span><input type="search" placeholder="Kërko live në këtë modul..."><span class="search-count"></span>${hasNativeXlsx?'':'<button class="btn small" type="button" data-mexp="xlsx" data-right="${page}:print" title="Eksporto rreshtat e dukshëm (të filtruar) në Excel">⬇ Excel</button>'}<button class="btn small" type="button" data-mexp="pdf" data-right="${page}:print" title="Eksporto rreshtat e dukshëm (të filtruar) në PDF përmes printimit">🖨 PDF</button><button class="btn small" type="button" data-mclear="1">Pastro</button>`;let target=tables[0].closest('.card')||tables[0].parentElement;target.parentNode.insertBefore(box,target);let inp=box.querySelector('input'),count=box.querySelector('.search-count');function filter(){let q=inp.value.trim().toLocaleLowerCase('sq'),visible=0,total=0;tables.forEach(table=>[...table.tBodies].forEach(tb=>[...tb.rows].forEach(row=>{if(row.querySelector('.empty'))return;total++;let show=!q||row.textContent.toLocaleLowerCase('sq').includes(q);row.style.display=show?'':'none';if(show)visible++})));count.textContent=q?visible+' / '+total+' rezultate':total+' regjistrime'}function collect(){let headers=null,rows=[];tables.forEach((table,ti)=>{let ths=[...table.querySelectorAll('thead th')].map(th=>th.textContent.replace(/\s+/g,' ').trim());let vr=[...table.tBodies].flatMap(tb=>[...tb.rows]).filter(r=>!r.querySelector('.empty')&&r.style.display!=='none').map(r=>[...r.cells].map(td=>{let c=td.cloneNode(true);c.querySelectorAll('button,.btn').forEach(b=>b.remove());return c.innerText.replace(/\s+/g,' ').trim()}));if(ti===0){headers=ths;rows=vr}else{rows.push(ths);rows=rows.concat(vr)}});return{headers:headers||[],rows}}function modTitle(){let h=document.querySelector('#main h1,#main h2,#main .page-head b,#main .head b');return (h?h.textContent:'').trim()||page}window.moduleExportCollect=collect;xBtn=box.querySelector('[data-mexp="xlsx"]');if(xBtn)xBtn.onclick=()=>{let c=collect();if(!c.rows.length)return toast('S\'ka rreshta të dukshëm për eksport');window.moduleExportXlsx({title:modTitle(),page,filter:inp.value.trim(),headers:c.headers,rows:c.rows,filename:'BioBes-'+page+'-'+new Date().toISOString().slice(0,10)+'.xlsx'})};box.querySelector('[data-mexp="pdf"]').onclick=()=>{let c=collect();if(!c.rows.length)return toast('S\'ka rreshta të dukshëm për eksport');window.moduleExportPdf({title:modTitle(),page,filter:inp.value.trim(),headers:c.headers,rows:c.rows,id:'moduleExportSheet'})};inp.addEventListener('input',filter);box.querySelector('[data-mclear]').onclick=()=>{inp.value='';filter();inp.focus()};filter()}
+function installModuleLiveSearch(){if(['dashboard','settings','registries','reports','trace','warehouse'].includes(page))return;if(['products','suppliers'].includes(page))return;if(document.querySelector('#main .module-live-search'))return;let allT=[...document.querySelectorAll('#main table')].filter(t=>!t.closest('.doc-sheet,.order-sheet,.purchase-doc,.alpha-report-paper,.alpha-paper,#pkLotOverlay'));let withRows=allT.filter(t=>[...t.tBodies].some(tb=>[...tb.rows].some(r=>!r.querySelector('.empty'))));let tables=(withRows.length?withRows:(allT.length?[allT[0]]:[]));if(!tables.length)return;let box=document.createElement('div');box.className='module-live-search';const hasNativeXlsx=[...document.querySelectorAll('#main button')].some(b=>!b.closest('.module-live-search')&&/Excel/.test(b.textContent||'')&&/xlsx/i.test(b.getAttribute('onclick')||''));box.innerHTML=`<span style="font-size:18px">⌕</span><input type="search" placeholder="Kërko live në këtë modul..."><span class="search-count"></span>${hasNativeXlsx?'':'<button class="btn small" type="button" data-mexp="xlsx" data-right="${page}:print" title="Eksporto rreshtat e dukshëm (të filtruar) në Excel">⬇ Excel</button>'}<button class="btn small" type="button" data-mexp="pdf" data-right="${page}:print" title="Eksporto rreshtat e dukshëm (të filtruar) në PDF përmes printimit">🖨 PDF</button><button class="btn small" type="button" data-mclear="1">Pastro</button>`;let target=tables[0].closest('.card')||tables[0].parentElement;target.parentNode.insertBefore(box,target);let inp=box.querySelector('input'),count=box.querySelector('.search-count');function filter(){let q=inp.value.trim().toLocaleLowerCase('sq'),visible=0,total=0;tables.forEach(table=>[...table.tBodies].forEach(tb=>[...tb.rows].forEach(row=>{if(row.querySelector('.empty'))return;total++;let show=!q||row.textContent.toLocaleLowerCase('sq').includes(q);row.style.display=show?'':'none';if(show)visible++})));count.textContent=q?visible+' / '+total+' rezultate':total+' regjistrime'}function collect(){let headers=null,rows=[];tables.forEach((table,ti)=>{let ths=[...table.querySelectorAll('thead th')].map(th=>th.textContent.replace(/\s+/g,' ').trim());let vr=[...table.tBodies].flatMap(tb=>[...tb.rows]).filter(r=>!r.querySelector('.empty')&&r.style.display!=='none').map(r=>[...r.cells].map(td=>{let c=td.cloneNode(true);c.querySelectorAll('button,.btn').forEach(b=>b.remove());return c.innerText.replace(/\s+/g,' ').trim()}));if(ti===0){headers=ths;rows=vr}else{rows.push(ths);rows=rows.concat(vr)}});return{headers:headers||[],rows}}function modTitle(){let h=document.querySelector('#main h1,#main h2,#main .page-head b,#main .head b');return (h?h.textContent:'').trim()||page}window.moduleExportCollect=collect;xBtn=box.querySelector('[data-mexp="xlsx"]');if(xBtn)xBtn.onclick=()=>{let c=collect();if(!c.rows.length)return toast('Asnjë rresht për eksport në këtë modul'+(inp.value.trim()?' (filtri: '+inp.value.trim()+')':' — regjistri është bosh'));window.moduleExportXlsx({title:modTitle(),page,filter:inp.value.trim(),headers:c.headers,rows:c.rows,filename:'BioBes-'+page+'-'+new Date().toISOString().slice(0,10)+'.xlsx'})};box.querySelector('[data-mexp="pdf"]').onclick=()=>{let c=collect();if(!c.rows.length)return toast('Asnjë rresht për eksport në këtë modul'+(inp.value.trim()?' (filtri: '+inp.value.trim()+')':' — regjistri është bosh'));window.moduleExportPdf({title:modTitle(),page,filter:inp.value.trim(),headers:c.headers,rows:c.rows,id:'moduleExportSheet'})};inp.addEventListener('input',filter);box.querySelector('[data-mclear]').onclick=()=>{inp.value='';filter();inp.focus()};filter()}
 const renderWithGlobalTableSearch=render;render=function(){renderWithGlobalTableSearch();setTimeout(installModuleLiveSearch,0)}
 </script>
 <script>
@@ -12220,5 +12220,108 @@ return hit||byCode(a1)||byCode(a2);
   return 0;
  };
 }catch(e){console.error('biobes-openings-alpha-v1',e)}})();
+</script>
+<script>
+/* biobes-trace-fix-v1 — butonat "Kartela e gjurmueshmërisë (A4)" dhe "Grafiku i gjurmueshmërisë"
+   punojnë KUDO që shfaqen: çdo klik jep gjithmonë përgjigje të dukshme (fletë ose shpjegim),
+   pa dështime të heshtura; burimi i id-së zbulohet automatikisht (lot, paketë, porosi, ngarkesë,
+   proces, faturë, peshim, palë). */
+(function(){try{
+ if(window.__biobesTraceFixV1)return;window.__biobesTraceFixV1=1;
+ function A(k){try{return state[k]||[]}catch(e){return[]}}
+ function findRec(id){
+  var s=String(id==null?'':id).trim();if(!s)return null;
+  var cands=[['lots','lot'],['packagings','pk'],['shipments','ship'],['processes','pr'],['orders','ord'],['weighings','w'],['suppliers','sup'],['customers','cust']];
+  for(var i=0;i<cands.length;i++){
+   var k=cands[i][0],t=cands[i][1],arr=A(k);
+   if(k==='packagings'&&typeof packs==='function'){try{arr=packs()}catch(e){}}
+   for(var j=0;j<arr.length;j++){var x=arr[j];if(!x)continue;
+    if(String(x.id||'')===s)return t+':'+x.id;
+    if(x.code&&String(x.code)===s&&(t==='lot'||t==='sup'||t==='cust'))return t+':'+x.id;
+   }
+  }
+  try{
+   var inv=(typeof salesInvoices==='function'?salesInvoices():[])||[];
+   for(var i2=0;i2<inv.length;i2++){var f=inv[i2];
+    if(String(f.id)===s){if(f.order)return 'ord:'+f.order;return 'sale:'+f.id}
+    if(String(f.invoiceNumber||'')===s&&f.order)return 'ord:'+f.order}
+  }catch(e){}
+  return null;
+ }
+ function resolve(arg){
+  var s=String(arg==null?'':arg).trim();
+  if(!s)return '';
+  try{ if(s.indexOf(':')>0&&typeof window.tgNode==='function'&&window.tgNode(s))return s }catch(e){}
+  try{ var base=window.tgResolveStart; if(typeof base==='function'){var k=base(s);if(k)return k} }catch(e){}
+  var f=findRec(s);
+  return f||'';
+ }
+ function explain(arg,why){
+  var s=String(arg==null?'':arg).trim();
+  var msg='<div class="card" style="border-left:4px solid #d59a5b"><h3>Gjurmueshmëria nuk u gjet</h3>'
+   +'<p>Ky dokument ('+(s?('<b>'+esc(s)+'</b>'):'pa identifikues')+') nuk lidhet me asnjë lot, paketë, porosi ose ngarkesë në sistem.</p>'
+   +'<p class="hint">'+(why?esc(why):'Zakonisht ndodh kur dokumenti është fshirë, kur loti burimor mungon ose kur porosia/fatura nuk kanë ende lot të lidhur.')+'</p>'
+   +'<p><button class="btn" onclick="closeModal();go(\'trace\')">Hap modulin e Gjurmueshmërisë</button></p></div>';
+  try{ if(typeof modal==='function')modal('Gjurmueshmëria e dokumentit','<div class="td-wrap">'+msg+'</div>','<button class="btn" onclick="closeModal()">Mbyll</button>') }catch(e){}
+  try{ toast('Gjurmueshmëria nuk u gjet për '+(s||'këtë dokument')) }catch(e){}
+ }
+ function bodyOk(){
+  try{
+   var b=document.getElementById('modalBody');
+   if(!b)return false;
+   var h=b.innerHTML||'';
+   return h.length>250&&/(<table|<svg|<canvas)/i.test(h);
+  }catch(e){return false}
+ }
+ /* 1) Kartela A4 — origjinalja thirret gjithmonë; nëse s'jep përmbajtje, shpjegim i qartë */
+ var origTD=window.traceDossierModal;
+ window.traceDossierModal=function(arg){
+  var key=resolve(arg);
+  if(!key){explain(arg,'Identifikuesi nuk u njoh: '+String(arg==null?'(bosh)':arg));return false}
+  var err=null,r=null;
+  try{ r=(typeof origTD==='function')?origTD.call(this,key):null }catch(e){err=e;console.error('BioBes','trace-dossier',e)}
+  if(!bodyOk()){
+   explain(key,err?('Fletës nuk mund të hapej: '+(err.message||err)):'Ky dokument nuk ka të dhëna gjurmueshmërie (lot burimor i munguar).');
+   return false;
+  }
+  return r===null?true:r;
+ };
+ /* 2) Grafiku — e njëjta logjikë */
+ var origLT=window.lotTraceModal;
+ window.lotTraceModal=function(arg){
+  var key=resolve(arg);
+  if(!key){explain(arg,'Për këtë dokument nuk u gjet asnjë nyje gjurmueshmërie.');return false}
+  var err=null,r=null;
+  try{ r=(typeof origLT==='function')?origLT.call(this,key):null }catch(e){err=e;console.error('BioBes','trace-graph',e)}
+  if(err){explain(key,'Grafiku nuk mund të ndërtohej: '+(err.message||err));return false}
+  setTimeout(function(){
+   var opened=false,title='';
+   try{ var t=document.getElementById('modalTitle');title=t?(t.innerText||''):'';opened=!!t&&/gjurmueshm|grafik|loti/i.test(title)&&bodyOk() }catch(e){}
+   if(!opened&&!/Gjurmueshmëria e dokumentit/.test(title))explain(key,'Ky dokument nuk ka lot burimor të regjistruar (grafik pa nyje).');
+  },260);
+  return r===null?true:r;
+ };
+ /* 3) Butona me data-atribut: funksionojnë edhe nëse onclick-u i brendshëm prishet */
+ document.addEventListener('click',function(ev){
+  var el=ev.target&&ev.target.closest?ev.target.closest('[data-td-arg]'):null;
+  if(!el)return;
+  ev.preventDefault();
+  window.traceDossierModal(el.getAttribute('data-td-arg'));
+ },true);
+ window.biobesTraceButton=function(arg,label){
+  return '<button class="btn small" data-td-arg="'+esc(String(arg==null?'':arg))+'" onclick="window.traceDossierModal(this.getAttribute(\'data-td-arg\'))">'+(label||'📄 Kartela e gjurmueshmërisë (A4)')+'</button>';
+ };
+ /* 4) Porosia: kartela nuk rrëzohet kur klienti mungon (defekt real i gjetur në verifikimin live) */
+ try{
+  window.orderClientHeading=function(x){
+   try{
+    var c=null;try{c=by('customers',x.customer)}catch(e){}
+    var no=(x&&(x.orderNo||String(x.id||'').replace(/\D/g,'')))||'';
+    return 'POROSIA '+no+' NR &nbsp;&nbsp; KLIENTIT '+(c?(esc(c.code||'')+' '+esc(c.name||'')):(esc(x&&x.customerName||'')||'—'));
+   }catch(e){return 'POROSIA '+(x&&x.id?esc(x.id):'')}
+  };
+  try{eval('orderClientHeading=window.orderClientHeading')}catch(e){}
+ }catch(e){}
+}catch(e){console.error('biobes-trace-fix-v1',e)}})();
 </script>
 </body></html>
