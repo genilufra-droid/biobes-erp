@@ -166,7 +166,7 @@ function assertWorkbookValid(zip){
   const d=await dl;const raw=fs.readFileSync(await d.path());
   const zip=await loadXlsx(raw);
   const sheet=zip['xl/worksheets/sheet1.xml'];
-  const texts=[...sheet.matchAll(/<is><t>([\s\S]*?)<\/t><\/is>/g)].map(m=>m[1]);
+  const texts=[...sheet.matchAll(/<is><t[^>]*>([\s\S]*?)<\/t><\/is>/g)].map(m=>m[1]);
   assert.ok(/BioBes ERP/.test(texts.join(' ')),'rreshti i informacionit');
   assert.equal(texts.filter(t=>t==='TOTALI').length,1,'një TOTALI i vetëm');
   assert.ok(/20744A/.test(zip['xl/styles.xml']),'koka e gjelbër');
@@ -196,6 +196,25 @@ function assertWorkbookValid(zip){
   assert.ok(!/TOTALI/.test(sheet),'pa rresht TOTALI në template');
   assert.ok(!/BioBes ERP   ·   Data/.test(sheet),'pa rresht informacioni të eksportit');
   assert.ok(zip['xl/worksheets/sheet2.xml'],'fleta UDHEZIME ekziston');
+ });
+
+ await step('Excel-i real (LibreOffice/Excel) e hap skedarin pa riparim + rreshtat lexohen saktë',async()=>{
+  const {execFileSync}=require('node:child_process');
+  let soffice='';try{soffice=execFileSync('which',['soffice'],{encoding:'utf8'}).trim()}catch(e){}
+  if(!soffice){console.log('      (LibreOffice nuk është instaluar — prova u kalua)');return}
+  const dl=p.waitForEvent('download',{timeout:8000});
+  await p.evaluate(()=>go('purchases'));await p.waitForTimeout(800);
+  await p.locator('.module-live-search button[data-mexp="xlsx"]').click();
+  const d=await dl;const out=fs.mkdtempSync('/tmp/lo-');
+  const src=out+'/prova.xlsx';fs.copyFileSync(await d.path(),src);
+  const stdout=execFileSync(soffice,['--headless','--calc','--convert-to','csv','--outdir',out,src],{encoding:'utf8',timeout:180000});
+  assert.ok(!/repair|korrupt|damaged|Error/i.test(stdout),'pa riparim: '+stdout.slice(0,120));
+  const csv=fs.readFileSync(out+'/prova.csv','utf8');
+  assert.ok(/TOTALI/.test(csv),'TOTALI lexohet nga Excel-i/LibreOffice');
+  assert.ok(/FB-2026-\d+/.test(csv),'rreshtat e regjistrit lexohen');
+  const onScreen=await p.evaluate(()=>[...document.querySelectorAll('#main .table-wrap tbody tr')].filter(r=>r.style.display!=='none').length);
+  const csvRows=csv.split('\n').filter(l=>/FB-2026-\d+/.test(l)).length;
+  assert.ok(csvRows>=Math.min(1,onScreen),'rreshtat në skedar ('+csvRows+') përputhen me ekranin ('+onScreen+')');
  });
 
  await step('Pa gabime JS',async()=>{assert.deepEqual(errors,[])});

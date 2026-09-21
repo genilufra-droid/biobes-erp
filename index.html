@@ -11924,6 +11924,12 @@ return hit||byCode(a1)||byCode(a2);
 (function(){try{
  if(window.__biobesExportProV1)return;window.__biobesExportProV1=1;
  function numish(h){return /(shuma|vlera|vlefta|total|totali|cmimi|çmimi|cmim|çmim|price|amount|neto|bruto|sasi|qty|pesh|kg|pages|detyrim|kredi|debit|balanc|gjend|tvsh|vat|kosto|cost|kurs|rate|përqindje|perqindje|%)/i.test(String(h||''))}
+ function san(v){
+  var s=String(v==null?'':v);
+  s=s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g,'');
+  s=s.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g,'').replace(/(^|[^\uD800-\uDBFF])[\uDC00-\uDFFF]/g,'$1');
+  return s;
+ }
  function cellNum(v,hdr){
   var s=String(v==null?'':v).trim();if(!s)return null;
   if(/^-?\d{1,3}(?:[.,\s]\d{3})+(?:[.,]\d+)?$/.test(s))return parseLocal(s);
@@ -11948,12 +11954,13 @@ return hit||byCode(a1)||byCode(a2);
   var numeric=headers.map(function(_,i){return colNumeric(i,headers,rows)});
   var totals=headers.map(function(_,i){if(!numeric[i])return null;var s=0;(rows).forEach(function(r){var n=cellNum(r[i],headers[i]);if(n!==null)s+=n});return Math.round(s*100)/100});
   var cols=headers.map(function(_,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+width(i,headers,rows)+'" customWidth="1"/>'}).join('');
-  var cell=function(v,ref,style,num){num=num&&typeof v==='number'&&isFinite(v);return '<c r="'+ref+'" t="'+(num?'n':'inlineStr')+'" s="'+style+'">'+(num?'<v>'+v+'</v>':'<is><t>'+xmlEsc(String(v==null?'':v))+'</t></is>')+'</c>'};
+  var cell=function(v,ref,style,num){num=num&&typeof v==='number'&&isFinite(v);return '<c r="'+ref+'" t="'+(num?'n':'inlineStr')+'" s="'+style+'">'+(num?'<v>'+v+'</v>':'<is><t xml:space="preserve">'+xmlEsc(san(String(v==null?'':v)))+'</t></is>')+'</c>'};
   var head=headers.map(function(h,i){return cell(h,excelCol(i+1)+'3',1)}).join('');
   var body=rows.map(function(r,ri){return '<row r="'+(ri+4)+'" ht="20" customHeight="1">'+headers.map(function(_,ci){return cell(r[ci]==null?'':r[ci],excelCol(ci+1)+(ri+4),ri%2?3:2)}).join('')+'</row>'}).join('');
   var totRow='<row r="'+(rows.length+4)+'" ht="24" customHeight="1">'+headers.map(function(_,ci){return cell(ci===0?'TOTALI':(totals[ci]===null?'':totals[ci]),excelCol(ci+1)+(rows.length+4),totals[ci]===null?6:7,totals[ci]!==null&&ci>0)}).join('')+'</row>';
   var meta=(o.meta||['BioBes ERP','Data: '+new Date().toLocaleString('sq-AL'),'Moduli: '+(o.title||o.page||''),'Filtri: '+(o.filter||'pa filtër'),'Rreshtat e dukshëm: '+rows.length]).join('   ·   ');
   var sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+   +'<dimension ref="A1:'+last+(rows.length+4)+'"/>'
    +'<sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="3" topLeftCell="A4" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
    +'<sheetFormatPr defaultRowHeight="20"/><cols>'+cols+'</cols><sheetData>'
    +'<row r="1" ht="30" customHeight="1">'+cell(o.title||'Regjistri', 'A1',4)+'</row>'
@@ -11985,13 +11992,15 @@ return hit||byCode(a1)||byCode(a2);
    +'</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
   var tab=(String(o.title||o.page||'Regjistri').replace(/[\\\/\?\*\[\]:]/g,' ').slice(0,28)||'Regjistri');
   var files=[
-   {name:'[Content_Types].xml',data:'<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'},
-   {name:'_rels/.rels',data:'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+   {name:'[Content_Types].xml',data:'<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>'},
+   {name:'_rels/.rels',data:'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>'},
    {name:'xl/workbook.xml',data:'<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="'+xmlEsc(tab)+'" sheetId="1" r:id="rId1"/><sheet name="UDHEZIME" sheetId="2" r:id="rId2"/></sheets></workbook>'},
    {name:'xl/_rels/workbook.xml.rels',data:'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
    {name:'xl/styles.xml',data:styles},
    {name:'xl/worksheets/sheet1.xml',data:sheet},
-   {name:'xl/worksheets/sheet2.xml',data:noteSheet}];
+   {name:'xl/worksheets/sheet2.xml',data:noteSheet},
+   {name:'docProps/core.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>'+xmlEsc(san(o.title||'Regjistri'))+'</dc:title><dc:creator>BioBes ERP</dc:creator><cp:lastModifiedBy>BioBes ERP</cp:lastModifiedBy><dcterms:created xsi:type="dcterms:W3CDTF">'+new Date().toISOString()+'</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">'+new Date().toISOString()+'</dcterms:modified></cp:coreProperties>'},
+   {name:'docProps/app.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>BioBes ERP</Application><DocSecurity>0</DocSecurity><ScaleCrop>false</ScaleCrop><HeadingPairs><vt:vector size="2" baseType="variant"><vt:variant><vt:lpstr>Fletë</vt:lpstr></vt:variant><vt:variant><vt:i4>2</vt:i4></vt:variant></vt:vector></HeadingPairs><TitlesOfParts><vt:vector size="2" baseType="lpstr"><vt:lpstr>'+xmlEsc(san(tab))+'</vt:lpstr><vt:lpstr>UDHEZIME</vt:lpstr></vt:vector></TitlesOfParts><Company>BioBes</Company><LinksUpToDate>false</LinksUpToDate><SharedDoc>false</SharedDoc><HyperlinksChanged>false</HyperlinksChanged><AppVersion>16.0300</AppVersion></Properties>'}];
   var blob=new Blob([zipStore(files)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download=o.filename;a.style.display='none';document.body.appendChild(a);a.click();setTimeout(function(){a.remove();URL.revokeObjectURL(url)},800);
   return {rows:rows.length,columns:headers.length,totals:totals};
