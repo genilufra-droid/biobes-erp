@@ -17,6 +17,42 @@ async function loadXlsx(buf){
  }
  return out;
 }
+/* Validim i strukturës XLSX sipas skemës së Excel-it — kap "we found a problem with some content". */
+const XLS_ORDER=['sheetPr','dimension','sheetViews','sheetFormatPr','cols','sheetData','sheetCalcPr','sheetProtection','autoFilter','sortState','mergeCells','conditionalFormatting','dataValidations','hyperlinks','printOptions','pageMargins','pageSetup','headerFooter','rowBreaks','colBreaks','extLst'];
+const STY_ORDER=['numFmts','fonts','fills','borders','cellStyleXfs','cellXfs','cellStyles','dxfs','tableStyles'];
+function xmlWellFormed(xml){
+ const stack=[];let i=0;const voidOk=/^(\?|!)/;
+ const re=/<\/?[A-Za-z_][^>]*?>/g;let m;
+ while((m=re.exec(xml))){
+  const tag=m[0];
+  if(tag.startsWith('<?')||tag.startsWith('<!'))continue;
+  const closing=tag.startsWith('</');
+  const self=tag.endsWith('/>');
+  const name=tag.replace(/^<\/?/,'').replace(/[\s/>].*$/,'');
+  if(closing){const top=stack.pop();if(top!==name)throw new Error('XML i prishur: </'+name+'> në vend të </'+top+'>')}
+  else if(!self)stack.push(name);
+ }
+ if(stack.length)throw new Error('XML i pambyllur: '+stack.join(','));
+ return true;
+}
+function assertSchema(zip,part,order){
+ const xml=zip[part];if(!xml)throw new Error('mungon '+part);
+ xmlWellFormed(xml);
+ const seq=[...xml.matchAll(/<([A-Za-z_][\w]*)[\s/>]/g)].map(m=>m[1]);
+ const seen=seq.filter(n=>order.includes(n)).filter((v,i,a)=>a.indexOf(v)===i);
+ const idx=seen.map(n=>order.indexOf(n));
+ if(idx.some((v,i)=>i&&v<idx[i-1]))throw new Error(part+': rend i gabuar: '+seen.join(' < '));
+ return true;
+}
+function assertWorkbookValid(zip){
+ ['[Content_Types].xml','_rels/.rels','xl/workbook.xml','xl/_rels/workbook.xml.rels','xl/styles.xml','xl/worksheets/sheet1.xml'].forEach(n=>{if(!zip[n])throw new Error('mungon '+n);xmlWellFormed(zip[n])});
+ assertSchema(zip,'xl/worksheets/sheet1.xml',XLS_ORDER);
+ assertSchema(zip,'xl/styles.xml',STY_ORDER);
+ const xfs=(zip['xl/styles.xml'].match(/<cellXfs count="(\d+)"/)||[])[1];
+ const maxS=Math.max(...[...zip['xl/worksheets/sheet1.xml'].matchAll(/ s="(\d+)"/g)].map(m=>+m[1]));
+ if(!(maxS<+xfs))throw new Error('stil i papërcaktuar: s='+maxS+' / cellXfs='+xfs);
+ return true;
+}
 (async()=>{
  let passed=0,failed=0;
  const {browser,page:p,errors}=await open(false);
@@ -73,8 +109,14 @@ async function loadXlsx(buf){
   onScreen.heads.forEach(h=>assert.ok(buf.includes(xmlEsc(h)),'kolona mungon në Excel: '+h));
   onScreen.rows.forEach(r=>r.forEach(v=>{if(v)assert.ok(buf.includes(xmlEsc(v)),'qeliza jo identike: '+v)}));
   assert.ok(buf.includes('TOTALI'),'rreshti TOTALI');
+  // Excel-i (Office) e hap pa "found a problem": rendi i elementeve duhet të jetë i saktë
+  assert.ok(buf.indexOf('<autoFilter')<buf.indexOf('<mergeCells'),'autoFilter para mergeCells (schema e Excel)');
+  assert.ok(/<cellStyles count="1"><cellStyle name="Normal"/.test(buf),'cellStyle Normal (pajtueshmëri me Excel)');
+  const tags=['sheetViews','sheetFormatPr','cols','sheetData','autoFilter','mergeCells','pageMargins','pageSetup'];
+  const idx=tags.map(t=>buf.indexOf('<'+t));assert.ok(idx.every((v,i)=>v>0&&(i===0||v>idx[i-1])),'rendi i elementeve: '+tags.join(' < '));
   assert.ok(buf.includes('Eksporti u shkarkua')||buf.includes('Blerje'),'titulli i modulit në krye');
   assert.ok(/numFmt numFmtId="164"|#,##0\.00/.test(buf),'formati numerik për totalet');
+  assertWorkbookValid(await loadXlsx(fs.readFileSync(await d.path())));
   assert.match(await ev(()=>document.getElementById('toast').textContent),/Eksporti Excel u shkarkua \(\d+ rreshta/);
   assert.match(await ev(()=>document.getElementById('toast').textContent),/TOTALI/);
  });
@@ -82,12 +124,14 @@ async function loadXlsx(buf){
  await step('🖨 PDF: frame i printimit përmban vetëm rreshtat e filtruar (+ titullin dhe filtrin)',async()=>{
   await p.locator('.module-live-search button[data-mexp="pdf"]').click();
   await p.waitForTimeout(200);
-  const r=await ev(()=>{const f=document.getElementById('biobesPrintFrame');if(!f)return null;const t=f.contentDocument.body.innerText;return{has:!!f.contentDocument.getElementById('moduleExportSheet'),txt:t,filtri:t.includes('filtri:'),titull:/Blerje/.test(t),tot:t.includes('TOTALI')}});
+  const r=await ev(()=>{const f=document.getElementById('biobesPrintFrame');if(!f)return null;const t=f.contentDocument.body.innerText;const el=f.contentDocument.getElementById('moduleExportSheet');let vis=false,rr=0;if(el){const cs=f.contentWindow.getComputedStyle(el);const sty=f.contentDocument.documentElement.innerHTML;vis=cs.position!=='fixed'&&!/left:\s*-10000/.test(sty)&&/@page\{size:A4 landscape/.test(sty)&&!!el.querySelector('thead th')&&!!el.querySelector('tfoot th');rr=el.querySelectorAll('tbody tr').length}return{has:!!el,txt:t,filtri:t.includes('filtri:'),titull:/Blerje/.test(t),tot:t.includes('TOTALI'),visible:vis,rows:rr}});
   assert.ok(r,'frame mungon');
   const q2=await ev(()=>state.suppliers[0].name.split(' ')[0]);
   const q3=await ev(()=>state.suppliers[1].name.split(' ')[0]);
   assert.equal(r.has,true);assert.equal(r.txt.includes(q2),true);assert.equal(r.txt.includes(q3),false,'rreshtat e jashtëm nuk duhet të jenë në PDF');
   assert.equal(r.filtri,true);assert.equal(r.titull,true);assert.equal(r.tot,true,'rreshti TOTALI në PDF');
+  assert.ok(r.visible,'fleta e PDF-së është brenda faqes (jo e zhvendosur jashtë → pa faqe të bardhë)');
+  assert.ok(r.rows>0,'rreshtat në PDF');
   await p.waitForTimeout(2200);
   assert.equal(await ev(()=>!!document.getElementById('moduleExportSheet')),false,'fleta duhet pastruar');
  });
@@ -122,7 +166,7 @@ async function loadXlsx(buf){
   const d=await dl;const raw=fs.readFileSync(await d.path());
   const zip=await loadXlsx(raw);
   const sheet=zip['xl/worksheets/sheet1.xml'];
-  const texts=[...sheet.matchAll(/<is><t>([\s\S]*?)<\/t><\/is>/g)].map(m=>m[1]);
+  const texts=[...sheet.matchAll(/<is><t[^>]*>([\s\S]*?)<\/t><\/is>/g)].map(m=>m[1]);
   assert.ok(/BioBes ERP/.test(texts.join(' ')),'rreshti i informacionit');
   assert.equal(texts.filter(t=>t==='TOTALI').length,1,'një TOTALI i vetëm');
   assert.ok(/20744A/.test(zip['xl/styles.xml']),'koka e gjelbër');
@@ -152,6 +196,25 @@ async function loadXlsx(buf){
   assert.ok(!/TOTALI/.test(sheet),'pa rresht TOTALI në template');
   assert.ok(!/BioBes ERP   ·   Data/.test(sheet),'pa rresht informacioni të eksportit');
   assert.ok(zip['xl/worksheets/sheet2.xml'],'fleta UDHEZIME ekziston');
+ });
+
+ await step('Excel-i real (LibreOffice/Excel) e hap skedarin pa riparim + rreshtat lexohen saktë',async()=>{
+  const {execFileSync}=require('node:child_process');
+  let soffice='';try{soffice=execFileSync('which',['soffice'],{encoding:'utf8'}).trim()}catch(e){}
+  if(!soffice){console.log('      (LibreOffice nuk është instaluar — prova u kalua)');return}
+  const dl=p.waitForEvent('download',{timeout:8000});
+  await p.evaluate(()=>go('purchases'));await p.waitForTimeout(800);
+  await p.locator('.module-live-search button[data-mexp="xlsx"]').click();
+  const d=await dl;const out=fs.mkdtempSync('/tmp/lo-');
+  const src=out+'/prova.xlsx';fs.copyFileSync(await d.path(),src);
+  const stdout=execFileSync(soffice,['--headless','--calc','--convert-to','csv','--outdir',out,src],{encoding:'utf8',timeout:180000});
+  assert.ok(!/repair|korrupt|damaged|Error/i.test(stdout),'pa riparim: '+stdout.slice(0,120));
+  const csv=fs.readFileSync(out+'/prova.csv','utf8');
+  assert.ok(/TOTALI/.test(csv),'TOTALI lexohet nga Excel-i/LibreOffice');
+  assert.ok(/FB-2026-\d+/.test(csv),'rreshtat e regjistrit lexohen');
+  const onScreen=await p.evaluate(()=>[...document.querySelectorAll('#main .table-wrap tbody tr')].filter(r=>r.style.display!=='none').length);
+  const csvRows=csv.split('\n').filter(l=>/FB-2026-\d+/.test(l)).length;
+  assert.ok(csvRows>=Math.min(1,onScreen),'rreshtat në skedar ('+csvRows+') përputhen me ekranin ('+onScreen+')');
  });
 
  await step('Pa gabime JS',async()=>{assert.deepEqual(errors,[])});

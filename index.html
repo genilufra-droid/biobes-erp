@@ -11924,6 +11924,12 @@ return hit||byCode(a1)||byCode(a2);
 (function(){try{
  if(window.__biobesExportProV1)return;window.__biobesExportProV1=1;
  function numish(h){return /(shuma|vlera|vlefta|total|totali|cmimi|çmimi|cmim|çmim|price|amount|neto|bruto|sasi|qty|pesh|kg|pages|detyrim|kredi|debit|balanc|gjend|tvsh|vat|kosto|cost|kurs|rate|përqindje|perqindje|%)/i.test(String(h||''))}
+ function san(v){
+  var s=String(v==null?'':v);
+  s=s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g,'');
+  s=s.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g,'').replace(/(^|[^\uD800-\uDBFF])[\uDC00-\uDFFF]/g,'$1');
+  return s;
+ }
  function cellNum(v,hdr){
   var s=String(v==null?'':v).trim();if(!s)return null;
   if(/^-?\d{1,3}(?:[.,\s]\d{3})+(?:[.,]\d+)?$/.test(s))return parseLocal(s);
@@ -11948,20 +11954,22 @@ return hit||byCode(a1)||byCode(a2);
   var numeric=headers.map(function(_,i){return colNumeric(i,headers,rows)});
   var totals=headers.map(function(_,i){if(!numeric[i])return null;var s=0;(rows).forEach(function(r){var n=cellNum(r[i],headers[i]);if(n!==null)s+=n});return Math.round(s*100)/100});
   var cols=headers.map(function(_,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+width(i,headers,rows)+'" customWidth="1"/>'}).join('');
-  var cell=function(v,ref,style,num){num=num&&typeof v==='number'&&isFinite(v);return '<c r="'+ref+'" t="'+(num?'n':'inlineStr')+'" s="'+style+'">'+(num?'<v>'+v+'</v>':'<is><t>'+xmlEsc(String(v==null?'':v))+'</t></is>')+'</c>'};
+  var cell=function(v,ref,style,num){num=num&&typeof v==='number'&&isFinite(v);return '<c r="'+ref+'" t="'+(num?'n':'inlineStr')+'" s="'+style+'">'+(num?'<v>'+v+'</v>':'<is><t xml:space="preserve">'+xmlEsc(san(String(v==null?'':v)))+'</t></is>')+'</c>'};
   var head=headers.map(function(h,i){return cell(h,excelCol(i+1)+'3',1)}).join('');
   var body=rows.map(function(r,ri){return '<row r="'+(ri+4)+'" ht="20" customHeight="1">'+headers.map(function(_,ci){return cell(r[ci]==null?'':r[ci],excelCol(ci+1)+(ri+4),ri%2?3:2)}).join('')+'</row>'}).join('');
   var totRow='<row r="'+(rows.length+4)+'" ht="24" customHeight="1">'+headers.map(function(_,ci){return cell(ci===0?'TOTALI':(totals[ci]===null?'':totals[ci]),excelCol(ci+1)+(rows.length+4),totals[ci]===null?6:7,totals[ci]!==null&&ci>0)}).join('')+'</row>';
   var meta=(o.meta||['BioBes ERP','Data: '+new Date().toLocaleString('sq-AL'),'Moduli: '+(o.title||o.page||''),'Filtri: '+(o.filter||'pa filtër'),'Rreshtat e dukshëm: '+rows.length]).join('   ·   ');
   var sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+   +'<dimension ref="A1:'+last+(rows.length+4)+'"/>'
    +'<sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="3" topLeftCell="A4" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
    +'<sheetFormatPr defaultRowHeight="20"/><cols>'+cols+'</cols><sheetData>'
    +'<row r="1" ht="30" customHeight="1">'+cell(o.title||'Regjistri', 'A1',4)+'</row>'
    +'<row r="2" ht="22" customHeight="1">'+cell(meta,'A2',5)+'</row>'
    +'<row r="3" ht="30" customHeight="1">'+head+'</row>'
    +body+totRow
-   +'</sheetData><mergeCells count="2"><mergeCell ref="A1:'+last+'1"/><mergeCell ref="A2:'+last+'2"/></mergeCells>'
+   +'</sheetData>'
    +'<autoFilter ref="A3:'+last+(rows.length+3)+'"/>'
+   +'<mergeCells count="2"><mergeCell ref="A1:'+last+'1"/><mergeCell ref="A2:'+last+'2"/></mergeCells>'
    +'<pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>'
    +'<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0" paperSize="9"/></worksheet>';
   var notesRows=[['BIOBES ERP — EKSPORT REGJISTRI'],['Moduli: '+(o.page||'')+' — '+(o.title||'')],['Data: '+new Date().toLocaleString('sq-AL')],['Filtri: '+(o.filter||'asnjë')+' — vetëm rreshtat e dukshëm'],['Rreshta: '+rows.length],[''],['Qelizat janë saktësisht si në sistem (i njëjti tekst dhe format).'],['Rreshti TOTALI në fund mblidh kolonat numerike automatikisht.'],['Kolona boshe në TOTALI = kolonë teksti (data, kode, emra, njësi).']].map(function(x,i){return '<row r="'+(i+1)+'"><c r="A'+(i+1)+'" t="inlineStr" s="'+(i===0?1:0)+'"><is><t>'+xmlEsc(x[0])+'</t></is></c></row>'}).join('');
@@ -11981,16 +11989,18 @@ return hit||byCode(a1)||byCode(a2);
    +'<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0"/>'
    +'<xf numFmtId="0" fontId="4" fillId="4" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf>'
    +'<xf numFmtId="164" fontId="4" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment vertical="center"/></xf>'
-   +'</cellXfs></styleSheet>';
+   +'</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
   var tab=(String(o.title||o.page||'Regjistri').replace(/[\\\/\?\*\[\]:]/g,' ').slice(0,28)||'Regjistri');
   var files=[
-   {name:'[Content_Types].xml',data:'<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'},
-   {name:'_rels/.rels',data:'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+   {name:'[Content_Types].xml',data:'<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>'},
+   {name:'_rels/.rels',data:'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>'},
    {name:'xl/workbook.xml',data:'<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="'+xmlEsc(tab)+'" sheetId="1" r:id="rId1"/><sheet name="UDHEZIME" sheetId="2" r:id="rId2"/></sheets></workbook>'},
    {name:'xl/_rels/workbook.xml.rels',data:'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
    {name:'xl/styles.xml',data:styles},
    {name:'xl/worksheets/sheet1.xml',data:sheet},
-   {name:'xl/worksheets/sheet2.xml',data:noteSheet}];
+   {name:'xl/worksheets/sheet2.xml',data:noteSheet},
+   {name:'docProps/core.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>'+xmlEsc(san(o.title||'Regjistri'))+'</dc:title><dc:creator>BioBes ERP</dc:creator><cp:lastModifiedBy>BioBes ERP</cp:lastModifiedBy><dcterms:created xsi:type="dcterms:W3CDTF">'+new Date().toISOString()+'</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">'+new Date().toISOString()+'</dcterms:modified></cp:coreProperties>'},
+   {name:'docProps/app.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>BioBes ERP</Application><DocSecurity>0</DocSecurity><ScaleCrop>false</ScaleCrop><HeadingPairs><vt:vector size="2" baseType="variant"><vt:variant><vt:lpstr>Fletë</vt:lpstr></vt:variant><vt:variant><vt:i4>2</vt:i4></vt:variant></vt:vector></HeadingPairs><TitlesOfParts><vt:vector size="2" baseType="lpstr"><vt:lpstr>'+xmlEsc(san(tab))+'</vt:lpstr><vt:lpstr>UDHEZIME</vt:lpstr></vt:vector></TitlesOfParts><Company>BioBes</Company><LinksUpToDate>false</LinksUpToDate><SharedDoc>false</SharedDoc><HyperlinksChanged>false</HyperlinksChanged><AppVersion>16.0300</AppVersion></Properties>'}];
   var blob=new Blob([zipStore(files)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download=o.filename;a.style.display='none';document.body.appendChild(a);a.click();setTimeout(function(){a.remove();URL.revokeObjectURL(url)},800);
   return {rows:rows.length,columns:headers.length,totals:totals};
@@ -12046,22 +12056,43 @@ return hit||byCode(a1)||byCode(a2);
   var headers=o.headers||[],rows=(o.rows||[]).filter(function(r){return r&&r.length});
   var numeric=headers.map(function(_,i){return colNumeric(i,headers,rows)});
   var totals=headers.map(function(_,i){if(!numeric[i])return '';var s=0;rows.forEach(function(r){var n=cellNum(r[i],headers[i]);if(n!==null)s+=n});return fmt2(s)});
-  document.getElementById(o.id||'moduleExportSheet')?.remove();
-  var d=document.createElement('div');d.id=o.id||'moduleExportSheet';
-  d.style.cssText='position:fixed;left:-10000px;top:0;width:1120px;background:#fff';
-  d.innerHTML='<div style="background:#fff;border:1px solid #d5e2da;padding:16px">'
-   +'<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #20744a;padding-bottom:6px;margin-bottom:8px">'
-   +'<b style="color:#195c3b;font-size:18px">'+esc(o.title||'Regjistri')+'</b>'
-   +'<span style="color:#66766d;font-size:11px">BioBes ERP · '+esc(new Date().toLocaleString('sq-AL'))+'</span></div>'
-   +'<div style="color:#66766d;font-size:11px;margin-bottom:8px">Moduli: '+esc(o.page||'')+(o.filter?' · filtri: '+esc(o.filter):' · pa filtër')+' · rreshtat e dukshëm: '+rows.length+'</div>'
-   +'<div class="table-wrap"><table><thead><tr>'+headers.map(function(h){return '<th>'+esc(h)+'</th>'}).join('')+'</tr></thead>'
-   +'<tbody>'+rows.map(function(r){return '<tr>'+headers.map(function(_,i){return '<td>'+esc(r[i]==null?'':r[i])+'</td>'}).join('')+'</tr>'}).join('')+'</tbody>'
-   +'<tfoot><tr>'+headers.map(function(_,i){return '<th>'+(i===0?'TOTALI':esc(totals[i]))+'</th>'}).join('')+'</tr></tfoot>'
-   +'</table></div></div>';
-  document.body.appendChild(d);
-  try{securityAudit('MODULE_EXPORT','PDF: '+(o.title||o.page)+' — '+rows.length+' rreshta')}catch(e){}
-  printOnly(d.id,o.title||'Regjistri');
-  setTimeout(function(){d.remove()},500);
+  var esc_=function(v){return esc(String(v==null?'':v))};
+  var th=headers.map(function(h){return '<th>'+esc_(h)+'</th>'}).join('');
+  var tb=rows.map(function(r){return '<tr>'+headers.map(function(_,i){return '<td class="'+(numeric[i]?'num':'')+'">'+esc_(r[i])+'</td>'}).join('')+'</tr>'}).join('');
+  var tf=totals.map(function(t,i){return '<th class="'+(i===0?'l':'num')+'">'+esc_(i===0?'TOTALI':t)+'</th>'}).join('');
+  var css='@page{size:A4 landscape;margin:8mm}'
+   +'html,body{margin:0;padding:0;background:#fff}'
+   +'body{font-family:"Segoe UI",system-ui,Arial,sans-serif;color:#111;font-size:12px}'
+   +'.xp-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #20744a;padding-bottom:4px;margin-bottom:6px}'
+   +'.xp-head b{color:#195c3b;font-size:17px}'
+   +'.xp-head span{color:#66766d;font-size:10px}'
+   +'.xp-meta{color:#66766d;font-size:10px;margin-bottom:8px}'
+   +'table{border-collapse:collapse;width:100%;table-layout:auto}'
+   +'thead th{background:#20744a;color:#fff;border:1px solid #d5e2da;padding:4px 6px;text-align:left;font-size:11px}'
+   +'tbody td{border:1px solid #d5e2da;padding:3px 6px;font-size:11px}'
+   +'tbody tr:nth-child(even) td{background:#f1f8f4}'
+   +'td.num,th.num{text-align:right}'
+   +'tfoot th{background:#e3f0e8;color:#195c3b;border:1px solid #d5e2da;padding:4px 6px;text-align:right;font-size:11px}'
+   +'tfoot th.l{text-align:left}'
+   +'thead{display:table-header-group}tr{page-break-inside:avoid}';
+  var title=o.title||'Regjistri';
+  var meta='Moduli: '+(o.page||title)+(o.filter?(' · filtri: '+o.filter):' · pa filtër')+' · rreshtat e dukshëm: '+rows.length+' · BioBes ERP · '+new Date().toLocaleString('sq-AL');
+  var html='<!doctype html><html><head><meta charset="utf-8"><title>'+esc_(title)+'</title><style>'+css+'</style></head><body>'
+   +'<div id="moduleExportSheet"><div class="xp-head"><b>'+esc_(title)+'</b><span>'+esc_(new Date().toLocaleString('sq-AL'))+'</span></div>'
+   +'<div class="xp-meta">'+esc_(meta)+'</div>'
+   +'<table><thead><tr>'+th+'</tr></thead><tbody>'+tb+'</tbody><tfoot><tr>'+tf+'</tr></tfoot></table></div></body></html>';
+  var old=document.getElementById('biobesPrintFrame');if(old)old.remove();
+  var frame=document.createElement('iframe');frame.id='biobesPrintFrame';frame.title='Dokumenti për printim';
+  frame.style.cssText='position:fixed;width:0;height:0;border:0;right:0;bottom:0';
+  document.body.appendChild(frame);
+  try{
+   var doc=frame.contentDocument;doc.open();doc.write(html);doc.close();
+   frame.contentWindow.addEventListener('afterprint',function(){setTimeout(function(){try{frame.remove()}catch(e){}},1200)},{once:true});
+   setTimeout(function(){try{if(frame.isConnected){frame.contentWindow.focus();frame.contentWindow.print()}}catch(e){}},350);
+   setTimeout(function(){try{frame.remove()}catch(e){}},60000);
+  }catch(e){console.error('BioBes','export-pdf',e)}
+  try{securityAudit('MODULE_EXPORT','PDF: '+title+' — '+rows.length+' rreshta')}catch(e){}
+  toast('PDF u përgatit me '+rows.length+' rreshta + TOTALI');
   return {rows:rows.length,columns:headers.length};
  };
 }catch(e){console.error('biobes-export-pro-v1',e)}})();
