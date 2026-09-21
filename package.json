@@ -26,7 +26,8 @@
     "test:server-backups": "node tests/server-backups-audit.cjs",
     "test:photo-compress": "node tests/photo-compress-audit.cjs",
     "test:import-nipt": "node tests/import-nipt-audit.cjs",
-    "test:mobile-print": "node tests/mobile-print-audit.cjs"
+    "test:mobile-print": "node tests/mobile-print-audit.cjs",
+    "test:registry-export": "node tests/registry-export-audit.cjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"
