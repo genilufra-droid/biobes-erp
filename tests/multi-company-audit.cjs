@@ -161,6 +161,30 @@ const launch=()=>chromium.launch({headless:true,args:['--no-sandbox','--disable-
       const txt=await page.locator('#main').innerText();
       assert.match(txt,/FSH-C1-1/);assert.equal(/FSH-C2-1/.test(txt),false);
     });
+    await step('Pranimi i wipe-it izolohet per kompani (pa përzierje mes C1 dhe C2)',async()=>{
+      // Në C1 (aktive): shenja ruhet në çelësin e C1, jo në çelësin e vjetër të përbashkët.
+      await page.evaluate(()=>wipeAckSet('2026-09-21T10:00:00Z'));
+      assert.equal(await page.evaluate(()=>localStorage.getItem('biobesWipeAck:C1')),'2026-09-21T10:00:00Z');
+      assert.equal(await page.evaluate(()=>localStorage.getItem('biobesWipeAck')),null);
+      assert.equal(await page.evaluate(()=>wipeAckGet()),'2026-09-21T10:00:00Z');
+      // Kalo në C2: nuk e shikon shenjën e C1 dhe nuk e fshin atë.
+      await page.locator('#mcChip .mc-btn').click();await page.waitForTimeout(250);
+      await page.locator('#mcMenu .mc-item',{hasText:'Kompania Dytë'}).click();
+      await page.waitForTimeout(1800);
+      assert.equal(await page.evaluate(()=>window.__mc.active),'C2');
+      assert.equal(await page.evaluate(()=>wipeAckGet()),null,'C2 s’duhet të shohë shenjën e C1');
+      assert.equal(await page.evaluate(()=>localStorage.getItem('biobesWipeAck:C1')),'2026-09-21T10:00:00Z','shenja e C1 u fshi gabimisht');
+      await page.evaluate(()=>wipeAckSet('2026-09-21T11:00:00Z'));
+      assert.equal(await page.evaluate(()=>localStorage.getItem('biobesWipeAck:C2')),'2026-09-21T11:00:00Z');
+      // Kthehu në C1: shenja e C2 mbetet e paprekur, shenja e C1 lexohet përsëri.
+      await page.locator('#mcChip .mc-btn').click();await page.waitForTimeout(250);
+      await page.locator('#mcMenu .mc-item',{hasText:'BioBes'}).click();
+      await page.waitForTimeout(1800);
+      assert.equal(await page.evaluate(()=>window.__mc.active),'C1');
+      assert.equal(await page.evaluate(()=>localStorage.getItem('biobesWipeAck:C2')),'2026-09-21T11:00:00Z','shenja e C2 u prek nga C1');
+      // (Klienti e zerojon shenjën vetëm kur serveri i kompanisë aktive s’ka shenjë wipe-i — sjellje e saktë.)
+      assert.equal(await page.evaluate(()=>wipeAckGet()),null);
+    });
     await step('Pa gabime JS në gjithë rrjedhën multi-company',async()=>{assert.deepEqual(env.errors,[])});
     console.log('\nMulti-company: '+n+'/'+n+' hapa OK\n');
     await env.ctx.close();await browser.close();
