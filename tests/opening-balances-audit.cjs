@@ -52,8 +52,8 @@ function xlsxBuffer(headers,rows){
    await step('Blloku aktiv, data e hapjes = sot kur s\'është ruajtur, tab-i i ri te Kontabiliteti',async()=>{
      const info=await ev(()=>({v:window.__biobesOpening&&window.__biobesOpening.version,d:obDate(),today:new Date().toISOString().slice(0,10),schemaS:IMPORT_SCHEMAS.suppliers.slice(),schemaC:IMPORT_SCHEMAS.customers.slice()}));
      assert.equal(info.v,'biobes-opening-balances-v1');assert.equal(info.d,info.today);
-     assert.deepEqual(info.schemaS,['code','name','country','city','phone','openingBalance','openingCurrency','openingRate']);
-     assert.deepEqual(info.schemaC,['code','name','country','vat','city','address','openingBalance','openingCurrency','openingRate']);
+     assert.deepEqual(info.schemaS,['code','name','nipt','eori','contact','address','region','city','country','phone','email','website','bank','iban','currency','paymentTerms','openingBalance','openingCurrency','openingRate']);
+     assert.deepEqual(info.schemaC,['code','name','vat','eori','contact','address','city','country','phone','email','bank','iban','currency','paymentTerms','openingBalance','openingCurrency','openingRate']);
      await ev(()=>go('accounting'));await p.locator('#main .accounting-tabs button',{hasText:'Gjendjet fillestare'}).click();await p.waitForTimeout(200);
      assert.ok(await p.locator('#obDate').isVisible());assert.ok((await p.locator('#main').innerText()).includes('Data e hapjes së BIOBES ERP'));
    });
@@ -143,7 +143,7 @@ function xlsxBuffer(headers,rows){
      await b('Konfirmo importin').click();await p.waitForTimeout(400);
      const got=await ev(()=>['IMP-C1','IMP-C2'].map(k=>{let c=state.customers.find(x=>x.code===k);return[c.openingBalance,c.openingCurrency||null,c.openingRate||null,c.active]}));
      assert.deepEqual(got,[[151500,'EUR',101,true],[-20000,'ALL',1,true]]);
-     const missing=await ev(()=>{const wanted=IMPORT_SCHEMAS.customers.filter(h=>!['openingBalance','openingCurrency','openingRate'].includes(h));return wanted});assert.equal(missing.length,6);
+     const missing=await ev(()=>{const wanted=IMPORT_SCHEMAS.customers.filter(h=>!['openingBalance','openingCurrency','openingRate'].includes(h));return wanted});assert.equal(missing.length,14);
    });
    await step('Template-i profesional Excel përmban kolonat e reja në shqip',async()=>{
      const [dl]=await Promise.all([p.waitForEvent('download',{timeout:8000}).catch(()=>null),ev(()=>downloadImportTemplate('suppliers'))]);
