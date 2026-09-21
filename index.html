@@ -11342,4 +11342,72 @@ window.serverBackupRestore=function(id){if(!confirm('Të rikthehet gjendja e ser
 window.serverBackupDelete=function(id){if(!confirm('Të fshihet përgjithmonë backup-i #'+id+' nga serveri?'))return;apiCall('/api/backups/'+id,{method:'DELETE'}).then(r=>{if(!r||!r.ok)return toast((r&&r.data&&r.data.error)||'Fshirja dështoi');toast('Backup-i u fshi nga serveri');loadServerBackupsList()}).catch(e=>toast('Gabim: '+e.message))};
 })();
 </script>
+<script id="biobes-photo-compress-v1">
+/* BioBes ERP — Kompresim automatik i fotove para ruajtjes si dataURL.
+   Çdo foto që kalon në readAsData / readFileDataPromise: brinja maks ≤1600px, JPEG ~70%.
+   PDF/skedarë të tjerë mbeten siç janë; SVG dhe GIF (animacion) nuk preken;
+   foto që nuk dekodohen (p.sh. HEIC) ndjekin rrugën origjinale.
+   Nëse rezultati nuk është më i vogël se 90% i origjinalit, mbetet origjinali. */
+(function(){
+const PHOTO_MAX_DIM=1600,PHOTO_QUALITY=0.7,PHOTO_MIN_BENEFIT=0.9,PHOTO_MIN_BYTES=200*1024; // nën 200KB nuk kompresohet
+window._photoCompressStats={compressed:0,skipped:0,origBytes:0,newBytes:0};
+function dataUrlBytes(u){try{return Math.round((u.length-u.indexOf(',')-1)*3/4)}catch(e){return 0}}
+function isCompressible(file){return !!file&&/^image\//i.test(file.type||'')&&!/svg|gif/i.test(file.type||'')}
+window.compressImageFile=function(file,maxDim,quality){
+  maxDim=maxDim||PHOTO_MAX_DIM;quality=quality||PHOTO_QUALITY;
+  return new Promise(resolve=>{
+    try{
+      if(!isCompressible(file))return resolve(null);
+      const url=URL.createObjectURL(file),img=new Image();
+      img.onload=()=>{
+        try{
+          const w=img.naturalWidth,h=img.naturalHeight;
+          if(!w||!h){URL.revokeObjectURL(url);return resolve(null)}
+          const scale=Math.min(1,maxDim/Math.max(w,h));
+          const cw=Math.max(1,Math.round(w*scale)),ch=Math.max(1,Math.round(h*scale));
+          const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;
+          const ctx=cv.getContext('2d');
+          ctx.fillStyle='#fff';ctx.fillRect(0,0,cw,ch);
+          ctx.drawImage(img,0,0,cw,ch);
+          const out=cv.toDataURL('image/jpeg',quality);
+          URL.revokeObjectURL(url);
+          resolve({dataUrl:out,width:cw,height:ch,origWidth:w,origHeight:h,origSize:file.size,newSize:dataUrlBytes(out)});
+        }catch(e){try{URL.revokeObjectURL(url)}catch(_){}resolve(null)}
+      };
+      img.onerror=()=>{try{URL.revokeObjectURL(url)}catch(_){}resolve(null)};
+      img.src=url;
+    }catch(e){resolve(null)}
+  });
+};
+function worthIt(r,file){return !!(r&&r.dataUrl&&r.dataUrl.indexOf('data:image/jpeg')===0&&r.newSize<file.size*PHOTO_MIN_BENEFIT)}
+function note(r,file,used){try{const s=window._photoCompressStats;if(used){s.compressed++;s.origBytes+=file.size;s.newBytes+=r.newSize}else s.skipped++}catch(e){}}
+const radBase=readAsData;
+readAsData=function(file,cb){
+  try{
+    if(isCompressible(file)){
+      if(file.size<PHOTO_MIN_BYTES){note(null,file,false);return radBase(file,cb)}
+      compressImageFile(file).then(r=>{
+        if(worthIt(r,file)){note(r,file,true);cb(r.dataUrl)}
+        else{note(r,file,false);radBase(file,cb)}
+      }).catch(()=>{try{radBase(file,cb)}catch(e){}});
+      return;
+    }
+  }catch(e){}
+  return radBase(file,cb);
+};
+const rfdBase=readFileDataPromise;
+readFileDataPromise=function(file){
+  try{
+    if(isCompressible(file)){
+      if(file.size<PHOTO_MIN_BYTES){note(null,file,false);return rfdBase(file)}
+      return compressImageFile(file).then(r=>{
+        if(worthIt(r,file)){note(r,file,true);return r.dataUrl}
+        note(r,file,false);return rfdBase(file);
+      }).catch(()=>rfdBase(file));
+    }
+  }catch(e){}
+  return rfdBase(file);
+};
+})();
+</script>
 </body></html>
