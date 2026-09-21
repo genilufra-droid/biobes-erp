@@ -108,6 +108,46 @@ const {open}=require('./helpers.cjs'),assert=require('node:assert/strict');
   assert.equal(d2.phone,'069111222');
  });
 
+ await step('Fatura blerjeje: furnitori me EMËR zgjidhet te id; kolona "Peshimi" që mungon s’është gabim',async()=>{
+  await ev(async()=>{const csv=new File(['Numri i faturës së furnitorit,Data e faturës,Furnitori,Pesha e faturueshme,Çmimi,Monedha,Kursi i këmbimit,TVSH\nFB-IMP-1,2026-09-01,Furnitor Test Shpk,100,150,ALL,1,20'],'f.csv',{type:'text/csv'});await parseModuleImport('purchaseInvoices',csv)});
+  await p.waitForTimeout(250);
+  const d=await ev(()=>window.pendingModuleImport&&window.pendingModuleImport.data[0].data);
+  assert.ok(d,'parse dështoi: '+(await ev(()=>document.getElementById('toast').textContent)));
+  assert.equal(d.supplier,'Furnitor Test Shpk');
+  await ev(()=>commitModuleImport());await p.waitForTimeout(300);
+  const f=await ev(()=>{const x=state.purchaseInvoices.find(y=>y.id==='FB-IMP-1');return x&&{s:x.supplier,b:x.billable,p:x.price,v:x.vat}});
+  assert.ok(f,'fatura nuk u krijua');
+  assert.equal(f.s,'F-900','furnitori s’u zgjidh me emër: '+f.s);
+  assert.equal(f.b,100);assert.equal(f.p,150);assert.equal(f.v,20);
+ });
+
+ await step('Kolona e detyrueshme që mungon → gabim i qartë (price te fatura blerjeje)',async()=>{
+  await ev(()=>{window.pendingModuleImport=null});
+  await ev(async()=>{const csv=new File(['Numri i faturës së furnitorit,Data e faturës,Furnitori,Pesha e faturueshme\nFB-IMP-2,2026-09-01,Furnitor Test Shpk,100'],'f2.csv',{type:'text/csv'});await parseModuleImport('purchaseInvoices',csv)});
+  await p.waitForTimeout(250);
+  const r=await ev(()=>({pend:!!window.pendingModuleImport,toast:document.getElementById('toast').textContent}));
+  assert.equal(r.pend,false);
+  assert.match(r.toast,/Mungojnë kolonat: price/);
+ });
+
+ await step('Rafte me magazinën me EMËR dhe faturë shitjeje me klient/produkt me EMËR',async()=>{
+  const info=await ev(()=>({wh:(state.warehouses[0]||{}).name,prod:(state.products[0]||{}).name}));
+  await ev(async w=>{const csv=new File(['Kodi,Emri,Magazina\nR-IMP,Rafti i importit,'+w],'r.csv',{type:'text/csv'});await parseModuleImport('racks',csv)},info.wh);
+  await p.waitForTimeout(200);
+  await ev(()=>commitModuleImport());await p.waitForTimeout(250);
+  const rk=await ev(()=>{const x=state.racks.find(y=>y.code==='R-IMP');return x&&x.warehouse});
+  assert.equal(rk,await ev(()=>state.warehouses[0].id),'rafti s’u lidh me magazinën');
+  await ev(async n=>{const csv=new File(['Numri i faturës,Data,Klienti,Produkti,Neto,Bruto,Çmimi,TVSH\nFAT-IMP-1,2026-09-02,Klient Test Sha,'+n+',10,10,150,20'],'s.csv',{type:'text/csv'});await parseModuleImport('salesInvoices',csv)},info.prod);
+  await p.waitForTimeout(200);
+  const sd=await ev(()=>window.pendingModuleImport&&window.pendingModuleImport.data[0].data);
+  assert.equal(sd.customer,'Klient Test Sha');assert.equal(sd.product,info.prod);
+  await ev(()=>commitModuleImport());await p.waitForTimeout(300);
+  const sv=await ev(()=>{const x=state.salesInvoices.find(y=>y.id==='FAT-IMP-1');return x&&{c:x.customer,pr:x.lines&&x.lines[0]&&x.lines[0].product}});
+  assert.ok(sv,'fatura e shitjes nuk u krijua');
+  assert.equal(sv.c,'K-77');
+  assert.equal(sv.pr,await ev(()=>state.products[0].id));
+ });
+
  await step('Pa gabime JS',async()=>{assert.deepEqual(errors,[])});
  await browser.close();
  console.log(`\n${passed} passed, ${failed} failed`);process.exit(failed?1:0);
