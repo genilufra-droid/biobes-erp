@@ -3,6 +3,7 @@ const{open}=require('./helpers.cjs'),fs=require('node:fs'),path=require('node:pa
 const assets=path.resolve(process.env.BIOBES_OCR_ASSETS||'.audit/node_modules');
 for(const pkg of ['tesseract.js','tesseract.js-core','pdfjs-dist','@tesseract.js-data/eng'])assert.ok(fs.existsSync(path.join(assets,pkg)),`Missing ${pkg}: install test engines as described in tests/README.md`);
 async function run(mobile){const{browser,context,page:p,errors}=await open(mobile);const requests=[];
+ await p.evaluate(()=>{try{mbOfferClose()}catch(e){}});// snackbar-i i turnit mbyllet si nga përdoruesi real
 try{
  await context.route(/https:\/\/(cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|unpkg\.com|tessdata\.projectnaptha\.com)\//,async route=>{
    const url=route.request().url();requests.push(url);let file;
@@ -31,7 +32,7 @@ try{
  await p.waitForFunction(()=>documentSets().some(s=>s.files?.some(f=>f.name==='audit-invoice.pdf')&&s.status!=='Në përpunim'),{},{timeout:30000});
  const set=await p.evaluate(()=>documentSets().find(s=>s.files?.some(f=>f.name==='audit-invoice.pdf')));
  assert.equal(set.results.length,1);assert.ok(set.results[0].text.includes('AUDIT-001'));assert.ok(set.failCount>0,'Deliberately mismatched invoice must require correction');
- await p.locator('#main summary').filter({hasText:'Shiko gabimet'}).click();await p.locator('#main').getByRole('button',{name:'Shiko fushat',exact:true}).first().click();
+ await p.locator('#main summary').filter({hasText:'Shiko gabimet'}).evaluate(el=>el.scrollIntoView({block:'center'}));await p.locator('#main summary').filter({hasText:'Shiko gabimet'}).click();await p.locator('#main').getByRole('button',{name:'Shiko fushat',exact:true}).first().evaluate(el=>el.scrollIntoView({block:'center'}));await p.locator('#main').getByRole('button',{name:'Shiko fushat',exact:true}).first().click();
  assert.ok((await p.locator('#modalBody').innerText()).includes('audit-invoice.pdf'));await p.evaluate(()=>closeModal());
  await p.locator('#main').getByRole('button',{name:'Arkiva',exact:true}).click();assert.ok((await p.locator('#main').innerText()).includes(set.id));
  await p.locator('#exportArchiveRows [data-row-actions]').first().click();await p.locator('#modal').getByRole('button',{name:'Hap setin',exact:true}).click();assert.ok((await p.locator('#modalBody').innerText()).includes('audit-invoice.pdf'));
