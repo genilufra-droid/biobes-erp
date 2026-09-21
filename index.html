@@ -12962,7 +12962,7 @@ try{setTimeout(()=>{try{applyRoleSecurity()}catch(e){}},0)}catch(e){}
     return ops;
   }
 
-  async function pushDocPatch() {
+  async function pushDocPatch(retried) {
     if (CLOUD.docPatchUnsupported) return null;   // server i vjetër: kalohet në ruajtjen e plotë
     var base = null;
     try { base = syncBaseSnapshotGet(); } catch (e) { base = null; }
@@ -12990,6 +12990,17 @@ try{setTimeout(()=>{try{applyRoleSecurity()}catch(e){}},0)}catch(e){}
     }
     if (r && r.status === 404) { CLOUD.docPatchUnsupported = true; return null; }      // server pa endpoint → e plota
     if (r && r.status === 409 && r.data && r.data.empty) return null;                  // server pa gjendje → e plota
+    if (r && r.status === 409 && r.data && r.data.conflict === 'number') {             // numri i zënë (dy pajisje njëkohësisht)
+      CLOUD.docNumbers = (CLOUD.docNumbers || 0) + 1;
+      var newNum = renumberLocalDoc(r.data);
+      if (!newNum) {
+        try { toast('Numri ' + ((r.data && r.data.number) || '') + ' është i zënë — hapni dokumentin dhe zgjidhni një numër tjetër'); } catch (e) {}
+        return { stopped: true };
+      }
+      try { toast('Numri ' + r.data.number + ' ishte i zënë — u caktua automatikisht ' + newNum); } catch (e) {}
+      if (!retried) return await pushDocPatch(true);                                   // riftim me numrin e ri
+      return null;                                                                     // në rast të rrallë: kalohet në ruajtjen e plotë
+    }
     if (r && r.status === 409 && r.data && r.data.conflict) {                          // konflikt per dokument
       CLOUD.docConflicts = (CLOUD.docConflicts || 0) + 1;
       await resolveDocConflict(r.data);
@@ -13000,6 +13011,43 @@ try{setTimeout(()=>{try{applyRoleSecurity()}catch(e){}},0)}catch(e){}
     if (r && r.status === 200) return null;                                            // përgjigje e papritur → e plota
     if (r && r.status === 400) { CLOUD.docErrors = (CLOUD.docErrors || 0) + 1; try { toast('Ruajtja u refuzua: ' + ((r.data && r.data.error) || '')); } catch (e) {} return { stopped: true }; }
     return null;
+  }
+
+  /* Rinumerim automatik (F2.7): numrat e brendshëm (FH-/FD-/SHP-YYYY-NNNN) llogariten
+     në pajisje; dy pajisje që krijojnë dokument të të njëjtit lloj njëkohësisht mund të
+     nxjerrin të njëjtin numër. Serveri e refuzon (409 conflict:'number') dhe këtu
+     numri rillogaritet duke iu shmangur numrave vendorë + atij të zënë në server. */
+  function renumberLocalDoc(info) {
+    try {
+      var kind = info && info.kind, id = info && info.id;
+      if (kind !== 'stockDocs' && kind !== 'expenses') return '';
+      var list = (state && state[kind]) || [], i, doc = null;
+      for (i = 0; i < list.length; i++) if (list[i] && String(list[i].id) === String(id)) { doc = list[i]; break; }
+      if (!doc) return '';
+      var taken = {};
+      for (i = 0; i < list.length; i++) if (list[i] && list[i].number) taken[String(list[i].number)] = 1;
+      if (info.number) taken[String(info.number)] = 1;
+      var y = String(doc.date || '').slice(0, 4) || String(new Date().getFullYear());
+      var pre = kind === 'expenses' ? 'SHP-' + y + '-' : ((String(doc.kind || 'IN').toUpperCase() === 'IN' ? 'FH-' : 'FD-') + y + '-');
+      // Numri i parapëlqyer vjen nga numëratori i vetë modulit (i njëjti rregull si
+      // butoni «I ri»); nëse edhe ai është i zënë, rritet radha brenda të njëjtit prefiks.
+      var preferred = '';
+      try { preferred = kind === 'expenses' ? window.__biobesExpenses.nextNumber(doc.date) : window.__biobesStockDocs.nextNumber(String(doc.kind || 'IN').toUpperCase(), doc.date); } catch (e) { preferred = ''; }
+      var cand = '';
+      if (preferred && !taken[preferred]) cand = preferred;
+      else {
+        var m = /^([A-Z]{2,4}-\d{4}-)(\d{4})$/.exec(preferred || '');
+        var n = m ? parseInt(m[2], 10) : 1;
+        do { cand = pre + ('0000' + n).slice(-4); n++; } while (taken[cand]);
+      }
+      var oldNum = doc.number;
+      doc.number = cand;
+      try { state.events.push({ date: new Date().toLocaleString('sq-AL'), type: 'Rinumerim dokumenti', ref: doc.id, text: 'Numri ' + oldNum + ' ishte i zënë në server — u caktua ' + cand }); } catch (e) {}
+      try { var inp = document.getElementById('sdNumber'); if (inp && String(inp.value) === String(oldNum)) inp.value = cand; } catch (e) {}
+      try { render(); } catch (e) {}
+      CLOUD.lastRenumber = { id: String(doc.id), from: String(oldNum), to: cand };
+      return cand;
+    } catch (e) { return ''; }
   }
 
   /* Bashkim 3-palësh FUSHË PËR FUSHË: kur dy përdorues ndryshojnë të njëjtin
