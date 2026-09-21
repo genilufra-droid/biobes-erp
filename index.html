@@ -7545,7 +7545,7 @@ try{
 const VERSION='biobes-opening-balances-v1';
 const OB_KEY='opening:balance';
 const OB_OPTIONAL={suppliers:['openingBalance','openingCurrency','openingRate'],customers:['openingBalance','openingCurrency','openingRate']};
-const IMPORT_KEY_SYN_LIST={supplier:['Furnitori','Emri i furnitorit','Kodi i furnitorit'],customer:['Klienti','Emri i klientit','Kodi i klientit'],product:['Produkti','Artikulli','Kodi i produktit','Emri i produktit'],amount:['Shuma','Vlera','Shuma (ALL)'],method:['Mënyra e pagesës','Mënyra','Metoda e pagesës'],qty:['Sasia','Sasia kg','Sasia (kg)'],net:['Neto','Neto kg','Pesha neto'],gross:['Bruto','Bruto kg','Pesha bruto'],bags:['Numri i thasëve','Thasët'],bagWeight:['Neto për thes','Pesha për thes','Neto/the'],price:['Çmimi','Çmimi për kg','Çmimi njësi','Çmimi/kg'],exchangeRate:['Kursi i këmbimit','Kursi','Kursi ALL'],invoiceNumber:['Numri i faturës','Nr. i faturës','Numri i faturës së shitjes'],supplierInvoiceNo:['Numri i faturës së furnitorit','Nr. faturës furnitorit','Fatura e furnitorit'],weighing:['Peshimi','ID e peshimit'],order:['Porosia','Nr. i porosisë'],pallets:['Paleta','Numri i paletave'],plate:['Targa','Numri i targës','Targa e mjetit'],carrier:['Transportuesi','Transportuesi (emër)'],seal:['Plumbi','Numri i plumbçes','Plumbça'],username:['Përdoruesi','Username'],role:['Roli','Roli i përdoruesit'],active:['Aktiv','Aktive'],ledgerAccount:['Llogaria kontabël','Konto'],unit:['Njësia','Njësia bazë'],purchasePrice:['Çmimi i blerjes'],salePrice:['Çmimi i shitjes'],category:['Kategoria','Kategoria e artikullit'],invoice:['Fatura','Fatura (ID)'],date:['Data','Data e veprimit'],status:['Statusi','Gjendja'],machine:['Makineria','Makineria (kod)'],rack:['Rafti','Rafti (kod)'],warehouse:['Magazina','Magazina (kod/emër)'],lotCode:['Kodi i lotit','Loti'],unitCost:['Kosto njësi','Kostoja njësi'],organic:['Organik','Bio'],note:['Shënim','Shënime'],description:['Përshkrimi','Përshkrim'],item:['Artikulli i shpenzimit','Njësi'],costCenter:['Qendra e kostos'],deductible:['E zbritshme','TVSH e zbritshme'],sourceLot:['Loti burimor'],internalLot:['Loti i brendshëm'],customerLot:['Loti i klientit'],nipt:['NIPT','NIPT/VAT','Tatimi','VAT','Numri i tatimit','Kodi i tatimit'],vat:['NIPT','NIPT/VAT','Tatimi','VAT','Numri i tatimit'],iban:['IBAN','Nr. i llogarisë','Numri i llogarisë bankare','Account'],bank:['Banka','Emri i bankës','Bank'],email:['Email','E-mail','Mail','Email adresa'],phone:['Telefoni','Tel','Mobile','Celular','Phone'],address:['Adresa','Rruga','Adresa e plotë'],region:['Qarku / Zona','Qarku','Zona','Rajoni'],paymentTerms:['Afati i pagesës','Afati i pagesës (ditë)','Afati'],contact:['Kontakti','Personi i kontaktit','Kontakt'],eori:['EORI'],website:['Website','Faqja web'],currency:['Monedha','Monedha e bazës'],city:['Qyteti','Qytet'],country:['Shteti','Vendi'],name:['Emërtimi','Emri','Emri i regjistrimit'],code:['Kodi','Kodi i palës']};
+const IMPORT_KEY_SYN_LIST={supplier:['Furnitori','Emri i furnitorit','Kodi i furnitorit'],customer:['Klienti','Emri i klientit','Kodi i klientit'],product:['Produkti','Artikulli','Kodi i produktit','Emri i produktit'],amount:['Shuma','Vlera','Shuma (ALL)'],method:['Mënyra e pagesës','Mënyra','Metoda e pagesës'],qty:['Sasia','Sasia kg','Sasia (kg)'],net:['Neto','Neto kg','Pesha neto'],gross:['Bruto','Bruto kg','Pesha bruto'],bags:['Numri i thasëve','Thasët'],bagWeight:['Neto për thes','Pesha për thes','Neto/the'],price:['Çmimi','Çmimi për kg','Çmimi njësi','Çmimi/kg'],exchangeRate:['Kursi i këmbimit','Kursi','Kursi ALL'],invoiceNumber:['Numri i faturës','Nr. i faturës','Numri i faturës së shitjes'],supplierInvoiceNo:['Numri i faturës së furnitorit','Nr. faturës furnitorit','Fatura e furnitorit'],weighing:['Peshimi','ID e peshimit'],order:['Porosia','Nr. i porosisë'],pallets:['Paleta','Numri i paletave'],plate:['Targa','Numri i targës','Targa e mjetit'],carrier:['Transportuesi','Transportuesi (emër)'],seal:['Plumbi','Numri i plumbçes','Plumbça'],username:['Përdoruesi','Username'],role:['Roli','Roli i përdoruesit'],active:['Aktiv','Aktive'],ledgerAccount:['Llogaria kontabël','Konto'],unit:['Njësia','Njësia bazë'],purchasePrice:['Çmimi i blerjes'],salePrice:['Çmimi i shitjes'],category:['Kategoria','Kategoria e artikullit'],invoice:['Fatura','Fatura (ID)'],date:['Data','Data e veprimit'],status:['Statusi','Gjendja'],machine:['Makineria','Makineria (kod)'],rack:['Rafti','Rafti (kod)'],warehouse:['Magazina','Magazina (kod/emër)'],lotCode:['Kodi i lotit','Loti'],unitCost:['Kosto njësi','Kostoja njësi'],organic:['Organik','Bio'],note:['Shënim','Shënime'],description:['Përshkrimi','Përshkrim'],item:['Artikulli i shpenzimit','Njësi'],costCenter:['Qendra e kostos'],deductible:['E zbritshme','TVSH e zbritshme'],sourceLot:['Loti burimor'],internalLot:['Loti i brendshëm'],customerLot:['Loti i klientit'],nipt:['NIPT','NIPT/VAT','Tatimi','VAT','Numri i tatimit','Kodi i tatimit','Tax ID','TaxID','Tax Number','VAT Number','Numri i TVSH','NIPT-i'],vat:['NIPT','NIPT/VAT','Tatimi','VAT','Numri i tatimit'],iban:['IBAN','Nr. i llogarisë','Numri i llogarisë bankare','Account','Account Number','Bank Account','Llogaria bankare'],bank:['Banka','Emri i bankës','Bank','Bank Name'],email:['Email','E-mail','Mail','Email adresa','Email Address','E-mail Address'],phone:['Telefoni','Tel','Mobile','Celular','Phone'],address:['Adresa','Rruga','Adresa e plotë','Street','Street 2','Address 1'],region:['Qarku / Zona','Qarku','Zona','Rajoni','State','Province','Qarku'],paymentTerms:['Afati i pagesës','Afati i pagesës (ditë)','Afati','Payment Terms','Terms','Terms of Payment'],contact:['Kontakti','Personi i kontaktit','Kontakt','Contact Person','Contact Name','Personi i kontaktit'],eori:['EORI','EORI Number','EORI Nr'],website:['Website','Faqja web'],currency:['Monedha','Monedha e bazës','Currency'],city:['Qyteti','Qytet','City','Qyteti'],country:['Shteti','Vendi','Country','Vendi'],name:['Emërtimi','Emri','Emri i regjistrimit','Name','Company Name','Company','Emri i kompanisë'],code:['Kodi','Kodi i palës','External ID','Reference','Ref']};
 const IMPORT_PCT_SYN={vat:['TVSH (%)','TVSH','Taksa e vlerës së shtuar']};
 const IMPORT_KEY_SYN={suppliers:IMPORT_KEY_SYN_LIST,customers:IMPORT_KEY_SYN_LIST,products:IMPORT_PCT_SYN,purchaseInvoices:IMPORT_PCT_SYN,salesInvoices:IMPORT_PCT_SYN};
 const IMPORT_REQUIRED={products:['code','name','unit'],suppliers:['code','name'],customers:['code','name'],warehouses:['code','name'],racks:['code','name','warehouse'],machines:['code','name'],cashRegisters:['code','name'],bankAccounts:['code','bank','iban'],purchaseInvoices:['supplier','billable','price'],salesInvoices:['invoiceNumber','customer','product','net'],orders:['customer','product','qty'],packagings:['product','bags','bagWeight'],shipments:['id','net'],payments:['supplier','amount'],customerPayments:['customer','amount'],users:['username','name','role'],stockOpening:['warehouse','product','qty'],expenses:['date','category','amount']};window.IMPORT_KEY_SYN=IMPORT_KEY_SYN;window.IMPORT_KEY_SYN_LIST=IMPORT_KEY_SYN_LIST;window.sniffNiptColumn=sniffNiptColumn;window.IMPORT_REQUIRED=IMPORT_REQUIRED;window.IMPORT_PCT_SYN=IMPORT_PCT_SYN;
@@ -8593,7 +8593,7 @@ try{
  try{if(window.__biobesOpening&&window.__biobesOpening.optional)window.__biobesOpening.optional[EX_IMPORT_KEY]=EX_IMPORT_OPTIONAL.slice()}catch(e){}
  const __exImportLabel=importLabel;importLabel=function(k){if(k===EX_IMPORT_KEY)return 'Shpenzime (klasa 6)';return __exImportLabel.apply(this,arguments)};window.importLabel=importLabel;
  const __exTemplate=professionalImportTemplate;professionalImportTemplate=function(k){if(k!==EX_IMPORT_KEY)return __exTemplate.apply(this,arguments);let cols=IMPORT_SCHEMAS[EX_IMPORT_KEY],headers=cols.map(h=>IMPORT_HEADER_SQ[h]||h),s=(state.suppliers||[]).find(x=>x&&x.id)||{},t=today();
-  let rows=[[t,'MIREMBAJTJE','Filtra',s.code||'S01/1','F-1021','Filtra vaji për makinerinë e tharjes','12000','20','Po','Arkë','Makineria tharëse'],[t,'KARBURANT','Naftë','','','Naftë kamioni','8500','20','Jo','Bankë',''],[t,'TRANSPORT','Transport mallrash',s.code||'S01/1','TR-77','Transport nga Fieri në Durrës','30000','0','Jo','Pa paguar','']];
+  let rows=[[t,'MIREMBAJTJE','Filtra',s.code||'S01/1','F-1021','Filtra vaji për makinerinë e tharjes',12000,20,'Po','Arkë','Makineria tharëse'],[t,'KARBURANT','Naftë','','','Naftë kamioni',8500,20,'Jo','Bankë',''],[t,'TRANSPORT','Transport mallrash',s.code||'S01/1','TR-77','Transport nga Fieri në Durrës',30000,0,'Jo','Pa paguar','']];
   makeXlsx('BioBes-ERP-IMPORT-'+EX_IMPORT_KEY+'.xlsx',headers,rows);return{filename:'BioBes-ERP-IMPORT-'+EX_IMPORT_KEY+'.xlsx',columns:headers.length}};window.professionalImportTemplate=professionalImportTemplate;
  const __exCommit=commitModuleImport;commitModuleImport=function(){let q=window.pendingModuleImport;if(!q||q.k!==EX_IMPORT_KEY)return __exCommit.apply(this,arguments);if(!requirePermission('expenses','create'))return;if(!requirePermission('expenses','confirm'))return;
   const norm=v=>String(v==null?'':v).trim(),low=v=>norm(v).toLocaleLowerCase('sq');let errors=[],prepared=[];
@@ -11491,5 +11491,287 @@ commitModuleImport=function(){
  return base.apply(this,arguments);
 };
 })();
+</script>
+<script>
+/* biobes-import-upsert-v1 — import idempotent: rreshtat identikë SKIP, ndryshimet PËRDITËSOHEN,
+   të rejat krijohen; preview-i shfaq planin + TOTALET në fund për krahasim me Excel-in. */
+(function(){try{
+ if(window.__biobesImportUpsertV1)return;window.__biobesImportUpsertV1=1;
+ var NUMF=['purchasePrice','salePrice','openingBalance','openingRate','paymentTerms','billable','price','exchangeRate','vat','net','gross','amount','qty','bags','bagWeight','pallets','rate','unitCost','pct'];
+ var TOTF=['purchasePrice','salePrice','openingBalance','billable','price','exchangeRate','vat','net','gross','amount','qty','bags','bagWeight','pallets','rate','unitCost'];
+ var STORED={supplierInvoiceNo:'id',invoiceNumber:'id',username:'id',invoiceDate:'date',rate:'exchangeRate'};
+ var KEYS={products:['code'],suppliers:['code'],customers:['code'],warehouses:['code'],racks:['code'],machines:['code'],cashRegisters:['code'],bankAccounts:['code'],purchaseInvoices:['supplierInvoiceNo'],salesInvoices:['invoiceNumber'],orders:['id'],packagings:['id'],shipments:['id'],payments:['id'],customerPayments:['id'],users:['username'],stockOpening:['warehouse','product','lotCode'],expenses:['invoiceNumber']};
+ var FINAL=/konfirmuar|konfirm|final|d(ë|e)rguar|dor(ë|e)zuar|mbyllur|likuiduar|paguar|anuluar|revers|kryer|storno/i;
+ function norm(v){return String(v==null?'':v).trim()}
+ function low(v){return norm(v).toLocaleLowerCase('sq')}
+ function r2f(v){return Math.round((Number(v)||0)*100)/100}
+ function arr(k){try{if(k==='purchaseInvoices')return purchaseInvoices();if(k==='salesInvoices')return salesInvoices();if(k==='cashRegisters')return (typeof cashRegisters==='function'?cashRegisters():(state.cashRegisters||[]))||[];return state[k]||[]}catch(e){return[]}}
+ function flds(k){return (IMPORT_SCHEMAS[k]||[])}
+ function sf(k,f){return STORED[f]||f}
+ function resv(f,raw){var v=norm(raw);if(!v)return '';try{
+   if(f==='supplier')return window.importResolveParty(v,'suppliers');
+   if(f==='customer')return window.importResolveParty(v,'customers');
+   if(f==='warehouse')return window.importResolveParty(v,'warehouses');
+   if(f==='rack')return window.importResolveParty(v,'racks');
+   if(f==='product')return window.importResolveParty(v,'products');
+   if(f==='order')return window.importResolveParty(v,'orders');
+   if(f==='lot'||f==='lotCode'||f==='sourceLot'||f==='internalLot'||f==='customerLot')return window.importResolveParty(v,'lots');
+  }catch(e){}return v}
+ function incoming(k,f,raw){if(NUMF.indexOf(f)>=0)return importNum(raw);if(f==='active'||f==='deductible')return importBool(raw);return resv(f,raw)}
+ function sameVal(k,f,a,b){if(NUMF.indexOf(f)>=0)return Math.abs((Number(a)||0)-(Number(b)||0))<0.005;if(f==='active'||f==='deductible')return !!a===!!b;return low(a)===low(b)}
+ function plan(k,d){
+  var keyv=(KEYS[k]||[]).map(function(f){return f==='lotCode'?low(d[f]):norm(d[f])}).join('|'),ex=null;
+  try{
+   if(k==='stockOpening'){ex=(state.lots||[]).find(function(l){return l&&norm(d.lotCode)&&low(l.code)===low(d.lotCode)})||null}
+   else if(k==='expenses'){var a=r2f(importNum(d.amount)),dt=norm(d.date);ex=(typeof exDocs==='function'?exDocs():[]).find(function(x){return x&&((norm(d.invoiceNumber)&&low(x.invoiceNo)===low(d.invoiceNumber))||(!norm(d.invoiceNumber)&&x.date===dt&&low(x.category)===low(d.category)&&low(x.item)===low(d.item)&&r2f(x.total)===a))})||null}
+   else if(k==='purchaseInvoices')ex=arr(k).find(function(x){return x&&norm(x.id)&&norm(x.id)===norm(d.supplierInvoiceNo)})||null;
+   else if(k==='salesInvoices')ex=arr(k).find(function(x){return x&&norm(x.id)&&norm(x.id)===norm(d.invoiceNumber)})||null;
+   else if(k==='users')ex=arr(k).find(function(x){return x&&(low(x.username)===low(d.username)||low(x.id)===low(d.username))})||null;
+   else ex=arr(k).find(function(x){return x&&(norm(x.id)===keyv||(x.code!==undefined&&low(x.code)===keyv)||low(x.code)===low(keyv))})||null;
+  }catch(e){ex=null}
+  if(!ex)return{status:'new'};
+  var ch=[],isKey=function(f){return (KEYS[k]||[]).indexOf(f)>=0};
+  var dateish=/date$/i;
+  if(k==='stockOpening'){
+   var q1=Math.abs(importNum(ex.qty)-importNum(d.qty))<0.005,c1=Math.abs(importNum(ex.unitCost||ex.cost)-importNum(d.unitCost))<0.005;
+   if(q1&&c1)return{status:'same',existing:ex};
+   return{status:'conflict',existing:ex,changes:[{f:'qty',to:norm(d.qty)}]};
+  }
+  flds(k).forEach(function(f){
+   if(f==='code'||f==='active'){if(f==='active'&&!norm(d[f]))return}else if(isKey(f))return;
+   var raw=norm(d[f]);if(!raw)return;
+   var target=sf(k,f),cur=ex[target];
+   if(k==='expenses'){
+    if(f==='amount'){if(Math.abs(r2f(ex.total)-importNum(raw))<0.005)return;ch.push({f:'amount',to:raw});return}
+    if(f==='vat'){if(Math.abs(importNum(ex.vatRate)-importNum(raw))<0.005)return;ch.push({f:'tvsh %',to:raw});return}
+    if(f==='deductible'){var dv=importBool(raw);if(!!ex.deductible===dv)return;ch.push({f:'e zbritshme',to:raw});return}
+    if(f==='category'){var cv=(typeof exCats==='function'?(exCats().find(function(c){return c&&(c.code===norm(raw).toUpperCase()||low(c.name)===low(raw)||c.id===norm(raw))})||{}):{}).code||norm(raw);if(low(ex.category)===low(cv))return;ch.push({f:'kategoria',to:raw});return}
+    if(f==='method'){return}
+    if(f==='date'){var dd=norm(raw),dm=dd.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})$/);if(dm)dd=dm[3]+'-'+dm[2].padStart(2,'0')+'-'+dm[1].padStart(2,'0');if(ex.date===dd)return;ch.push({f:'data',to:raw});return}
+    if(f==='invoiceNumber'){return}
+    if(low(ex[target])===low(raw))return;ch.push({f:f,to:raw});return;
+   }
+   var inc=incoming(k,f,raw);
+   if(cur===undefined||cur===null||cur===''){ch.push({f:f,to:raw});return}
+   if(!sameVal(k,f,inc,dateish.test(f)?norm(cur):cur))ch.push({f:f,to:raw});
+  });
+  if(!ch.length)return{status:'same',existing:ex};
+  var editable=!FINAL.test(String(ex.status||''));
+  return{status:editable?'update':'conflict',existing:ex,changes:ch};
+ }
+ function applyUpdate(k,ex,d){
+  var done=[];
+  flds(k).forEach(function(f){
+   if(f==='code'||(KEYS[k]||[]).indexOf(f)>=0)return;
+   var raw=norm(d[f]);if(!raw)return;
+   var target=sf(k,f);
+   if(k==='purchaseInvoices'&&target==='id')return;
+   var val=incoming(k,f,raw);
+   if(!sameVal(k,f,val,ex[target])){ex[target]=val;done.push(f)}
+  });
+  return done;
+ }
+ function planned(k,rows){
+  var out={new:[],same:[],update:[],conflict:[]};
+  (rows||[]).forEach(function(it){var p=plan(k,it.data||{});p.row=it.row;p.d=it.data||{};out[p.status].push(p)});
+  return out;
+ }
+ function totalsFor(k,rows){
+  var t={},any=false;
+  flds(k).forEach(function(f){if(TOTF.indexOf(f)<0)return;var s=0,n=0;(rows||[]).forEach(function(it){var raw=norm(it.data?it.data[f]:'');if(!raw)return;var v=importNum(raw);if(isFinite(v)){s+=v;n++}});if(n){t[f]=s;any=true}});
+  return any?t:null;
+ }
+ function numCells(k,rows){
+  var t=totalsFor(k,rows),o={};flds(k).forEach(function(f){o[f]=(t&&t[f]!==undefined)?fmt2(t[f]):''});return o;
+ }
+ function planHtml(k,pl,tot){
+  var totRow={};flds(k).forEach(function(f){totRow[f]=(tot&&tot[f]!==undefined)?fmt2(tot[f]):''});
+  var cnt=pl.new.length,cup=pl.update.length,csm=pl.same.length,ccf=pl.conflict.length;
+  var h='<div class="card" style="border-color:#bfe3cf;background:#f6fcf8"><b>Plan importi — kontroll para ruajtjes</b>'
+   +'<p style="margin:6px 0 4px"><b>'+cnt+'</b> të reja · <b>'+cup+'</b> përditësime · <b>'+csm+'</b> pa ndryshim (skip) · <b>'+ccf+'</b> konflikte</p>'
+   +'<p class="hint" style="margin:0">Rreshtat identikë nuk importohen dy herë. Ndryshimet përditësojnë regjistrimin ekzistues (kodi/invoice-i njëjës). Dokumentet e konfirmuar nuk rishkruhen — shfaqen si konflikt.</p></div>';
+  if(cup){
+   h+='<div class="card"><b>Përditësimet ('+cup+')</b>'+tableCard(['Rreshti','Çelësi','Fusha të ndryshuara'],pl.update.slice(0,40).map(function(p){return [p.row,norm(KEYS[k].map(function(f){return p.d[f]}).join(' · ')),p.changes.map(function(c){return c.f+' → '+c.to}).join(', ')]}))+'</div>';
+  }
+  if(ccf){
+   h+='<div class="card" style="border-color:#e1a93b;background:#fff9e8"><b>Konflikte — nuk u prekën</b>'+tableCard(['Rreshti','Çelësi','Diferenca'],pl.conflict.slice(0,40).map(function(p){return [p.row,norm(KEYS[k].map(function(f){return p.d[f]}).join(' · ')),p.changes.map(function(c){return c.f+' → '+c.to}).join(', ')]}))+'<p class="hint" style="margin:6px 0 0">Regjistrimi ekziston me status të mbyllur; korrigjimi bëhet manualisht (anulo/korrigjo), jo me mbishkrim.</p></div>';
+  }
+  if(csm){
+   h+='<details class="card"><summary><b>Pa ndryshim — skip ('+csm+')</b></summary>'+tableCard(['Rreshti','Çelësi'],pl.same.slice(0,60).map(function(p){return [p.row,norm(KEYS[k].map(function(f){return p.d[f]}).join(' · '))]}))+'</details>';
+  }
+  h+='<div class="card"><b>TOTALET në fund — krahasoni me Excel-in</b>'+tableCard(['Fusha','Totali në Excel (sistemi)'],flds(k).filter(function(f){return tot&&tot[f]!==undefined}).map(function(f){return [IMPORT_HEADER_SQ[f]||f,fmt2(tot[f])]}))+'<p class="hint" style="margin:6px 0 0">Shumat llogariten me të njëjtin lexim numrash si importi (1.234,56 = 1,234.56). Duhen të përputhen me totalin e Excel-it tuaj.</p></div>';
+  return h;
+ }
+ function totalsRowXlsx(k,rows,pl){
+  var t=totalsFor(k,rows),r=['TOTALI'];
+  flds(k).forEach(function(f){r.push(t&&t[f]!==undefined?r2f(t[f]):'')});
+  r.push(pl.new.length+' të reja / '+pl.update.length+' përditësime / '+pl.same.length+' skip / '+pl.conflict.length+' konflikte');
+  return r;
+ }
+ function exportCompare(k,pl,rows){
+  try{
+   var heads=['Rreshti'].concat(flds(k)).concat(['Gjendja']),body=(rows||[]).map(function(it){
+    var st='i ri';pl.update.forEach(function(p){if(p.row===it.row)st='përditësohet'});pl.same.forEach(function(p){if(p.row===it.row)st='pa ndryshim (skip)'});pl.conflict.forEach(function(p){if(p.row===it.row)st='konflikt — nuk preket'});
+    return [it.row].concat(flds(k).map(function(f){return norm(it.data?it.data[f]:'')})).concat([st]);
+   });
+   var name='BioBes-IMPORT-kontroll-'+k+'-'+new Date().toISOString().slice(0,10)+'.xlsx';
+   makeXlsx(name,heads,body.concat([totalsRowXlsx(k,rows,pl)]));
+   securityAudit('IMPORT_CHECK_EXPORT',k+' — '+body.length+' rreshta + totalet');
+   toast('Kontrolli u shkarkua — krahasoni totalet me Excel-in tuaj');
+  }catch(e){toast('Eksporti i kontrollit dështoi: '+e.message)}
+ }
+ /* ---------- preview: plan + totalet ---------- */
+ try{var __puParse=parseModuleImport;parseModuleImport=async function(k,file){
+  var r=await __puParse.apply(this,arguments);
+  try{
+   var q=window.pendingModuleImport;if(!q||q.k!==k||!Array.isArray(q.data))return r;
+   var pl=planned(k,q.data),tot=totalsFor(k,q.data);q.__plan=pl;q.__tot=tot;
+   var body=document.getElementById('modalBody');
+   if(body)body.insertAdjacentHTML('afterbegin',planHtml(k,pl,tot));
+   var foot=document.getElementById('modalFoot');
+   if(foot){var b=document.createElement('button');b.className='btn';b.textContent='⬇ Excel me totalet (kontroll)';b.onclick=function(){exportCompare(k,pl,q.data)};foot.insertBefore(b,foot.children[0]||null)}
+   var info=body?body.querySelector('.card p'):null;
+  }catch(e){console.error(VERSION,'import-preview',e)}
+  return r;
+ };parseModuleImport=parseModuleImport;window.parseModuleImport=parseModuleImport}catch(e){}
+ /* ---------- commit: skip identikët, përditëso ndryshimet, krijo të rejat ---------- */
+ var __puCommit=commitModuleImport;
+ commitModuleImport=function(){
+  try{
+   var q=window.pendingModuleImport;
+   if(!q||!Array.isArray(q.data))return __puCommit.apply(this,arguments);
+   var k=q.k,rows=q.data,pl=q.__plan||planned(k,rows),tot=q.__tot||totalsFor(k,rows);
+   var updErr=[];
+   pl.update.forEach(function(p){
+    try{var ch=applyUpdate(k,p.existing,p.d);securityAudit('IMPORT_UPDATE',k+' rreshti '+p.row+': '+(ch.join(', ')||'pa fusha të ndryshme'))}
+    catch(e){updErr.push('Rreshti '+p.row+': '+e.message)}
+   });
+   var keep=pl.new.map(function(p){return{row:p.row,data:p.d}});
+   var summary=pl.new.length+' të reja · '+pl.update.length+' përditësuara · '+pl.same.length+' pa ndryshim (skip) · '+pl.conflict.length+' konflikte';
+   q.data=keep;
+   var res=__puCommit.apply(this,arguments);
+   if(window.pendingModuleImport){window.pendingModuleImport=null;return res}
+   try{
+    if(pl.update.length){save();try{render()}catch(e){}}
+    securityAudit('IMPORT_UPSERT',k+': '+summary);
+    if(pl.same.length||pl.update.length||pl.conflict.length||keep.length===0)toast(summary);
+   }catch(e){}
+   if(pl.conflict.length||updErr.length){
+    setTimeout(function(){
+     try{
+      var html=(pl.conflict.length?'<div class="card" style="border-color:#e1a93b;background:#fff9e8"><b>Konflikte — nuk u prekën ('+pl.conflict.length+')</b><p class="hint" style="margin:4px 0 8px">Regjistrime me status të mbyllur (ose lot ekzistues): korrigjohen manualisht, sistemi nuk i mbishkruan.</p>'+(pl.conflict.slice(0,40).map(function(p){return esc(norm(KEYS[k].map(function(f){return p.d[f]}).join(' · '))+' — '+p.changes.map(function(c){return c.f+' → '+c.to}).join(', '))}).join('<br>'))+'</div>':'')
+       +(pl.same.length?'<p class="hint">'+pl.same.length+' rreshta identikë nuk u importuan (pa dublime).</p>':'')
+       +(updErr.length?'<div class="card">'+updErr.map(esc).join('<br>')+'</div>':'');
+      var m=document.getElementById('modal'),b=document.getElementById('modalBody');
+      if(m&&m.classList.contains('open')&&b)b.insertAdjacentHTML('afterbegin',html);
+      else modal('Përmbledhje importi — '+importLabel(k),html,'<button class="btn primary" onclick="closeModal()">Mbyll</button>');
+     }catch(e){console.error(VERSION,'import-summary',e)}
+    },120);
+   }
+   return res;
+  }catch(e){console.error(VERSION,'import-upsert',e);return __puCommit.apply(this,arguments)}
+ };
+ window.commitModuleImport=commitModuleImport;window.biobesImportPlan=planned;
+}catch(e){console.error('biobes-import-upsert-v1',e)}})();
+</script>
+<script>
+/* biobes-odoo-partner-v1 — pamja e kartelës së furnitorit dhe klientit në stil Odoo:
+   avatar + emër + shënime gjendjeje, "smart buttons" (numra me etiketa), formular me etiketa
+   të vogla gri dhe vlera në rreshta, njësoj për të dyja palët. */
+(function(){try{
+ if(window.__biobesOdooPartnerV1)return;window.__biobesOdooPartnerV1=1;
+ var css='.od-sheet{background:#fff;border:1px solid #e6e8eb;border-radius:10px;padding:15px 17px;margin:0 0 12px}'
+ +'.od-head{display:flex;gap:14px;align-items:flex-start}'
+ +'.od-avatar{width:72px;height:72px;border-radius:9px;background:#eef6f1;border:1px solid #d7e8de;display:flex;align-items:center;justify-content:center;font-size:27px;font-weight:700;color:#20744a;flex:0 0 auto;letter-spacing:.5px}'
+ +'.od-name{font-size:21px;font-weight:650;color:#1f2937;line-height:1.2;margin:1px 0 6px}'
+ +'.od-badges{display:flex;gap:6px;flex-wrap:wrap}'
+ +'.od-badge{font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px;background:#eef2f5;color:#4b5563;text-transform:uppercase;letter-spacing:.04em}'
+ +'.od-badge.on{background:#e7f5ed;color:#176b49}.od-badge.off{background:#fdecec;color:#b32635}.od-badge.code{background:#f3f4f6;color:#374151}'
+ +'.od-smart{display:flex;gap:9px;flex-wrap:wrap;margin:12px 0 0}'
+ +'.od-smart button{background:#fff;border:1px solid #e6e8eb;border-radius:8px;padding:7px 13px;min-width:100px;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s}'
+ +'.od-smart button:hover{border-color:#20744a;box-shadow:0 2px 8px rgba(32,116,74,.12)}'
+ +'.od-smart button.plain{cursor:default}.od-smart button.plain:hover{border-color:#e6e8eb;box-shadow:none}'
+ +'.od-smart b{display:block;font-size:18px;line-height:1.15;color:#1f2937}'
+ +'.od-smart small{font-size:11px;color:#6b7280}'
+ +'.od-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px 22px;margin:16px 0 0}'
+ +'.od-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}'
+ +'.od-f label{display:block;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#6b7280;margin-bottom:2px}'
+ +'.od-f div{font-size:13.5px;color:#111827;border-bottom:1px solid #f1f3f5;padding:0 0 3px;min-height:19px;word-break:break-word}'
+ +'.od-sec{font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin:16px 0 4px;border-top:1px solid #f1f3f5;padding-top:9px}'
+ +'@media(max-width:620px){.od-grid,.od-grid.two{grid-template-columns:1fr}.od-avatar{width:54px;height:54px;font-size:21px}.od-name{font-size:18px}.od-smart button{min-width:88px;padding:6px 10px}.od-smart b{font-size:16px}}';
+ var st=document.createElement('style');st.textContent=css;document.head.appendChild(st);
+ function ini(n){var p=String(n||'').trim().split(/\s+/).filter(Boolean);return ((p[0]||'?')[0]+(p[1]?p[1][0]:'')).toUpperCase()}
+ function f(l,v){return '<div class="od-f"><label>'+esc(l)+'</label><div>'+(v===undefined||v===null||String(v).trim()===''?'—':v)+'</div></div>'}
+ function smart(list){return '<div class="od-smart">'+list.map(function(x){
+  var val=x[0],lab=x[1],pg=x[2],name=x[3]||'';
+  return '<button type="button" class="'+(pg?'':'plain')+'"'+(pg?' onclick="odDrill(\''+pg+'\',\''+String(name).replace(/'/g,"\\'")+'\')"':'')+'><b>'+val+'</b><small>'+esc(lab)+'</small></button>'}).join('')+'</div>'}
+ window.odDrill=function(pg,name){
+  try{
+   var nm=String(name||'');
+   try{closeModal()}catch(e){}
+   go(pg);
+   if(!nm)return;
+   setTimeout(function(){try{var inp=document.querySelector('#main .module-live-search input');if(inp){inp.value=nm;inp.dispatchEvent(new Event('input',{bubbles:true}))}}catch(e){}},280);
+  }catch(e){}
+ };
+ function sheet(kind,id){
+  var rec=kind==='supplier'?by('suppliers',id):by('customers',id);
+  if(!rec||!rec.id)return '';
+  var nm=rec.name||'',vat=kind==='supplier'?(rec.nipt||''):(rec.vat||rec.nipt||'');
+  var sm=[],extra='';
+  try{
+   if(kind==='supplier'){
+    var ws=state.weighings.filter(function(x){return x&&x.supplier===id}),inv=purchaseInvoices().filter(function(x){return x&&x.supplier===id}),pay=(state.payments||[]).filter(function(x){return x&&x.supplier===id});
+    var bal=supplierBalance(id);
+    sm=[[ws.length,'Peshime','purchases',nm],[inv.length,'Fatura blerjeje','purchases',nm],[pay.length,'Pagesa','payments',nm],[fmt2(bal),'Gjendja (ALL)','',nm]];
+   }else{
+    var inv2=salesInvoices().filter(function(x){return x&&x.customer===id&&(x.status||'Konfirmuar')==='Konfirmuar'}),pay2=customerPayments().filter(function(x){return x&&x.customer===id&&(x.status||'Konfirmuar')==='Konfirmuar'}),ret2=customerReturns().filter(function(x){return x&&x.customer===id&&x.status==='Konfirmuar'});
+    var billed=inv2.reduce(function(a,x){return a+toALL(x.total,x.currency,x.exchangeRate)},0),paid=pay2.reduce(function(a,x){return a+toALL(x.amount,x.currency,x.rate)},0),retd=ret2.reduce(function(a,x){return a+toALL(x.total,x.currency,x.exchangeRate)},0);
+    var ob=(typeof obOf==='function'?obOf(rec):0)||0,open=ob+billed-paid-retd;
+    sm=[[inv2.length,'Fatura shitjeje','sales',nm],[fmt2(paid),'Arkëtime','sales',nm],[ret2.length,'Kthime','sales',nm],[fmt2(open),'Gjendja e hapur','',nm]];
+   }
+  }catch(e){sm=[]}
+  var badges='<span class="od-badge '+(kind==='supplier'?'on':'on')+'">'+(kind==='supplier'?'Furnitor':'Klient')+'</span>'
+   +'<span class="od-badge code">'+esc(rec.code||rec.id||'')+'</span>'
+   +(rec.active===false?'<span class="od-badge off">Joaktiv</span>':'<span class="od-badge">Aktiv</span>');
+  if(rec.currency)badges+='<span class="od-badge">'+esc(rec.currency)+'</span>';
+  return '<div class="od-sheet"><div class="od-head"><div class="od-avatar">'+esc(ini(nm))+'</div><div style="flex:1;min-width:0">'
+   +'<div class="od-name">'+esc(nm)+'</div><div class="od-badges">'+badges+'</div>'+(sm.length?smart(sm):'')+'</div></div>'
+   +'<div class="od-sec">Të dhënat e palës</div>'
+   +'<div class="od-grid">'
+   +f('Kodi',esc(rec.code||rec.id||''))
+   +f('NIPT / VAT',esc(vat))
+   +f('EORI',esc(rec.eori||''))
+   +f('Personi i kontaktit',esc(rec.contact||''))
+   +f('Telefoni',esc(rec.phone||''))
+   +f('Email',esc(rec.email||''))
+   +f('Website',esc(rec.website||''))
+   +f('Banka',esc(rec.bank||''))
+   +f('IBAN',esc(rec.iban||''))
+   +f('Adresa',esc(rec.address||''))
+   +f('Qyteti',esc(rec.city||''))
+   +f('Shteti',esc(rec.country||''))
+   +f('Monedha',esc(rec.currency||'ALL'))
+   +f('Afati i pagesës',rec.paymentTerms!==undefined&&rec.paymentTerms!==''?esc(rec.paymentTerms)+' ditë':'—')
+   +'</div></div>';
+ }
+ function inject(kind,id){
+  try{
+   var t=document.getElementById('modalTitle');
+   if(!t||!/^Kartela/.test(t.innerText||''))return;
+   var b=document.getElementById('modalBody');
+   if(!b||b.querySelector('.od-sheet'))return;
+   var h=sheet(kind,id);if(!h)return;
+   b.insertAdjacentHTML('afterbegin',h);
+  }catch(e){console.error(VERSION,'odoo-partner',e)}
+ }
+ function wrap(name,kind){
+  var base=window[name];if(typeof base!=='function')return;
+  window[name]=function(id){var r=base.apply(this,arguments);try{setTimeout(function(){inject(kind,id)},90)}catch(e){}return r};
+  try{eval(name+'=window.'+name)}catch(e){window[name]=window[name]}
+ }
+ wrap('supplierCard','supplier');wrap('customerCard','customer');
+ window.biobesOdooPartnerSheet=sheet;
+}catch(e){console.error('biobes-odoo-partner-v1',e)}})();
 </script>
 </body></html>

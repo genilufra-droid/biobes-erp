@@ -27,7 +27,9 @@
     "test:photo-compress": "node tests/photo-compress-audit.cjs",
     "test:import-nipt": "node tests/import-nipt-audit.cjs",
     "test:mobile-print": "node tests/mobile-print-audit.cjs",
-    "test:registry-export": "node tests/registry-export-audit.cjs"
+    "test:registry-export": "node tests/registry-export-audit.cjs",
+    "test:import-upsert": "node tests/import-upsert-audit.cjs",
+    "test:odoo-partner": "node tests/odoo-partner-audit.cjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"
