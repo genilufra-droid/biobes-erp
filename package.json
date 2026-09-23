@@ -36,7 +36,8 @@
     "test:trace-dossier": "node tests/trace-dossier-audit.cjs",
     "test:returns": "node tests/returns-audit.cjs",
     "test:multi-company": "node tests/multi-company-audit.cjs",
-    "test:cloud-realtime": "node tests/cloud-realtime-audit.cjs"
+    "test:cloud-realtime": "node tests/cloud-realtime-audit.cjs",
+    "test:cloud-isolation": "node tests/cloud-isolation-audit.cjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"

@@ -398,8 +398,9 @@ const launch = () => chromium.launch({ headless: true, args: ['--no-sandbox', '-
       await U.page.waitForTimeout(1300);
       ok('   asnjë dialog konflikti', !(await U.page.locator('#modal').isVisible().catch(() => false)));
       ok('   gjendja u mor nga serveri', await U.page.evaluate(() => (state.suppliers || []).some((s) => s.name === 'Nga pajisja tjetër')));
-      const snap = await U.page.evaluate(() => { try { const raw = localStorage.getItem('biobesPreSyncSnapshot'); if (!raw) return 0; const o = JSON.parse(raw); return (o && o.data && ((o.data.suppliers || []).length + (o.data.customers || []).length)) || 0; } catch (e) { return -1; } });
-      ok('   kopja e mëparshme u ruajt në pajisje (snapshot i brendshëm)', snap > 0, 'të dhëna në snapshot=' + snap);
+      const snap = await U.page.evaluate(async () => { try { if (typeof cloudCacheGet !== 'function') return -2; const o = await cloudCacheGet('presync'); const d = o && o.data; if (!d) return 0; return ((d.suppliers || []).length + (d.customers || []).length) || 0; } catch (e) { return -1; } });
+      ok('   kopja e mëparshme u ruajt në pajisje (cache i brendshëm në IndexedDB)', snap > 0, 'të dhëna në snapshot=' + snap);
+      ok('   asnjë të dhënë biznesi në localStorage (100% cloud)', await U.page.evaluate(() => !localStorage.getItem('biobesPreSyncSnapshot') && !localStorage.getItem('biobesAutoBackup')));
     });
 
     await step('pas reset-i të serverit: pajisja ndjek serverin pa dialog', async () => {
@@ -422,7 +423,7 @@ const launch = () => chromium.launch({ headless: true, args: ['--no-sandbox', '-
       });
       await AD.page.waitForTimeout(1500);
       ok('   asnjë dialog edhe për adminin', !(await AD.page.locator('#modal.open').isVisible().catch(() => false)));
-      ok('   u ruajt snapshot-i i brendshëm', await AD.page.evaluate(() => !!localStorage.getItem('biobesPreSyncSnapshot')));
+      ok('   u ruajt snapshot-i i brendshëm (IndexedDB, jo localStorage)', await AD.page.evaluate(async () => { try { const o = await cloudCacheGet('presync'); return !!(o && o.data) && !localStorage.getItem('biobesPreSyncSnapshot'); } catch (e) { return false; } }));
       await AD.ctx.close();
     });
 

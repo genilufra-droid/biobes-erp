@@ -445,8 +445,89 @@ function wipeEverythingLocal(){['weighings','lots','payments','customerPayments'
 let autoBackupBusy=false,autoBackupTimer=null;
 function autoBackupState(){if(!state||typeof state!=='object')return{enabled:true,count:0,lastBackupAt:0};if(!state.autoBackup||typeof state.autoBackup!=='object')state.autoBackup={enabled:true,count:0,lastBackupAt:0,lastBackupLocal:'',lastBackupSize:0};return state.autoBackup}
 function isDailyBackupDue(){let a=autoBackupState(),now=new Date(),last=a.lastBackupAt||0;if(!last)return true;if(Date.now()-last>=86400000)return true;if(now.getHours()===5){let ld=new Date(last);return ld.toDateString()!==now.toDateString()}return false}
-async function performDailyBackup(manual){if(!manual&&!isDailyBackupDue())return;if(autoBackupBusy)return;autoBackupBusy=true;try{let a=autoBackupState(),at=new Date().toISOString(),snap={format:'BIOBES-AUTO-1',at,schemaVersion:state.schemaVersion||1,data:clone(state)},size=0;try{size=new Blob([JSON.stringify(snap)]).size;localStorage.setItem('biobesAutoBackup',JSON.stringify(snap));localStorage.setItem('biobesAutoBackupMeta',JSON.stringify({at,size,count:(a.count||0)+1}))}catch(e){size=0}a.lastBackupAt=Date.now();a.lastBackupLocal=at;a.lastBackupSize=size;a.count=(a.count||0)+1;state.autoBackup=a;save();try{securityAudit('AUTO_BACKUP','Backup automatik ditor #'+a.count+(manual?' (manual)':''))}catch(e){}let serverOk=false;if(serverBaseUrl()){try{let r=await apiCall('/api/backups',{method:'POST',body:JSON.stringify({label:'Backup ditor '+at.slice(0,10)})});serverOk=!!(r&&r.ok)}catch(e){}}if(!serverOk){try{console.warn('Backup-i në server nuk u krye — mbetet kopja vendore; ruajtja e të dhënave nuk ndërpritet')}catch(_){}}if(manual)toast('Backup u krye')}catch(e){try{console.error('AutoBackup',e)}catch(_){}}finally{autoBackupBusy=false}}
-function restoreAutoBackup(){let raw='';try{raw=localStorage.getItem('biobesAutoBackup')||''}catch(e){}if(!raw)return toast('Nuk ka backup automatik të ruajtur');try{let snap=JSON.parse(raw),data=(snap&&(snap.data||snap.state))||snap;if(!data||!Array.isArray(data.products)||!Array.isArray(data.suppliers))throw new Error('strukturë e pavlefshme');if(!confirm('Të rikthehet backup-i automatik i '+(snap&&snap.at?new Date(snap.at).toLocaleString('sq-AL'):'panjohur')+'? Të dhënat aktuale zëvendësohen.'))return;backup();state=clone(data);state.schemaVersion=state.schemaVersion||1;try{normalizeState(state)}catch(e){}securityState();save();render();try{securityAudit('AUTO_BACKUP_RESTORE','Rikthim nga backup automatik')}catch(e){}closeModal();toast('Backup-i automatik u rikthye')}catch(e){toast('Rikthimi dështoi: '+e.message)}}
+/* ===== rev3-cloud — backup automatik ditor: SERVERI është burimi i së vërtetës =====
+   Rregulla cloud: kopja ditorë bëhet në server (POST /api/backups). Në localStorage mbetet
+   VETëm meta-data (koha, madhësia, numri, a shkoi në server, kompania) — asnjë të dhënë
+   biznesi në browser. Kopja vendore (cache) ruhet në IndexedDB per kompani dhe përdoret
+   VETËM kur serveri nuk arritet; sapo serveri rikthehet, backup-i i serverit fiton. */
+async function performDailyBackup(manual){
+  if(!manual&&!isDailyBackupDue())return;
+  if(autoBackupBusy)return;
+  autoBackupBusy=true;
+  try{
+    let a=autoBackupState(),at=new Date().toISOString();
+    let snap={format:'BIOBES-AUTO-1',at,schemaVersion:state.schemaVersion||1,data:clone(state)},size=0;
+    try{size=new Blob([JSON.stringify(snap)]).size}catch(e){size=0}
+    let co='';try{co=(typeof cloudCompany==='function'&&cloudCompany())||''}catch(e){}
+    /* 1) Backup-i autoritar: në server */
+    let serverOk=false,serverId=null;
+    if(serverBaseUrl()){
+      try{
+        let r=await apiCall('/api/backups',{method:'POST',body:JSON.stringify({label:'Backup ditor '+at.slice(0,10)})});
+        serverOk=!!(r&&r.ok);
+        try{serverId=(r&&r.data&&(r.data.id||(r.data.backup&&r.data.backup.id)))||null}catch(e){}
+      }catch(e){}
+    }
+    /* 2) Kur serveri e ka kopjen → hiqet çdo kopjë e plotë nga browseri (localStorage/IndexedDB) */
+    if(serverOk){
+      try{localStorage.removeItem('biobesAutoBackup')}catch(e){}
+      try{if(typeof cloudCacheDel==='function')cloudCacheDel('autobackup')}catch(e){}
+    }else{
+      /* 3) Pa server: cache vendore në IndexedDB (jo localStorage — kuota e vogël) */
+      try{
+        if(typeof cloudCachePut==='function')cloudCachePut('autobackup',snap);
+        else localStorage.setItem('biobesAutoBackup',JSON.stringify(snap));
+      }catch(e){}
+    }
+    try{localStorage.setItem('biobesAutoBackupMeta',JSON.stringify({at:at,size:size,count:(a.count||0)+1,server:serverOk,serverId:serverId,company:co}))}catch(e){}
+    a.lastBackupAt=Date.now();a.lastBackupLocal=at;a.lastBackupSize=size;a.count=(a.count||0)+1;
+    state.autoBackup=a;save();
+    try{securityAudit('AUTO_BACKUP','Backup automatik ditor #'+a.count+(manual?' (manual)':'')+(serverOk?' — në server':' — kopje vendore (serveri nuk u arrit)'))}catch(e){}
+    if(!serverOk){try{console.warn('Backup-i në server nuk u krye — mbetet kopja vendore; ruajtja e të dhënave nuk ndërpritet')}catch(_){}}
+    if(manual)toast(serverOk?'Backup u krye':'Backup u krye (kopje vendore — serveri nuk u arrit)');
+  }catch(e){try{console.error('AutoBackup',e)}catch(_){}}finally{autoBackupBusy=false}
+}
+/* Rikthimi: së pari nga SERVERI (backup-i ditor autoritar); vetëm nëse serveri nuk ka
+   backup ose nuk arritet, përdoret cache-i vendore (IndexedDB → pastaj localStorage i vjetër). */
+async function restoreAutoBackup(){
+  try{
+    let meta=null;try{meta=JSON.parse(localStorage.getItem('biobesAutoBackupMeta')||'null')}catch(e){meta=null}
+    if(serverBaseUrl()&&serverToken&&!(meta&&meta.server===false)){
+      let list=null;try{list=await apiCall('/api/backups')}catch(e){}
+      let rows=(list&&list.data&&(list.data.backups||list.data.rows))||[];
+      if(rows.length){
+        let b=rows[0],id=b.id;
+        if(!confirm('Të rikthehet gjendja nga backup-i i serverit #'+id+' ('+(b.label||b.takenAt||b.at||'')+')? Gjendja aktuale ruhet më parë si kopje automatike.'))return;
+        try{backup()}catch(e){}
+        let r=null;try{r=await apiCall('/api/backups/'+id+'/restore',{method:'POST'})}catch(e){}
+        if(r&&r.ok){
+          try{await pullState()}catch(e){}
+          try{render()}catch(e){}
+          try{securityAudit('AUTO_BACKUP_RESTORE','Rikthim nga backup-i i serverit #'+id)}catch(e){}
+          try{closeModal()}catch(e){}
+          toast('Backup-i i serverit u rikthye');
+          return;
+        }
+        toast('Rikthimi nga serveri dështoi: '+((r&&r.data&&r.data.error)||'nuk u arrit'));
+        return;
+      }
+    }
+  }catch(e){}
+  let snap=null;
+  try{if(typeof cloudCacheGet==='function')snap=await cloudCacheGet('autobackup')}catch(e){}
+  if(!snap){try{let raw=localStorage.getItem('biobesAutoBackup')||'';if(raw)snap=JSON.parse(raw)}catch(e){}}
+  if(!snap)return toast('Nuk ka backup automatik të ruajtur');
+  try{
+    let data=(snap&&(snap.data||snap.state))||snap;
+    if(!data||!Array.isArray(data.products)||!Array.isArray(data.suppliers))throw new Error('strukturë e pavlefshme');
+    if(!confirm('Të rikthehet backup-i automatik i '+(snap&&snap.at?new Date(snap.at).toLocaleString('sq-AL'):'panjohur')+'? Të dhënat aktuale zëvendësohen.'))return;
+    backup();state=clone(data);state.schemaVersion=state.schemaVersion||1;
+    try{normalizeState(state)}catch(e){}
+    securityState();save();render();
+    try{securityAudit('AUTO_BACKUP_RESTORE','Rikthim nga backup automatik')}catch(e){}
+    closeModal();toast('Backup-i automatik u rikthye');
+  }catch(e){toast('Rikthimi dështoi: '+e.message)}
+}
 function startAutoBackupScheduler(){if(autoBackupTimer)return;try{performDailyBackup(false)}catch(e){}autoBackupTimer=setInterval(()=>{try{performDailyBackup(false)}catch(e){}},3600000)}
 const DEFAULT_BACKEND_URL='https://biobes-api.onrender.com';
 function resetBackendConfig(){try{let c=JSON.parse(localStorage.getItem('biobesBackend')||'null');if(!c||typeof c!=='object')return{url:DEFAULT_BACKEND_URL};if(c.url==null)c.url=DEFAULT_BACKEND_URL;return c}catch(e){return{url:DEFAULT_BACKEND_URL}}}
@@ -3026,7 +3107,7 @@ function lotAvail(lot){if(!lot||typeof lot!=='object')return 0;let v=+lot.availa
 let serverToken=null,serverUser=null,serverVersion=null,serverOnline=false,syncTimer=null,skipPush=false;
 try{serverToken=sessionStorage.getItem('biobesServerToken')||null;serverUser=JSON.parse(sessionStorage.getItem('biobesServerUser')||'null')}catch(e){serverToken=null;serverUser=null}
 function serverBaseUrl(){try{return (resetBackendConfig().url||'').replace(/\/$/,'')}catch(e){return''}}
-async function apiCall(path,opts){opts=opts||{};let h={'Content-Type':'application/json'};if(serverToken)h['Authorization']='Bearer '+serverToken;let r=await fetch(serverBaseUrl()+path,{method:opts.method||'GET',headers:h,body:opts.body});let j={};try{j=await r.json()}catch(e){j={}}return{status:r.status,ok:r.ok,data:j||{}}}
+async function apiCall(path,opts){opts=opts||{};let h={'Content-Type':'application/json'};if(opts.headers){try{Object.assign(h,opts.headers)}catch(e){}}if(serverToken)h['Authorization']='Bearer '+serverToken;let r=await fetch(serverBaseUrl()+path,{method:opts.method||'GET',headers:h,body:opts.body});let j={};try{j=await r.json()}catch(e){j={}}try{if(j&&j.company&&typeof cloudNoteCompany==='function')cloudNoteCompany(j.company)}catch(e){}return{status:r.status,ok:r.ok,data:j||{}}}
 function syncIsDirty(){try{return localStorage.getItem('biobesDirty')==='1'}catch(e){return false}}
 function syncEverSynced(){try{return localStorage.getItem('biobesEverSynced')===syncServerKey()}catch(e){return false}}function syncServerKey(){try{return 'v1|'+(serverBaseUrl()||'')}catch(e){return 'v1|'}}function syncMarkEverSynced(){try{localStorage.setItem('biobesEverSynced',syncServerKey())}catch(e){}}function syncClearEverSynced(){try{localStorage.removeItem('biobesEverSynced')}catch(e){}}
 function syncSetDirty(v){try{if(v)localStorage.setItem('biobesDirty','1');else localStorage.removeItem('biobesDirty')}catch(e){}}
@@ -5788,9 +5869,10 @@ window.saveQuickResetAdminPassword = async function(){
 window.showSyncConflict = function(sd){
   try{
     /* ERP cloud: serveri është burimi i së vërtetës. Nuk shkarkohet asnjë skedar automatikisht —
-       kopja lokale ruhet vetëm si snapshot i brendshëm (IndexedDB/localStorage), pastaj merret serveri. */
+       kopja lokale ruhet vetëm si CACHE i brendshëm në IndexedDB (per kompani), pastaj merret serveri.
+       localStorage nuk përdoret më për të dhëna biznesi (kuota ~5 MB e bënte shkrimin të dështonte në heshtje). */
     if(typeof localHasBusinessData==='function' && localHasBusinessData()){
-      try{ localStorage.setItem('biobesPreSyncSnapshot', JSON.stringify({at:new Date().toISOString(), data:state})); }catch(e){}
+      try{ if(typeof cloudCachePut==='function'){ cloudCachePut('presync',{at:new Date().toISOString(),data:state}); } else { localStorage.setItem('biobesPreSyncSnapshot', JSON.stringify({at:new Date().toISOString(), data:state})); } }catch(e){}
     }
     setTimeout(function(){ try{ if(typeof syncTakeServer==='function') syncTakeServer(); }catch(e){} },300);
     try{ toast('U sinkronizua me serverin'); }catch(e){}
@@ -12464,7 +12546,10 @@ async function activate(id){
   var fresh=!(await hasStore(id));
   try{await load()}catch(e){}
   var pr=null;
-  try{if(fresh&&serverBaseUrl()&&serverToken)pr=await pullState()}catch(e){}
+  /* Cloud: serveri është burimi i së vërtetës — gjendja tërhiqet GJITHMONË kur ka lidhje,
+     jo vetëm kur pajisja nuk ka cache. Cache-i vendore (IndexedDB) shërben vetëm si
+     fallback offline; me pastrim browseri asgjë nuk humbet (serveri e ka të plotën). */
+  try{if(serverBaseUrl()&&serverToken)pr=await pullState()}catch(e){}
   if(fresh&&(!pr||!pr.ok)){
     try{
       if(typeof stateLooksLikeSeed==='function'&&stateLooksLikeSeed()){
@@ -12845,7 +12930,7 @@ try{setTimeout(()=>{try{applyRoleSecurity()}catch(e){}},0)}catch(e){}
     var url = baseUrl(); if (!url || !tok()) return;
     if (es) { try { es.close(); } catch (e) {} es = null; }
     try {
-      es = new EventSource(url.replace(/\/$/, '') + '/api/events?token=' + encodeURIComponent(tok()));
+      es = new EventSource(url.replace(/\/$/, '') + '/api/events?token=' + encodeURIComponent(tok()) + (function () { var c = ''; try { c = mine() || (typeof cloudCompany === 'function' ? (cloudCompany() || '') : ''); } catch (e) {} return c ? '&company=' + encodeURIComponent(c) : ''; })());
     } catch (e) { return; }
     es.onopen = function () { CLOUD.sse = 'open'; CLOUD.sseErrors = 0; CLOUD.syncAt = Date.now(); badgeSet(); };
     es.addEventListener('hello', function () { CLOUD.sse = 'open'; CLOUD.sseErrors = 0; CLOUD.syncAt = Date.now(); badgeSet(); });
@@ -12869,7 +12954,7 @@ try{setTimeout(()=>{try{applyRoleSecurity()}catch(e){}},0)}catch(e){}
   function onStateEvent(ev) {
     var d = {}; try { d = JSON.parse(ev.data || '{}'); } catch (e) { return; }
     CLOUD.lastEventAt = Date.now();
-    var my = mine();
+    var my = mine(); try { if (!my && typeof cloudCompany === 'function') my = cloudCompany() || ''; } catch (e) {}
     if (d.company && my && String(d.company) !== String(my)) return;   // kompani tjetër — nuk na takon
     var u = cur();
     if (u && d.actor && String(d.actor) === String(u.username)) {     // ndryshimi u bë nga kjo pajisje
@@ -13293,6 +13378,311 @@ try{setTimeout(()=>{try{applyRoleSecurity()}catch(e){}},0)}catch(e){}
   if (document.readyState === 'complete' || document.readyState === 'interactive') setTimeout(start, 400);
   else document.addEventListener('DOMContentLoaded', function () { setTimeout(start, 400); });
   window.__cloudReconnect = function () { sseConnect(); };
+})();
+</script>
+
+<script id="biobes-cloud-isolation-v1">
+/* ===== BioBes Cloud Isolation v1 — 100% cloud, multi-company =====
+   Qëllimi (pa prekur formatet/modelet/UI shqip):
+   1) company_id në ÇDO kërkesë (header X-Company-Id + parametri company) dhe në
+      lidhjen realtime (SSE /api/events?company=…), e rilidhur sapo ndërron kompania;
+   2) izolim i plotë C1 ≠ C2: shenja e punës së paruajtur (dirty), baza e bashkimit
+      (base snapshot) dhe cache-t janë PER KOMPANI — asnjë op/patch nuk mund të
+      kalojë nga një kompani në tjetrën;
+   3) browseri është vetëm CACHE: asnjë të dhënë biznesi në localStorage (snapshot-et
+      dhe backup-i lokal shkojnë në IndexedDB per kompani, backup-i ditor në server);
+   4) serveri është burimi i së vërtetës: gjendja tërhiqet gjithmonë në hyrje dhe në
+      ndërrim kompanie → me pastrim browseri nuk humbet asgjë;
+   5) 20 përdorues njëkohësisht: shkrimet e së njëjtës pajisje renditen (mutex) që të
+      mos përplasen me vetveten; konfliktet midis pajisjeve zgjidhen me op-e per
+      dokument (prev/CAS) si më parë. */
+(function () {
+  'use strict';
+  var STATS = { v: 'cloud-isolation-v1', headerSent: 0, sseCompany: 0, dirtyPerCo: 0, baseRestored: 0, pushesCoalesced: 0, cacheWrites: 0, lsBusinessRemoved: 0, migrated: 0 };
+  window.__iso = STATS;
+  var bases = {};                 // company → baza e bashkimit (në memorie)
+  var pushInFlight = false, pushQueued = null;
+
+  /* ---------- 0) Ndihmësa ---------- */
+  function co() {
+    try { var m = window.__mc; if (m && m.active) return String(m.active); } catch (e) {}
+    try { if (window.__lastCompany) return String(window.__lastCompany); } catch (e) {}
+    return '';
+  }
+  window.cloudCompany = co;
+  /* Kompania mësohet edhe nga përgjigjet e serverit (realtime company_id). */
+  window.cloudNoteCompany = function (c) { try { if (c) window.__lastCompany = String(c); } catch (e) {} };
+  function tok() { try { return (typeof serverToken !== 'undefined' && serverToken) || ''; } catch (e) { return ''; } }
+  function baseUrl() { try { return (typeof serverBaseUrl === 'function' && serverBaseUrl()) || ''; } catch (e) { return ''; } }
+  function cKey(kind) { return 'cloud:' + kind + ':' + (co() || '_'); }
+
+  /* ---------- 1) Cache në IndexedDB (per kompani) — jo në localStorage ---------- */
+  function idb(mode, key, val) {
+    return new Promise(function (res) {
+      try {
+        var p = (typeof openDB === 'function') ? openDB() : Promise.reject(new Error('pa openDB'));
+        Promise.resolve(p).then(function () {
+          var rq = (val === undefined)
+            ? db.transaction('app', mode).objectStore('app')[mode === 'readonly' ? 'get' : 'delete'](key)
+            : db.transaction('app', 'readwrite').objectStore('app').put(val, key);
+          rq.onsuccess = function () { res(mode === 'readonly' ? rq.result : true); };
+          rq.onerror = function () { res(mode === 'readonly' ? null : false); };
+        }).catch(function () { res(mode === 'readonly' ? null : false); });
+      } catch (e) { res(mode === 'readonly' ? null : false); }
+    });
+  }
+  window.cloudCachePut = function (kind, val) { STATS.cacheWrites++; try { localStorage.removeItem('biobesPreSyncSnapshot'); } catch (e) {} return idb('readwrite', cKey(kind), { kind: kind, company: co(), at: Date.now(), data: val }); };
+  window.cloudCacheGet = function (kind) { return idb('readonly', cKey(kind)).then(function (r) { return (r && r.data !== undefined) ? r.data : (r && r.kind ? r : null); }); };
+  window.cloudCacheDel = function (kind) { return idb('readwrite', cKey(kind)); };
+
+  /* ---------- 2) company_id në ÇDO kërkesë (header) ---------- */
+  try {
+    var prevApi = window.apiCall;
+    if (typeof prevApi === 'function') {
+      window.apiCall = function (path, opts) {
+        opts = opts || {};
+        var c = co();
+        if (c) {
+          try {
+            opts.headers = Object.assign({}, opts.headers || {});
+            opts.headers['X-Company-Id'] = c;      // backend multi-company (Modeli B)
+            STATS.headerSent++;
+          } catch (e) {}
+        }
+        return prevApi.call(this, path, opts);
+      };
+    }
+  } catch (e) {}
+
+  /* ---------- 3) Shenja e punës së paruajtur: PER KOMPANI ---------- */
+  function dKey(c) { return c ? ('biobesDirty:' + c) : 'biobesDirty'; }
+  function rawDirty(c) { try { return localStorage.getItem(dKey(c)) === '1'; } catch (e) { return false; } }
+  function setRawDirty(c, v) { try { if (v) localStorage.setItem(dKey(c), '1'); else localStorage.removeItem(dKey(c)); } catch (e) {} }
+  try {
+    var bIs = window.syncIsDirty, bSetD = window.syncSetDirty;
+    window.syncIsDirty = function () {
+      var c = co();
+      if (rawDirty(c)) return true;
+      /* migrim: shenja e vjetër globale vlen vetëm për kompaninë që e ka lënë */
+      try { if (c && localStorage.getItem('biobesDirty') === '1' && localStorage.getItem('biobesDirtyOwner') === c) return true; } catch (e) {}
+      if (!c) { try { return bIs ? bIs.apply(this, arguments) : false; } catch (e) { return false; } }
+      return false;
+    };
+    window.syncSetDirty = function (v) {
+      var c = co();
+      STATS.dirtyPerCo++;
+      setRawDirty(c, !!v);
+      try { if (c) { if (v) localStorage.setItem('biobesDirtyOwner', c); else if (localStorage.getItem('biobesDirtyOwner') === c) localStorage.removeItem('biobesDirtyOwner'); } } catch (e) {}
+      try { if (!c && bSetD) return bSetD.call(this, !!v); } catch (e) {}
+      try { if (c) localStorage.removeItem('biobesDirty'); } catch (e) {}
+    };
+  } catch (e) {}
+  function clearAllDirty() {
+    try {
+      var kill = [], i;
+      for (i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && (k === 'biobesDirty' || k.indexOf('biobesDirty:') === 0 || k === 'biobesDirtyOwner')) kill.push(k); }
+      kill.forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
+    } catch (e) {}
+  }
+  window.cloudClearDirty = clearAllDirty;
+
+  /* ---------- 4) Baza e bashkimit: PER KOMPANI (+ cache që mbijeton reload) ---------- */
+  var lastBasePersist = 0, lastBaseCo = null;
+  try {
+    var bSnapSet = window.syncBaseSnapshotSet;
+    /* Baza ruhet si STRING (kopje e ngrirë) — jo si referencë e gjallë ndaj `state`:
+       përndryshe çdo krahasim del "pa ndryshime" dhe asgjë nuk dërgohet në server. */
+    window.syncBaseSnapshotSet = function (st) {
+      var c = co(), s = null;
+      try { s = JSON.stringify((st === undefined ? null : st) || (typeof state !== 'undefined' ? state : null)); } catch (e) { s = null; }
+      try { bases[c] = s; } catch (e) {}
+      /* Cache-i i bazës në IndexedDB (mbijeton reload) — i kufizuar në kohë që të mos
+         dyfishojë shkrimet vendore për çdo ruajtje. */
+      try {
+        var now = Date.now();
+        if (c !== lastBaseCo || (now - lastBasePersist) > 15000) {
+          lastBasePersist = now; lastBaseCo = c;
+          cloudCachePut('syncbase', { company: c, at: now, data: s ? JSON.parse(s) : null });
+        }
+      } catch (e) {}
+      try { return bSnapSet.apply(this, arguments); } catch (e) {}
+    };
+    window.syncBaseSnapshotGet = function () {
+      var c = co();
+      try { if (Object.prototype.hasOwnProperty.call(bases, c)) { var s = bases[c]; return s ? JSON.parse(s) : null; } } catch (e) {}
+      return null;    // pa bazë për këtë kompani → asnjë op nuk dërgohet (ruajtje e plotë, e sigurt)
+    };
+  } catch (e) {}
+  function restoreBase(c) {
+    return Promise.resolve().then(function () {
+      try { if (Object.prototype.hasOwnProperty.call(bases, c)) return bases[c] ? JSON.parse(bases[c]) : null; } catch (e) {}
+      return cloudCacheGet('syncbase').then(function (r) {
+        var ok = !!(r && (r.company === c) && r.data);   // baza vlen VETËM për të njëjtën kompani
+        try { bases[c] = ok ? JSON.stringify(r.data) : null; } catch (e) { bases[c] = null; }
+        if (ok) STATS.baseRestored++;
+        return ok ? r.data : null;
+      });
+    }).catch(function () { try { bases[c] = null; } catch (e) {} return null; });
+  }
+
+  /* ---------- 5) Shkrimet e një pajisjeje renditen (20 përdorues, pa vetë-konflikt) ----------
+     Çdo thirrje pushState PRET të mëparshmen dhe pastaj kryen shkrimin e vet: asnjë
+     thirrje nuk "humbet" dhe asnjë rezultat nuk zëvendësohet me një premtim bosh. */
+  try {
+    var prevPush = window.pushState;
+    if (typeof prevPush === 'function') {
+      var pushChain = Promise.resolve(), pushBusy = false;
+      window.pushState = function (force) {
+        var self = this, args = arguments;
+        if (pushBusy) STATS.pushesCoalesced++;      // u rendit pas një shkrimi tjetër të së njëjtës pajisje
+        var run = function () {
+          pushBusy = true;
+          try { return Promise.resolve(prevPush.apply(self, args)); }
+          catch (e) { return Promise.reject(e); }
+        };
+        var out = pushChain.then(run, run);
+        pushChain = out.then(function (r) { pushBusy = false; return r; }, function () { pushBusy = false; });
+        return out;
+      };
+    }
+  } catch (e) {}
+
+  /* ---------- 5b) Shenja e wipe-it zerohet kur serveri i kompanisë aktive nuk ka wipe ----------
+     Serveri është burimi i së vërtetës: nëse tërheqja e gjendjes kthen sukses dhe serveri
+     NUK ka shenjë wipe-i për këtë kompani, shenja vendore (ack) është e vjetëruar dhe hiqet.
+     Kjo bëhet vetëm kur nuk sapo u nderua një wipe i vërtetë (lastWipeAt). */
+  var lastWipeAt = 0;
+  try {
+    var prevWipe = window.honorServerWipe;
+    if (typeof prevWipe === 'function') {
+      window.honorServerWipe = function () { lastWipeAt = Date.now(); return prevWipe.apply(this, arguments); };
+    }
+  } catch (e) {}
+  try {
+    var prevPull = window.pullState;
+    if (typeof prevPull === 'function') {
+      window.pullState = async function () {
+        var r = await prevPull.apply(this, arguments);
+        try {
+          if (r && r.ok && (Date.now() - lastWipeAt) > 4000 &&
+              typeof wipeAckGet === 'function' && wipeAckGet() && typeof wipeAckSet === 'function') {
+            wipeAckSet(null);
+            STATS.staleWipeAckCleared = (STATS.staleWipeAckCleared || 0) + 1;
+          }
+        } catch (e) {}
+        return r;
+      };
+    }
+  } catch (e) {}
+
+  /* ---------- 6) Ndërrimi i kompanisë: SSE e re + baza/dirty e kompanisë së re ---------- */
+  try {
+    var prevSwitch = window.mcSwitch;
+    if (typeof prevSwitch === 'function') {
+      window.mcSwitch = async function (id) {
+        var from = co(), target = String(id || '');
+        var dirtyTo = rawDirty(target);
+        /* Nëse kompania e re ka punë TË PARUAJTUR (shkrim i dështuar/offline), kopja e
+           saj vendore lexohet PARA se serveri të tërhiqet: rrjedha e ndërrimit e zeronte
+           shenjën dhe tërhiqte serverin, pra puna do mbishkruhej. Më poshtë ajo bashkohet
+           me mergeStates (3-way: server / bazë / vendore) dhe dërgohet — asgjë nuk humbet. */
+        var localCopy = null;
+        if (dirtyTo && target) { try { localCopy = await idb('readonly', 'state:' + target); } catch (e) { localCopy = null; } }
+        var out = await prevSwitch.apply(this, arguments);
+        var now = co();
+        try {
+          if (now && now !== from) {
+            setRawDirty(now, dirtyTo);                 // shenja e kompanisë së RE, jo e asaj që lamë
+            var base = await restoreBase(now);         // baza e bashkimit vetëm për këtë kompani
+            STATS.sseCompany++;
+            try { if (typeof window.__cloudReconnect === 'function') window.__cloudReconnect(); } catch (e) {}
+            try { if (baseUrl() && tok()) await pullState(); } catch (e) {}   // serveri para cache-it
+            if (localCopy && dirtyTo) {
+              try {
+                var merged = (typeof mergeStates === 'function') ? mergeStates(state, base || null, localCopy) : localCopy;
+                var changed = true;
+                try { changed = JSON.stringify(merged) !== JSON.stringify(state); } catch (e) {}
+                if (changed) {
+                  skipPush = true;
+                  try { state = merged; try { normalizeState(); } catch (e) {} save(); } finally { setTimeout(function () { skipPush = false; }, 0); }
+                  try { syncSetDirty(true); } catch (e) {}
+                  STATS.rescuedWork = (STATS.rescuedWork || 0) + 1;
+                  try { if (baseUrl() && tok()) await pushState(false); } catch (e) {}
+                }
+              } catch (e) {}
+            }
+          }
+        } catch (e) {}
+        return out;
+      };
+    }
+  } catch (e) {}
+
+  /* ---------- 7) Hyrja: baza e kompanisë aktive merret para tërheqjes (bashkim i saktë) ---------- */
+  try {
+    var prevLogin = window.afterServerLogin;
+    if (typeof prevLogin === 'function') {
+      window.afterServerLogin = async function () {
+        try { migrateLegacy(); } catch (e) {}
+        try { await restoreBase(co()); } catch (e) {}
+        var r = await prevLogin.apply(this, arguments);
+        try { await restoreBase(co()); } catch (e) {}
+        return r;
+      };
+    }
+  } catch (e) {}
+
+  /* ---------- 8) Pastrimet totale: hiqen shenjat dirty të të gjitha kompanive ---------- */
+  ['wipeEverythingLocal', 'executeBlankSlateWipe', 'executeFactoryReset'].forEach(function (n) {
+    try {
+      var f = window[n];
+      if (typeof f !== 'function') return;
+      window[n] = function () {
+        clearAllDirty();
+        var r = f.apply(this, arguments);
+        try { Promise.resolve(r).then(function () { clearAllDirty(); }, function () { clearAllDirty(); }); } catch (e) {}
+        return r;
+      };
+    } catch (e) {}
+  });
+
+  /* ---------- 9) Migrimi: asnjë të dhënë biznesi në localStorage ---------- */
+  function migrateLegacy() {
+    try {
+      var raw = localStorage.getItem('biobesPreSyncSnapshot');
+      if (raw) {
+        try { var o = JSON.parse(raw); if (o && o.data) cloudCachePut('presync', { at: o.at || new Date().toISOString(), data: o.data, legacy: true }); } catch (e) {}
+        localStorage.removeItem('biobesPreSyncSnapshot'); STATS.lsBusinessRemoved++; STATS.migrated++;
+      }
+    } catch (e) {}
+    try {
+      var ab = localStorage.getItem('biobesAutoBackup');
+      if (ab) {
+        try { var s = JSON.parse(ab); if (s && (s.data || s.state)) cloudCachePut('autobackup', s); } catch (e) {}
+        localStorage.removeItem('biobesAutoBackup'); STATS.lsBusinessRemoved++; STATS.migrated++;
+      }
+    } catch (e) {}
+    try {
+      if (localStorage.getItem('biobesDirty') === '1' && !localStorage.getItem('biobesDirtyOwner')) {
+        var c = co(); if (c) { setRawDirty(c, true); localStorage.removeItem('biobesDirty'); }
+      }
+    } catch (e) {}
+  }
+  window.cloudMigrateLegacy = migrateLegacy;
+  try { migrateLegacy(); } catch (e) {}
+  try {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(migrateLegacy, 1200); });
+    else setTimeout(migrateLegacy, 1200);
+  } catch (e) {}
+
+  /* ---------- 10) Diagnostikë për auditime ---------- */
+  window.cloudIsolationReport = function () {
+    var lsBusiness = [];
+    try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k === 'biobesAutoBackup' || k === 'biobesPreSyncSnapshot') lsBusiness.push(k); } } catch (e) {}
+    var dirty = [];
+    try { for (var j = 0; j < localStorage.length; j++) { var k2 = localStorage.key(j); if (k2 && k2.indexOf('biobesDirty:') === 0 && localStorage.getItem(k2) === '1') dirty.push(k2.slice('biobesDirty:'.length)); } } catch (e) {}
+    return { company: co(), stats: STATS, lsBusinessKeys: lsBusiness, dirtyCompanies: dirty, hasBase: Object.prototype.hasOwnProperty.call(bases, co()) };
+  };
 })();
 </script>
 

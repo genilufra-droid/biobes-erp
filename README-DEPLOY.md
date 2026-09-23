@@ -20,10 +20,31 @@ Aplikacioni është **një file i vetëm statik** (`index.html`) — nuk kërkon
 
 ## ⚠️ Shumë e rëndësishme — të dhënat
 
+### Me backend të lidhur (regjimi cloud — i rekomanduari)
+
+Kur te Konfigurime → Zona e rrezikut → **Lidhja me serverin** është vendosur URL-ja e
+`biobes-api` (e parazgjedhura: `https://biobes-api.onrender.com`):
+
+- **Serveri është burimi i së vërtetës.** Gjendja tërhiqet nga serveri në hyrje dhe në çdo
+  ndërrim kompanie; shkrimet dërgohen me kontroll versioni (CAS) ose per dokument
+  (`/api/state/patch`) — dy pajisje që shkruajnë njëkohësisht nuk humbin asgjë.
+- **Shfletuesi është vetëm cache** (IndexedDB): me pastrim të plotë të browserit, me telefon
+  tjetër ose me PC tjetër, e gjithë puna rikthehet nga serveri. `localStorage` nuk mban më
+  kopje të gjendjes apo backup-e biznesi.
+- **Backup-i ditor bëhet në server** (`POST /api/backups`); kopja vendore krijohet vetëm nëse
+  serveri nuk arritet. Rikthimi bëhet së pari nga backup-et e serverit.
+- **Multi-company:** çdo kërkesë mbart `company_id` (`?company=` + header `X-Company-Id`),
+  edhe lidhja realtime SSE (`/api/events?token=…&company=…`) e cila rihapet kur ndërron
+  kompania. Shenjat e punës së paruajtur dhe bazat e bashkimit janë per kompani → C1 ≠ C2.
+- Koha reale: ndryshimet e përdoruesve të tjerë shfaqen brenda ~1–2 s pa rifreskim faqe
+  (treguesi `☁ I sinkronizuar … · v… · C1` poshtë-majtas).
+
+### Pa backend (vetëm skedar statik)
+
 - Të dhënat ruhen në **shfletuesin e çdo pajisjeje** (IndexedDB), **JO** në server.
 - Kjo do të thotë: telefoni, PC-ja dhe çdo përdorues tjetër kanë **kopje të veçanta** — ndryshimet nuk sinkronizohen automatikisht.
 - Për të transferuar të dhënat: **Backup (⇩)** në krye → shkarkon JSON → **Import (⇧)** në pajisjen tjetër.
-- Render-i e bën aplikacionin të arritshëm online, por **nuk** e kthen në sistem me shumë përdorues me databazë të përbashkët. Për këtë shërben backend-i **biobes-api** (repo më vete — shih `README-BACKEND.md`): pasi të vendoset URL-ja e tij te Konfigurime → Zona e rrezikut → Lidhja me serverin, butoni **Reset** fshin edhe serverin, edhe pajisjen.
+- Render-i e bën aplikacionin të arritshëm online, por **nuk** e kthen në sistem me shumë përdorues me databazë të përbashkët. Për këtë shërben backend-i **biobes-api** (repo më vete — shih `README-BACKEND.md` dhe `PLAN-DEPLOY-BIOBES-API.md`): pasi të vendoset URL-ja e tij te Konfigurime → Zona e rrezikut → Lidhja me serverin, butoni **Reset** fshin edhe serverin, edhe pajisjen.
 
 ## Reset-i me password (lokal + server)
 

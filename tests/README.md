@@ -46,6 +46,26 @@ npm test
 Opsionalisht: `BIOBES_BROWSER_EXECUTABLE=/rruga/chromium` për browser-in lokal;
 `BIOBES_OCR_ASSETS=/rruga/node_modules` për paketat e OCR/PDF.
 
+## Auditimet cloud (100% cloud, multi-company)
+
+Këto prova punojnë me **server të rremë** të interceptuar në Chromium (`biobes-api.onrender.com`
+nuk preket kurrë) dhe me stub për `EventSource` (protokolli SSE provohet kundër serverit real
+në repo-n `biobes-api`).
+
+| Script | Çfarë provon |
+|---|---|
+| `test:multi-company` | 20 hapa: regjimi i fjetur me 1 kompani; me 2 kompani — ndërruesi, numërim i pavarur (`FSH-C1-1`/`FSH-C2-1`), ruajtje veçmas (`state:C1`, `state:C2`), modul «Kompanitë», anëtarësi, çaktivizim, pranim wipe-i per kompani. |
+| `test:cloud-realtime` | 56 prova: SSE midis dy pajisjeve (~2 s, pa rifreskim), ruajtje për dokument (`/api/state/patch`), pa shkrime blind, konflikt i zgjidhur vetë (serveri fiton), përdoruesi normal pa dialogë, të drejtat per kompani. |
+| `test:cloud-isolation` | 22 prova për **kërkesat fikse**: `company_id` në çdo kërkesë (`?company=` + header `X-Company-Id`) dhe në SSE (rilidhje me kompaninë e re); izolim C1 ≠ C2 (event-e, `biobesDirty:<ID>`, baza e bashkimit, op-et e patch-it); puna e paruajtur nuk humbet në ndërrim kompanie (bashkim 3-way + ridërgesë); asnjë të dhënë biznesi në `localStorage` (cache në IndexedDB, migrim i çelësave të vjetër); serveri para cache-it; **pastrim i plotë browseri → gjithçka rikthehet nga serveri**; shkrime konkurrente të së njëjtës pajisje renditen pa dyfishim. |
+| `test:blind` | Shkrimet blind ndalohen kur serveri ka gjendje; versioni mësohet para shkrimit; asnjë zëvendësim me gjendje më të varfër. |
+| `test:doc-number-sync` | Numrat e dokumenteve në kohë reale: 409 `conflict:'number'` → rinumerim automatik + riftim, pa dyfishim. |
+| `test:server-backups` | Karta ADMIN «Backup-et në server»: lista, krijimi, shkarkimi, rikthimi, fshirja; `performDailyBackup` → `POST /api/backups`. |
+
+```bash
+BIOBES_BROWSER_EXECUTABLE=/tmp/chromium LD_LIBRARY_PATH=$PWD/.audit/libs/lib \
+  npm run test:cloud-isolation
+```
+
 ## Workaround i browser-it në Arena
 
 Shkarkimi standard nga CDN i Playwright dështoi në këtë sandbox. U përdor

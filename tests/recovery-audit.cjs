@@ -3,7 +3,10 @@ const{open}=require('./helpers.cjs'),fs=require('node:fs'),assert=require('node:
  const{browser,context,page:p,errors,close}=await open();const results=[];const pass=name=>{results.push({name,status:'PASS'});console.log('PASS',name)};
  try{
  await p.evaluate(()=>performDailyBackup(true));const original=await p.evaluate(()=>state.products[0].name);
- await p.evaluate(()=>{state.products[0].name='AUDIT MODIFIED';restoreAutoBackup()});assert.equal(await p.evaluate(()=>state.products[0].name),original);pass('Daily backup and restore');
+ await p.evaluate(async()=>{state.products[0].name='AUDIT MODIFIED';await restoreAutoBackup()});assert.equal(await p.evaluate(()=>state.products[0].name),original);
+ assert.equal(await p.evaluate(()=>localStorage.getItem('biobesAutoBackup')),null,'kopja e plotë e backup-it nuk duhet të jetë në localStorage');
+ assert.equal(await p.evaluate(()=>{try{const m=JSON.parse(localStorage.getItem('biobesAutoBackupMeta')||'null');return !!(m&&m.at)}catch(e){return false}}),true,'meta-data e backup-it mbetet (pa të dhëna biznesi)');
+ pass('Daily backup and restore (server-first, cache në IndexedDB, asgjë biznesi në localStorage)');
  await p.evaluate(()=>requestFactoryReset());await p.locator('#frPass').fill('wrong');await p.locator('#modalFoot button.danger').click();await p.waitForTimeout(200);assert.ok((await p.locator('#toast').innerText()).includes('gabuar'));assert.ok(await p.evaluate(()=>state.products.length>0));
  await p.locator('#frPass').fill('Audit-Only-2026!');await p.locator('#modalFoot button.danger').click();await p.waitForTimeout(300);
  assert.equal(await p.evaluate(()=>state.products.length),0);assert.equal(await p.evaluate(()=>state.users.length),1);assert.equal(await p.locator('#loginLock').count(),1);pass('Pastro refuses wrong password, wipes business data and preserves users');
