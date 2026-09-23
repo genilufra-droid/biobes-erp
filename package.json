@@ -4,7 +4,7 @@
   "scripts": {
     "test:syntax": "node tests/check-syntax.cjs",
     "test:browser": "node tests/browser-audit.cjs",
-    "test": "npm run test:syntax && npm run test:browser && npm run test:warehouse && npm run test:operations && npm run test:recovery && npm run test:qr && npm run test:opening && npm run test:warehouse-docs && npm run test:stock-doc-ux && npm run test:label-print && npm run test:weigh-rack && npm run test:lot-code && npm run test:manual && npm run test:weigh-group && npm run test:doc-numbers && npm run test:bank-csv && npm run test:expenses && npm run test:ocr",
+    "test": "npm run test:syntax && npm run test:browser && npm run test:warehouse && npm run test:operations && npm run test:recovery && npm run test:qr && npm run test:opening && npm run test:warehouse-docs && npm run test:stock-doc-ux && npm run test:label-print && npm run test:weigh-rack && npm run test:lot-code && npm run test:manual && npm run test:weigh-group && npm run test:doc-numbers && npm run test:bank-csv && npm run test:expenses && npm run test:returns && npm run test:trace-graph && npm run test:trace-dossier && npm run test:sales-prepay && npm run test:odoo-partner && npm run test:openings-alpha && npm run test:import-nipt && npm run test:import-upsert && npm run test:registry-export && npm run test:photo-compress && npm run test:mobile-print && npm run test:multi-company && npm run test:cloud-realtime && npm run test:cloud-isolation && npm run test:blind && npm run test:doc-number-sync && npm run test:server-backups && npm run test:ocr",
     "test:operations": "node tests/operations-audit.cjs",
     "test:warehouse": "node tests/warehouse-rack-audit.cjs",
     "test:recovery": "node tests/recovery-audit.cjs",
@@ -37,7 +37,8 @@
     "test:returns": "node tests/returns-audit.cjs",
     "test:multi-company": "node tests/multi-company-audit.cjs",
     "test:cloud-realtime": "node tests/cloud-realtime-audit.cjs",
-    "test:cloud-isolation": "node tests/cloud-isolation-audit.cjs"
+    "test:cloud-isolation": "node tests/cloud-isolation-audit.cjs",
+    "test:core": "npm run test:syntax && npm run test:browser && npm run test:warehouse && npm run test:operations && npm run test:recovery && npm run test:qr && npm run test:opening && npm run test:warehouse-docs && npm run test:stock-doc-ux && npm run test:label-print && npm run test:weigh-rack && npm run test:lot-code && npm run test:manual && npm run test:weigh-group && npm run test:doc-numbers && npm run test:bank-csv && npm run test:expenses"
   },
   "devDependencies": {
     "playwright": "1.63.0"

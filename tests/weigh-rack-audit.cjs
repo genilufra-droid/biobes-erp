@@ -64,7 +64,10 @@ async function step(name,fn){try{await fn();passed++;console.log('ok   -',name)}
    await ev(()=>closeModal());
  });
  await step('Kartela e lotit: "Ndrysho raftin" → vetëm pozicioni ndryshon (sasitë, thasët, stoku të paprekura), ngjarje në historik',async()=>{
-   await ev(()=>{go('lots');lotCard('L1')});await p.waitForTimeout(600);
+   await ev(()=>{go('lots');lotCard('L1')});
+   /* Butoni shtohet nga wrapper-i pas hapjes së kartelës: pritet në mënyrë
+      eksplicite, jo me pritje fikse (renderimi mund të zgjasë ~1 s). */
+   await p.waitForSelector('#modalFoot [data-lot-rack]',{timeout:8000});await p.waitForTimeout(120);
    const names=await ev(()=>[...document.querySelectorAll('#modalFoot button')].map(x=>x.textContent.trim()));assert.ok(names.includes('Ndrysho raftin'),names.join('|'));assert.ok(names.includes('Transfero'));
    const snap=await ev(()=>{let l=by('lots','L1');return{net:l.net,avail:l.availableNet,bags:l.bags,gross:l.gross,moves:(typeof stockMoves==='function'?stockMoves().length:-1),lots:state.lots.length,rack:l.rack}});
    await b('Ndrysho raftin').click();await p.waitForTimeout(400);assert.match(await p.locator('#modalTitle').innerText(),/Ndrysho raftin — B1S01\/1-105-26/);
@@ -84,11 +87,13 @@ async function step(name,fn){try{await fn();passed++;console.log('ok   -',name)}
  await step('ROLE-USER me Lotet:view por PA Magazina:edit → "Ndrysho raftin" dhe "Transfero" nuk shfaqen; me Magazina:edit shfaqen',async()=>{
    await ev(async()=>{const h=await hashPassword('Prove-2026!');state.users.push({id:'U-WR',username:'wr-user',name:'Magazinier',role:'ROLE-USER',active:true,passwordHash:h.hash,passwordSalt:h.salt,passwordIterations:h.iterations,mustChangePassword:false,rights:{v:2,modules:{lots:['view'],warehouse:['view'],dashboard:['view']}}});save();closeModal();logoutUser()});
    await p.waitForFunction(()=>!!document.getElementById('loginLock'));await p.locator('#loginName').fill('wr-user');await p.locator('#loginPass').fill('Prove-2026!');await p.locator('#loginPass').press('Enter');await p.waitForFunction(()=>!document.getElementById('loginLock'));await p.waitForTimeout(400);
-   await ev(()=>{go('lots');lotCard('L1')});await p.waitForTimeout(700);
+   await ev(()=>{go('lots');lotCard('L1')});
+   await p.waitForFunction(()=>/Loti B1S01\/1-105-26/.test((document.getElementById('modalTitle')||{}).textContent||''),null,{timeout:8000});await p.waitForTimeout(900);
    let names=await ev(()=>[...document.querySelectorAll('#modalFoot button')].map(x=>x.textContent.trim()));
    assert.ok(!names.includes('Ndrysho raftin'),names.join('|'));assert.ok(!names.includes('Transfero'),names.join('|'));
    await ev(()=>{closeModal();let u=state.users.find(x=>x.id==='U-WR');u.rights.modules.warehouse=['view','edit'];save()});
-   await ev(()=>{go('lots');lotCard('L1')});await p.waitForTimeout(700);
+   await ev(()=>{go('lots');lotCard('L1')});
+   await p.waitForSelector('#modalFoot [data-lot-rack]',{timeout:8000});await p.waitForTimeout(120);
    names=await ev(()=>[...document.querySelectorAll('#modalFoot button')].map(x=>x.textContent.trim()));
    assert.ok(names.includes('Ndrysho raftin'),names.join('|'));assert.ok(names.includes('Transfero'),names.join('|'));
    await ev(()=>closeModal());

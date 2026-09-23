@@ -136,7 +136,7 @@ async function boot(browser, fake) {
   return { ctx, page, errors };
 }
 
-const launch = () => chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--no-zygote', '--single-process', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const launch = () => chromium.launch({ executablePath: process.env.BIOBES_BROWSER_EXECUTABLE || undefined, headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--no-zygote', '--single-process', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const stateCalls = (fake, from) => fake.calls.slice(from).filter((c) => c.p.indexOf('/api/state') === 0);
 
 (async () => {

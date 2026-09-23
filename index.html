@@ -5039,18 +5039,25 @@ function pkFree(lot, oldMap){
 }
 
 // Override packSourceRowHtml to return <tr>
-window.packSourceRowHtml = function(prefix, lotId, qty, oldMap){
+window.packSourceRowHtml = function(prefix, lotId, qty, oldMap, suggest){
   oldMap = oldMap || {};
   const lot = by('lots', lotId);
   if(!lot || !lot.id) return '';
   const sup = by('suppliers', lot.supplier);
   const free = pkFree(lot, oldMap);
   const qtyVal = (qty===''||qty==null) ? '' : mgStr(+qty||0);
+  /* Sasia shkruhet GJITHMONË nga përdoruesi: fusha shtohet bosh.
+     Sugjerimi shfaqet si placeholder/tooltip, jo si vlerë e mbushur. */
+  const sug = (suggest==null || suggest==='' || !isFinite(+suggest)) ? 0 : Math.max(0, +suggest);
+  const showSug = (qtyVal==='' && sug > 0);
+  const ph = showSug ? mgStr(sug) : '0';
+  const ttl = showSug ? ('Sugjerim: '+fmt2(sug)+' kg — sasia shkruhet nga përdoruesi') : 'KG nga ky lot';
+  const hint = showSug ? `<div data-pack-hint style="color:#6b7d75;font-size:12px;margin-top:3px">Sugjerim: ${fmt2(sug)} kg</div>` : '';
   return `<tr data-pack-source-row="${prefix}" data-lot="${lotId}">
     <td><b>${esc(lot.code)}</b><br><small style="color:#6b7d75">${esc(lot.code)}</small></td>
     <td>${esc(sup.code||'—')}<br><small>${esc(sup.name||'')}</small></td>
     <td>${fmt2(free)} kg</td>
-    <td><input type="number" inputmode="decimal" step="0.001" min="0" value="${qtyVal}" placeholder="0" data-pack-qty oninput="packSourceSum('${prefix}')" style="width:110px"> kg<div data-pack-warn style="color:#c0392b;font-size:12px;margin-top:3px"></div></td>
+    <td><input type="number" inputmode="decimal" step="0.001" min="0" value="${qtyVal}" placeholder="${ph}" title="${ttl}" data-pack-qty oninput="packSourceSum('${prefix}')" style="width:110px"> kg${hint}<div data-pack-warn style="color:#c0392b;font-size:12px;margin-top:3px"></div></td>
     <td><button type="button" class="btn small danger" onclick="packSourceRemoveRow(this,'${prefix}')" title="Fshi rreshtin">×</button></td>
   </tr>`;
 };
@@ -5177,7 +5184,8 @@ window.showPackLotModal = function(prefix){
         const c = packSourceContainer(prefix);
         const oldMap = packSourceOldMap(prefix);
         // Auto-sugjerim: minimumi mes stokut të lirë dhe KG që mbeten për paketim.
-        // Pas shtimit fusha mbetet plotësisht editable; packSourceSum nuk e mbishkruan vlerën.
+        // Shfaqet vetëm si sugjerim (placeholder/tooltip) — fusha shtohet BOSHE dhe
+        // sasia shkruhet gjithmonë nga përdoruesi; packSourceSum nuk e mbishkruan.
         const totalNeeded = ($num(prefix+'Bags',0))*($num(prefix+'BagWeight',0));
         const alreadyTaken = packSourceRows(prefix).reduce((a,r)=>a+(parseFloat(r.querySelector('[data-pack-qty]')?.value)||0),0);
         const remaining = Math.max(0, Math.round((totalNeeded-alreadyTaken)*1000)/1000);
@@ -5186,7 +5194,7 @@ window.showPackLotModal = function(prefix){
         const autoQty = Math.round(Math.min(freeForAuto, remaining>0?remaining:freeForAuto)*1000)/1000;
         const tbody = document.querySelector(`[data-pack-rows="${prefix}"]`);
         if(tbody){
-          tbody.insertAdjacentHTML('beforeend', packSourceRowHtml(prefix, lotId, autoQty, oldMap));
+          tbody.insertAdjacentHTML('beforeend', packSourceRowHtml(prefix, lotId, '', oldMap, autoQty));
           try{ const ni=tbody.lastElementChild.querySelector('[data-pack-qty]'); if(ni) setTimeout(()=>{ try{ ni.focus(); ni.select(); }catch(e){} }, 50); }catch(e){}
           const lot = by('lots', lotId);
           const prodSel = document.getElementById(prefix+'Product');
@@ -5223,6 +5231,8 @@ window.packSourceSum = function(prefix){
       const inp = r.querySelector('[data-pack-qty]');
       const v = parseFloat(inp?.value)||0;
       sum += v;
+      // sugjerimi fshihet sapo përdoruesi shkruan diçka në fushë
+      try{ const hintEl = r.querySelector('[data-pack-hint]'); if(hintEl && String(inp?.value ?? '').trim() !== '') hintEl.remove(); }catch(e){}
       // paralajmërim vizual + tekst kur sasia e shkruar kalon stokun e papaketuar të lotit
       try{
         const lot = by('lots', r.dataset.lot);
@@ -5902,7 +5912,7 @@ try{
         let mjete='<div class="card"><h3>Mjete administrimi</h3><p class="hint">Mjete për administrim</p><div class="actions">'
           +'<button class="btn" onclick="backup()">Eksport</button>'
           +'<button class="btn" onclick="document.getElementById(\'importFile\').click()">Import</button>'
-          +'<button class="btn" onclick="cleanTestData()">Pastrim</button>'
+          +'<button class="btn" onclick="requestFactoryReset()">Pastrim</button>'
           +'</div></div>';
         if(h.indexOf('Mjete administrimi')<0){ h=h.replace('</div><!--', mjete+'</div><!--'); h=h.replace('</div><div class="card"><h3>Siguria', mjete+'<div class="card"><h3>Siguria'); }
       }
@@ -8937,13 +8947,28 @@ console.log(VERSION+' aktiv — '+EX_REPORTS.length+' raporte');
     const baseCard=lotCard;
     const lc=function(id){
       let r=baseCard.apply(this,arguments);
-      setTimeout(()=>{try{
-        let foot=$g('modalFoot');if(!foot||foot.querySelector('[data-lot-rack]'))return;
-        let l=(state.lots||[]).find(x=>x&&x.id===id);if(!l||!document.querySelector('#modal.open'))return;
-        let tr=[...foot.querySelectorAll('button')].find(b=>b.textContent.trim()==='Transfero');
-        let b=document.createElement('button');b.className='btn';b.setAttribute('data-lot-rack','1');b.setAttribute('data-right','warehouse:edit');b.textContent='Ndrysho raftin';b.addEventListener('click',()=>lotRackForm(id));
-        if(tr)tr.insertAdjacentElement('beforebegin',b);else foot.appendChild(b);
-      }catch(e){}},120);
+      /* Butoni shtohet sapo kartela e KËTIJ loti është hapur. Me një timer të vetëm
+         120 ms butoni humbte përgjithmonë kur në atë çast modali nuk ishte ende
+         `.open` (renderimi i kartelës e mban të zënë fijen kryesore ~1 s në pajisje
+         të ngadalta) — prandaj riprovohet çdo 60 ms deri në ~3 s. */
+      let tries=0;
+      const tryAdd=()=>{
+        try{
+          if(++tries>50)return;
+          const foot=$g('modalFoot');
+          if(foot&&foot.querySelector('[data-lot-rack]'))return;            // tashmë është shtuar
+          const l=(state.lots||[]).find(x=>x&&x.id===id);
+          if(!l)return;                                                     // loti nuk ekziston më
+          if(!document.querySelector('#modal.open')){setTimeout(tryAdd,60);return}
+          const title=((document.getElementById('modalTitle')||{}).textContent||'');
+          if(title&&(l.code&&title.indexOf(l.code)<0)&&(title.indexOf(l.id)<0)){setTimeout(tryAdd,60);return}  // kartelë tjetër ende
+          if(!foot){setTimeout(tryAdd,60);return}
+          let tr=[...foot.querySelectorAll('button')].find(b=>b.textContent.trim()==='Transfero');
+          let b=document.createElement('button');b.className='btn';b.setAttribute('data-lot-rack','1');b.setAttribute('data-right','warehouse:edit');b.textContent='Ndrysho raftin';b.addEventListener('click',()=>lotRackForm(id));
+          if(tr)tr.insertAdjacentElement('beforebegin',b);else foot.appendChild(b);
+        }catch(e){}
+      };
+      setTimeout(tryAdd,60);
       return r;
     };
     window.lotCard=lc;try{lotCard=lc}catch(e){}
