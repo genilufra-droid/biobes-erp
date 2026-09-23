@@ -8215,91 +8215,123 @@ console.log('BioBes Fatura Blerje + Peshime v1 u ngarkua');
 })();
 </script>
 <style id="biobes-analytics-o19-vyapar-css">
-/* Analitika Tregtare Vyapar Desktop Premium — stile me prefiks vy- (pa përplasje me Alpha) */
+/* ==========================================================================
+   VYAPAR DESKTOP PREMIUM — THEME & REPORT STYLES (MATCHING OFFICIAL VYAPAR)
+   ========================================================================== */
 .vy-wrap{display:grid;grid-template-columns:236px minmax(0,1fr);gap:14px;align-items:start}
-.vy-rail{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px;position:sticky;top:10px;max-height:calc(100vh - 40px);overflow:auto;box-shadow:var(--shadow)}
-.vy-brand{padding:10px 10px 8px;border-bottom:1px solid var(--line);margin-bottom:4px}
-.vy-brand b{display:block;font-size:14px;color:#163d2c}.vy-brand small{color:var(--muted);font-size:11px}
-.vy-rail h4{margin:12px 10px 4px;font-size:10.5px;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);font-weight:700}
-.vy-rail button{display:flex;align-items:center;gap:9px;width:100%;border:0;background:transparent;text-align:left;padding:9px 10px;border-radius:8px;cursor:pointer;color:var(--ink);font-size:13px;font-weight:600}
-.vy-rail button:hover{background:#f1f6f3}
-.vy-rail button.active{background:var(--brand);color:#fff;box-shadow:0 3px 10px #176b4933}
+.vy-rail{background:#fff;border:1px solid #cbd5e1;border-radius:12px;padding:8px;position:sticky;top:10px;max-height:calc(100vh - 40px);overflow:auto;box-shadow:0 2px 6px rgba(0,0,0,0.06)}
+.vy-brand{padding:12px 10px 10px;border-bottom:2px solid #b91c1c;margin-bottom:6px}
+.vy-brand b{display:block;font-size:15px;font-weight:800;color:#0f172a;letter-spacing:-0.2px}
+.vy-brand small{color:#64748b;font-size:11px}
+.vy-rail h4{margin:12px 10px 4px;font-size:10.5px;letter-spacing:.7px;text-transform:uppercase;color:#64748b;font-weight:700}
+.vy-rail button{display:flex;align-items:center;gap:9px;width:100%;border:0;background:transparent;text-align:left;padding:9px 10px;border-radius:8px;cursor:pointer;color:#1e293b;font-size:13px;font-weight:600}
+.vy-rail button:hover{background:#f1f5f9}
+.vy-rail button.active{background:#b91c1c;color:#fff;box-shadow:0 3px 10px rgba(185,28,28,0.3)}
 .vy-rail button i{font-style:normal;width:22px;text-align:center;font-size:15px}
 .vy-rail button span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .vy-rail button small{font-size:10px;background:#eef3f0;color:#3f5a4c;border-radius:10px;padding:1px 7px;font-weight:700}
 .vy-rail button.active small{background:#ffffff33;color:#fff}
 .vy-main{min-width:0}
-.vy-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:12px;box-shadow:var(--shadow)}
-.vy-top .vy-title{font-weight:800;font-size:17px;margin-right:auto;display:flex;align-items:center;gap:8px;color:#163d2c}
-.vy-top .vy-title i{font-style:normal;background:#e8f4ed;width:32px;height:32px;display:grid;place-items:center;border-radius:9px;font-size:16px}
-.vy-top .vy-title small{font-weight:400;font-size:11px;color:var(--muted)}
+.vy-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#fff;border:1px solid #cbd5e1;border-radius:12px;padding:10px 14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.05)}
+.vy-top .vy-title{font-weight:800;font-size:17px;margin-right:auto;display:flex;align-items:center;gap:8px;color:#0f172a}
+.vy-top .vy-title i{font-style:normal;background:#fee2e2;color:#b91c1c;width:32px;height:32px;display:grid;place-items:center;border-radius:9px;font-size:16px}
+.vy-top .vy-title small{font-weight:400;font-size:11px;color:#64748b}
 .vy-presets{display:flex;gap:4px;flex-wrap:wrap}
-.vy-presets button{border:1px solid var(--line);background:#fff;border-radius:20px;padding:5px 11px;font-size:12px;cursor:pointer;color:var(--ink)}
-.vy-presets button.active{background:#e8f4ed;border-color:var(--brand);color:var(--brand);font-weight:700}
-.vy-top label.hint{display:flex;align-items:center;gap:5px;font-size:11px}
-.vy-top input[type=date],.vy-top input[type=search]{border:1px solid var(--line);border-radius:7px;padding:7px 9px;font-size:13px;background:#fff}
+.vy-presets button{border:1px solid #cbd5e1;background:#fff;border-radius:20px;padding:5px 12px;font-size:12px;cursor:pointer;color:#1e293b;font-weight:500}
+.vy-presets button.active{background:#b91c1c;border-color:#b91c1c;color:#fff;font-weight:700}
+.vy-top label.hint{display:flex;align-items:center;gap:5px;font-size:11px;color:#475569}
+.vy-top input[type=date],.vy-top input[type=search]{border:1px solid #cbd5e1;border-radius:7px;padding:7px 10px;font-size:13px;background:#fff}
 .vy-top input[type=search]{min-width:180px}
 .vy-actions{display:flex;gap:6px}
+.vy-actions button{font-weight:600}
 .vy-sub{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
-.vy-sub select,.vy-sub input{border:1px solid var(--line);border-radius:7px;padding:8px 10px;background:#fff;min-width:220px}
-.vy-sub .vy-chip{background:#fff;border:1px solid var(--line);border-radius:20px;padding:5px 11px;font-size:12px;cursor:pointer}
-.vy-sub .vy-chip.active{background:var(--brand);color:#fff;border-color:var(--brand)}
-.vy-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(212px,1fr));gap:10px;margin-bottom:12px}
-.vy-kpi{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;border-left:4px solid var(--brand);min-width:0}
-.vy-kpi small{display:block;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;line-height:1.25;min-height:26px}
-.vy-kpi strong{display:block;font-size:17px;margin-top:3px;color:#163d2c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
-.vy-kpi em{font-style:normal;font-size:11px;color:var(--muted);display:block;margin-top:2px}
-.vy-kpi.blue{border-left-color:#2e90fa}.vy-kpi.orange{border-left-color:#f79009}.vy-kpi.red{border-left-color:#b63c46}.vy-kpi.purple{border-left-color:#7a5af8}.vy-kpi.teal{border-left-color:#0e9384}.vy-kpi.lime{border-left-color:#8bbf3f}
+.vy-sub select,.vy-sub input{border:1px solid #cbd5e1;border-radius:7px;padding:8px 10px;background:#fff;min-width:220px}
+.vy-sub .vy-chip{background:#fff;border:1px solid #cbd5e1;border-radius:20px;padding:5px 11px;font-size:12px;cursor:pointer}
+.vy-sub .vy-chip.active{background:#b91c1c;color:#fff;border-color:#b91c1c}
+
+/* Header Zyrtar i Fletës së Raportit Vyapar */
+.vy-sheet-head{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid #cbd5e1;border-left:5px solid #b91c1c;border-radius:10px;padding:12px 18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
+.vy-company-name{font-size:18px;font-weight:800;color:#0f172a;letter-spacing:-0.3px}
+.vy-company-meta{font-size:11.5px;color:#64748b;margin-top:2px}
+.vy-sheet-report{text-align:right}
+.vy-report-badge{font-size:16px;font-weight:800;color:#b91c1c;letter-spacing:0.6px;text-transform:uppercase}
+.vy-period-badge{font-size:11px;background:#f1f5f9;color:#334155;padding:3px 10px;border-radius:20px;display:inline-block;margin-top:4px;border:1px solid #cbd5e1;font-weight:600}
+
+/* Vyapar KPI Cards */
+.vy-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px}
+.vy-kpi{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,0.04);position:relative;overflow:hidden;border-left:4px solid #3b82f6}
+.vy-kpi small{display:block;color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;line-height:1.25;min-height:26px}
+.vy-kpi strong{display:block;font-size:19px;margin-top:3px;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;letter-spacing:-.2px;font-weight:800}
+.vy-kpi em{font-style:normal;font-size:11px;color:#94a3b8;display:block;margin-top:2px}
+.vy-kpi.blue{border-left-color:#2563eb}.vy-kpi.orange{border-left-color:#ea580c}.vy-kpi.red{border-left-color:#dc2626}.vy-kpi.purple{border-left-color:#7c3aed}.vy-kpi.teal{border-left-color:#0d9488}.vy-kpi.lime{border-left-color:#16a34a}
+
 .vy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px;margin-bottom:12px}
 .vy-grid.two{grid-template-columns:repeat(auto-fit,minmax(420px,1fr))}
-.vy-chart{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
-.vy-chart h3{margin:0 0 8px;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
-.vy-chart h3 span{font-weight:400;color:var(--muted);font-size:11px}
+.vy-chart{background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px 14px;min-width:0;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+.vy-chart h3{margin:0 0 8px;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:8px;color:#0f172a;font-weight:700}
+.vy-chart h3 span{font-weight:400;color:#64748b;font-size:11px}
 .vy-chart svg{width:100%;height:auto;display:block}
-.vy-legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:11px;color:#3f5a4c;margin-top:6px}
+.vy-legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:11px;color:#475569;margin-top:6px}
 .vy-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
 .vy-rank .row{display:grid;grid-template-columns:minmax(90px,1.2fr) 3fr 100px;gap:8px;align-items:center;margin:6px 0;font-size:12px}
 .vy-rank .row span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .vy-rank .track{height:14px;background:#edf1ef;border-radius:4px;overflow:hidden}
-.vy-rank .fill{height:100%;background:linear-gradient(90deg,#176b49,#8bbf3f);border-radius:4px}
+.vy-rank .fill{height:100%;background:linear-gradient(90deg,#b91c1c,#f87171);border-radius:4px}
 .vy-rank .val{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
-.vy-table{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:12px}
-.vy-table .vy-th{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);font-weight:700}
-.vy-table .table-wrap{border:0;max-height:600px}
-.vy-table table th{position:sticky;top:0;z-index:1}
-.vy-table td.num,.vy-table th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.vy-table tfoot td{font-weight:800;background:#f1f6f3;border-top:2px solid var(--line);position:sticky;bottom:0}
+
+/* Vyapar Signature Table */
+.vy-table{background:#fff;border:1px solid #cbd5e1;border-radius:10px;overflow:hidden;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,0.05)}
+.vy-table .vy-th{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-weight:800;font-size:13.5px;color:#0f172a}
+.vy-table .table-wrap{border:0;max-height:650px}
+.vy-table table{width:100%;border-collapse:collapse;font-size:12px;font-family:Arial,Helvetica,sans-serif}
+.vy-table table th{background:#1e293b !important;color:#fff !important;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.4px;padding:10px 10px;border:1px solid #334155;text-align:left;position:sticky;top:0;z-index:2}
+.vy-table table th.num{text-align:right}
+.vy-table table td{padding:8px 10px;border-bottom:1px solid #e2e8f0;border-right:1px solid #f1f5f9;color:#1e293b}
+.vy-table table tbody tr:nth-child(even){background-color:#f8fafc}
+.vy-table table tbody tr:hover{background-color:#eff6ff !important}
+.vy-table td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.vy-table table tfoot td{background:#0f172a !important;color:#fff !important;font-weight:800;font-size:12px;padding:10px 10px;border-top:2px solid #000;border-right:1px solid #1e293b;position:sticky;bottom:0;z-index:2}
+.vy-table table tfoot td.num{text-align:right}
 .vy-table .vy-open{background:#f1f6f3;font-style:italic}
-.vy-pos{color:#167044}.vy-neg{color:#a32934}
+.vy-pos{color:#15803d;font-weight:700}.vy-neg{color:#b91c1c;font-weight:700}
+.vy-empty{padding:24px;text-align:center;color:#64748b;font-size:13px}
+
 .vy-flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;margin-bottom:12px}
-.vy-node{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:170px;flex:1 1 180px;position:relative}
-.vy-node.hot{border-color:var(--brand);box-shadow:0 0 0 2px #176b4922}
-.vy-node h5{margin:0 0 6px;font-size:10.5px;text-transform:uppercase;color:var(--muted);letter-spacing:.4px;display:flex;justify-content:space-between}
-.vy-node h5 b{color:var(--brand)}
+.vy-node{background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;min-width:170px;flex:1 1 180px;position:relative}
+.vy-node.hot{border-color:#b91c1c;box-shadow:0 0 0 2px rgba(185,28,28,0.15)}
+.vy-node h5{margin:0 0 6px;font-size:10.5px;text-transform:uppercase;color:#64748b;letter-spacing:.4px;display:flex;justify-content:space-between}
+.vy-node h5 b{color:#b91c1c}
 .vy-node ul{margin:0;padding:0;list-style:none;font-size:12px}
 .vy-node li{padding:2px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .vy-node .link{font-size:12px;padding:0;border:0;background:none}
 .vy-step{align-self:center;color:#9aa7a0;font-size:18px}
 .vy-qr{display:grid;grid-template-columns:260px minmax(0,1fr);gap:14px;align-items:start;margin-bottom:12px}
-.vy-qr-box{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;place-items:center;gap:8px}
+.vy-qr-box{background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;display:grid;place-items:center;gap:8px}
 .vy-qr-box #vyQrBox canvas,.vy-qr-box #vyQrBox img{width:170px!important;height:170px!important;display:block}
 .vy-label{width:84mm;max-width:100%;border:1.5px solid #111;padding:8px;background:#fff;color:#111;font-family:Arial,sans-serif;display:grid;grid-template-columns:minmax(0,1fr) 32mm;gap:8px;align-items:center;margin-top:10px}
 .vy-label b{font-size:13px}.vy-label div{font-size:11px;line-height:1.35}
 .vy-label #vyQrLabelCode canvas,.vy-label #vyQrLabelCode img{width:30mm!important;height:30mm!important;display:block}
-.vy-empty{padding:22px;text-align:center;color:var(--muted)}
-.vy-alerts li{padding:6px 0;border-bottom:1px dashed var(--line);font-size:13px;display:flex;justify-content:space-between;gap:10px}
+.vy-alerts li{padding:6px 0;border-bottom:1px dashed #cbd5e1;font-size:13px;display:flex;justify-content:space-between;gap:10px}
 .vy-alerts li:last-child{border:0}
 .vy-alerts .pill{flex:0 0 auto}
-.vy-timeline{font-size:12px}.vy-timeline li{display:grid;grid-template-columns:120px 1fr;gap:8px;padding:5px 0;border-bottom:1px dashed var(--line)}
-.vy-timeline li small{color:var(--muted)}
-.vy-note{font-size:11px;color:var(--muted);margin:-6px 0 12px}
-.vy-photo{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.vy-timeline{font-size:12px}.vy-timeline li{display:grid;grid-template-columns:120px 1fr;gap:8px;padding:5px 0;border-bottom:1px dashed #cbd5e1}
+.vy-timeline li small{color:#64748b}
+.vy-note{font-size:11px;color:#64748b;margin:-6px 0 12px}
+.vy-photo{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #cbd5e1}
 .vy-head-card{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .vy-head-card h3{margin:0}
-.vy-head-card .meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:#3f5a4c}
+.vy-head-card .meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:#475569}
+
 @media(max-width:900px){.vy-wrap{grid-template-columns:1fr}.vy-rail{position:static;max-height:none;display:flex;overflow-x:auto;gap:4px;padding:6px}.vy-brand{display:none}.vy-rail h4{display:none}.vy-rail button{width:auto;white-space:nowrap;flex:0 0 auto}.vy-rail button small{display:none}.vy-qr{grid-template-columns:1fr}.vy-grid.two{grid-template-columns:1fr}.vy-top .vy-title{width:100%}.vy-top input[type=search]{min-width:0;flex:1}}
-@media print{.vy-rail,.vy-top,.reports-mode-tabs,.vy-actions,.vy-sub{display:none!important}.vy-wrap{display:block}.vy-table .table-wrap{max-height:none}.vy-kpi,.vy-chart,.vy-table{break-inside:avoid}}
-</style>
+@media print{
+  .vy-rail,.vy-top,.reports-mode-tabs,.vy-actions,.vy-sub{display:none!important}
+  .vy-wrap{display:block!important}
+  .vy-table .table-wrap{max-height:none!important;overflow:visible!important}
+  .vy-kpi,.vy-chart,.vy-table{break-inside:avoid!important}
+  .vy-sheet-head{border:1px solid #000!important;border-left:5px solid #000!important}
+  .vy-table table th{background:#000!important;color:#fff!important}
+  .vy-table table tfoot td{background:#000!important;color:#fff!important}
+}</style>
 <script id="biobes-analytics-o19-vyapar-v1">
 /* ==========================================================================
    BioBes ERP — Raporte Vyapar Desktop Premium (v1)
@@ -8643,7 +8675,27 @@ function injectTab(html){if(typeof html!=='string')return html;let m='<div class
 function railCounts(){try{return{purchases:arr('weighings').filter(w=>w&&w.status==='Konfirmuar').length,sales:arr('salesInvoices').filter(f=>f&&f.status==='Konfirmuar').length,stock:arr('lots').filter(l=>l&&lotAvail(l)>0).length,article:arr('products').length,party:arr('customers').length+arr('suppliers').length,finance:arr('payments').length+arr('customerPayments').length+arr('bankTransactions').length,processing:arr('processes').length,exports:arr('shipments').length,trace:arr('lots').length,expenses:arr('expenses').filter(d=>d&&d.status==='Konfirmuar').length}}catch(e){return{}}}
 function rail(){let counts=railCounts(),groups=[];MODS.forEach(m=>{let g=groups.find(x=>x.name===m[4]);if(!g)groups.push(g={name:m[4],items:[]});g.items.push(m)});return `<div class="vy-rail"><div class="vy-brand"><b>Vyapar Desktop Premium</b><small>Paneli Tregtar & Inventari · ${MODS.length} module</small></div>${groups.map(g=>`<h4>${esc(g.name)}</h4>${g.items.map(m=>`<button type="button" class="${S.mod===m[0]?'active':''}" onclick="vyGo('${m[0]}')"><i>${m[1]}</i><span>${esc(m[2])}</span>${counts[m[0]]!=null?`<small>${esc(counts[m[0]])}</small>`:''}</button>`).join('')}`).join('')}</div>`}
 function topbar(mod){return `<div class="vy-top"><div class="vy-title"><i>${mod[1]}</i><span>${esc(mod[2])}<br><small>${esc(mod[3])} · ${esc(periodLabel())}</small></span></div><div class="vy-presets">${PRESETS.map(([k,l])=>`<button type="button" class="${S.preset===k?'active':''}" onclick="vyPreset('${k}')">${l}</button>`).join('')}</div><label class="hint">Nga <input type="date" value="${esc(S.from)}" onchange="vySet('from',this.value)"></label><label class="hint">Deri <input type="date" value="${esc(S.to)}" onchange="vySet('to',this.value)"></label><input type="search" placeholder="Kërko në tabelë…" value="${esc(S.q)}" oninput="vyQ(this.value)"><div class="vy-actions"><button class="btn small" type="button" onclick="vyExport()">⬇ Excel (XLSX)</button><button class="btn small" type="button" onclick="vyPrint()">🖨 Printo / PDF</button></div></div>`}
-function paper(){let mod=MODS.find(x=>x[0]===S.mod)||MODS[0];try{return MOD[mod[0]].html()}catch(e){console.error(VERSION,mod[0],e);return `<div class="card"><b>Moduli «${esc(mod[2])}» hasi një gabim:</b> ${esc(e&&e.message||e)}<br><span class="hint">Të dhënat nuk u prekën. Provoni një periudhë tjetër ose raportoni gabimin.</span></div>`}}
+function paper(){
+  let mod=MODS.find(x=>x[0]===S.mod)||MODS[0];
+  try{
+    let ci = (typeof companyInfo === 'function') ? companyInfo() : { name: 'BIOBES sh.p.k.', nipt: 'L43904401I', address: 'Lagjja Kadri Qystri, Fier' };
+    let sheetHead = `
+    <div class="vy-sheet-head">
+      <div class="vy-sheet-brand">
+        <div class="vy-company-name">${esc(ci.name || 'BIOBES sh.p.k.')}</div>
+        <div class="vy-company-meta">NIPT: <b>${esc(ci.nipt || 'L43904401I')}</b> · ${esc(ci.address || ci.city || 'Fier, Albania')}</div>
+      </div>
+      <div class="vy-sheet-report">
+        <div class="vy-report-badge">${esc(mod[2]).toUpperCase()} REPORT</div>
+        <div class="vy-period-badge">📅 Periudha: <b>${esc(periodLabel())}</b></div>
+      </div>
+    </div>`;
+    return sheetHead + MOD[mod[0]].html();
+  }catch(e){
+    console.error(VERSION,mod[0],e);
+    return `<div class="card"><b>Moduli «${esc(mod[2])}» hasi një gabim:</b> ${esc(e&&e.message||e)}<br><span class="hint">Të dhënat nuk u prekën.</span></div>`;
+  }
+}
 function vyRender(){M={};let pr=periodOf(S.preset);if(S.preset!=='custom'){S.from=pr[0];S.to=pr[1]}let mod=MODS.find(x=>x[0]===S.mod)||MODS[0];S.mod=mod[0];let body=paper();setTimeout(afterRender,40);return head('Raportet','Vyapar Desktop — Paneli tregtar, lëvizjet e stokut, marzhi bruto dhe kostoja WAC')+modeTabs()+`<div class="vy-wrap">${rail()}<div class="vy-main">${topbar(mod)}<div id="vyPaper">${body}</div></div></div>`}
 function refreshPaper(){M={};let el=document.getElementById('vyPaper');if(!el){try{render()}catch(e){}return}el.innerHTML=paper();setTimeout(afterRender,40)}
 function drawQr(id,size){let box=document.getElementById(id);if(!box||!box.dataset.text)return;box.innerHTML='';if(typeof QRCode!=='function'){box.textContent='QR i padisponueshëm';return}try{new QRCode(box,{text:box.dataset.text,width:size,height:size,correctLevel:QRCode.CorrectLevel.M})}catch(e){box.textContent='QR i padisponueshëm'}}
