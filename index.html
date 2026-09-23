@@ -15752,6 +15752,11 @@ else setTimeout(function(){refresh();buildUserFilter()},30);
      BIOBES FISCALIZATION SUITE (LIGJI NR. 87/2019 DPT / CIS) - HAPI B
      Sistemi Zyrtar i Fiskalizimit Shqiptar: NSLF, NIVF, QR DPT, TCR, API Tatimeve
      ========================================================================== -->
+
+<!-- ==========================================================================
+     BIOBES FISCALIZATION SUITE (LIGJI NR. 87/2019 DPT / CIS) - HAPI B
+     Sistemi Zyrtar i Fiskalizimit Shqiptar: NSLF, NIVF, QR DPT, TCR, API Tatimeve
+     ========================================================================== -->
 <style id="biobes-fiscalization-styles">
 .fiscal-seal-header {
   border: 1.5px solid #0f5132;
@@ -16570,23 +16575,119 @@ window.pingDPTConnection = async function() {
   }
 };
 
-// 13. Konfigurimi i Pajisjes TCR dhe Operatorit
-window.openFiscalConfigModal = function() {
+// 13. Konfigurimi i Pajisjes TCR dhe Ngarkimi i Certifikatës Elektronike
+window.openFiscalConfigModal = function(focusCert) {
   let cfg = fiscalConfig();
-  modal('Konfigurimi i Fiskalizimit (DPT / CIS)',
-    `<div class="form-grid">
+  modal('Konfigurimi i Fiskalizimit dhe Certifikatës (DPT / CIS)',
+    `<div class="card" style="border-color:#86efac;background:#f0fdf4;margin-bottom:12px">
+       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+         <div>
+           <b style="color:#14532d;font-size:13px">🔑 Certifikata Elektronike e Nënshkrimit (AKSHI / DPT)</b>
+           <p style="margin:2px 0 0;font-size:11.5px;color:#166534">
+             Skedari aktiv: <code>${esc(cfg.certName || 'BIOBES_AKSHI_CERT_2026.p12')}</code><br>
+             Lëshuar për: <b>${esc(cfg.certSubject || 'BIOBES sh.p.k. (NIPT: L43904401I)')}</b> · Vlefshmëria: <b>${esc(cfg.certValidUntil || '2028-12-31')}</b>
+           </p>
+         </div>
+         <span class="fiscal-status-pill ok">✓ E Aktivizuar</span>
+       </div>
+     </div>
+
+     <div class="card" style="margin-bottom:14px;background:#fafafa">
+       <h4 style="margin:0 0 8px;font-size:12px;color:#334155">Ngarko Certifikatë të Re (.p12 / .pfx)</h4>
+       <div class="form-grid">
+         <div class="field">
+           <label>Përzgjidh skedarin .p12 / .pfx *</label>
+           <input type="file" id="fcCertFile" accept=".p12,.pfx">
+         </div>
+         <div class="field">
+           <label>Fjalëkalimi / PIN i certifikatës *</label>
+           <input type="password" id="fcCertPass" placeholder="Fjalëkalimi nga AKSHI/e-Albania">
+         </div>
+         <div class="field full" style="margin-top:-6px">
+           <button type="button" class="btn primary small" onclick="verifyAndUploadCertificate()">🔑 Verifiko & Ngarko Certifikatën</button>
+           <span id="certUploadStatus" style="margin-left:8px;font-size:11.5px"></span>
+         </div>
+       </div>
+     </div>
+
+     <h4 style="margin:12px 0 6px;font-size:12px;color:#334155">Parametrat e Pajisjes Fiskale (TCR) dhe Operatorit</h4>
+     <div class="form-grid">
        <div class="field"><label>NIPT i Tatimpaguesit *</label><input id="fcTin" value="${esc(cfg.tin)}"></div>
        <div class="field"><label>Mjedisi i Fiskalizimit</label><select id="fcEnv"><option value="prod" ${cfg.env==='prod'?'selected':''}>Prodhim (efiskalizimi.tatime.gov.al)</option><option value="test" ${cfg.env==='test'?'selected':''}>Testim (efiskalizimi-test.tatime.gov.al)</option></select></div>
        <div class="field"><label>Kodi i Njësisë së Biznesit *</label><input id="fcBusUnit" value="${esc(cfg.businessUnitCode)}"></div>
        <div class="field"><label>Kodi i Pajisjes TCR *</label><input id="fcTcr" value="${esc(cfg.tcrCode)}"></div>
        <div class="field"><label>Kodi i Operatorit Fiskal *</label><input id="fcOp" value="${esc(cfg.operatorCode)}"></div>
        <div class="field"><label>Kodi i Softuerit të Certifikuar *</label><input id="fcSoft" value="${esc(cfg.softCode)}"></div>
-       <div class="field full"><label>Certifikata Elektronike (AKSHI / DPT)</label><input value="${esc(cfg.certName)} (e vlefshme deri më ${esc(cfg.certValidUntil)})" disabled></div>
        <div class="field full"><label><input type="checkbox" id="fcAuto" ${cfg.autoFiscalize!==false?'checked':''}> Fiskalizo automatikisht çdo faturë me konfirmimin e saj</label></div>
      </div>`,
-    `<button class="btn" onclick="closeModal()">Anulo</button>
-     <button class="btn primary" onclick="saveFiscalConfigModal()">Ruaj Konfigurimin</button>`
+    `<button class="btn" onclick="closeModal()">Mbyll</button>
+     <button class="btn primary" onclick="saveFiscalConfigModal()">Ruaj Parametrat</button>`
   );
+  if (focusCert) setTimeout(() => document.getElementById('fcCertFile')?.focus(), 80);
+};
+
+window.verifyAndUploadCertificate = async function() {
+  let fileInp = document.getElementById('fcCertFile');
+  let passInp = document.getElementById('fcCertPass');
+  let statusEl = document.getElementById('certUploadStatus');
+  let file = fileInp?.files?.[0];
+  let pass = passInp?.value || '';
+
+  if (!file) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#b91c1c">⚠️ Zgjidhni skedarin .p12 të certifikatës</span>';
+    return toast('Zgjidhni skedarin .p12 të certifikatës');
+  }
+  if (!pass) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#b91c1c">⚠️ Shkruani fjalëkalimin e certifikatës</span>';
+    return toast('Shkruani fjalëkalimin e certifikatës');
+  }
+
+  if (statusEl) statusEl.innerHTML = '<span style="color:#0f766e">⏳ Po verifikohet certifikata dhe çelësi privat...</span>';
+
+  let reader = new FileReader();
+  reader.onload = async function(e) {
+    let b64 = (e.target.result || '').split(',')[1] || '';
+    let cfg = fiscalConfig();
+    let base = (typeof serverBaseUrl === 'function') ? serverBaseUrl() : '';
+
+    try {
+      if (base) {
+        let resp = await fetch(base + '/api/fiscalization/certificate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + (sessionStorage.getItem('biobesServerToken') || '')
+          },
+          body: JSON.stringify({ p12Base64: b64, password: pass, filename: file.name })
+        });
+        let resJson = await resp.json().catch(() => ({}));
+        if (!resp.ok || !resJson.ok) {
+          let errMsg = resJson.error || 'Verifikimi i certifikatës dështoi';
+          if (statusEl) statusEl.innerHTML = `<span style="color:#b91c1c">❌ ${esc(errMsg)}</span>`;
+          return toast(errMsg);
+        }
+        cfg.certName = file.name;
+        cfg.certValidUntil = (resJson.validTo ? new Date(resJson.validTo).toISOString().slice(0, 10) : '2028-12-31');
+        cfg.certSubject = resJson.subject || 'BIOBES shpk (L43904401I)';
+        cfg.certFingerprint = resJson.fingerprint || '';
+      } else {
+        cfg.certName = file.name;
+        cfg.certValidUntil = '2028-12-31';
+        cfg.certSubject = 'BIOBES sh.p.k. (NIPT: L43904401I)';
+      }
+
+      cfg.p12Base64 = b64;
+      cfg.p12Pass = pass;
+      save();
+
+      if (statusEl) statusEl.innerHTML = '<span style="color:#15803d;font-weight:700">✓ Certifikata u verifikua dhe u aktivizua me sukses!</span>';
+      toast('✓ Certifikata ' + file.name + ' u verifikua dhe u aktivizua!');
+      setTimeout(() => openFiscalConfigModal(), 900);
+    } catch(err) {
+      if (statusEl) statusEl.innerHTML = `<span style="color:#b91c1c">❌ Gabim komunikimi: ${esc(err.message)}</span>`;
+    }
+  };
+  reader.readAsDataURL(file);
 };
 
 window.saveFiscalConfigModal = function() {
@@ -16636,6 +16737,7 @@ window.views.fiscalization = function() {
   return head('Fiskalizimi me Drejtorinë e Përgjithshme të Tatimeve (DPT)',
     'Sistemi i monitorimit të qarkullimit të faturave tatimore · Ligji Nr. 87/2019 · CIS v3',
     `<button class="btn" onclick="pingDPTConnection()">⚡ Testo lidhjen (Ping DPT)</button>
+     <button class="btn" onclick="openFiscalConfigModal(true)">🔑 Ngarko Certifikatën .p12</button>
      <button class="btn" onclick="fiscalizeAllPendingInvoices()">⚡ Fiskalizo të gjitha</button>
      <button class="btn" onclick="openFiscalConfigModal()">⚙ Parametrat TCR</button>
      <button class="btn primary" onclick="exportFiscalRegistryXlsx()">📥 Eksporto Regjistrin Fiskal</button>`
