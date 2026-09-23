@@ -16652,7 +16652,264 @@ window.renderFiscalModel2Html = function(f, isPurchase) {
 </div>`;
 };
 
-// 9. Wrapper që i integron të dyja modelet me switcher
+
+// ==========================================================================
+// 8.1 MODELI 3: Faturë Jo-Fiskale / E Brendshme / Proformë (Pa Tatime / Pa QR)
+// ==========================================================================
+window.renderFiscalModel3Html = function(f, isPurchase) {
+  let cur = f.currency || 'ALL';
+  let rate = f.exchangeRate || 1;
+  let invNum = esc(f.invoiceNumber || f.id || 'FS-001');
+  let dtFull = formatFiscalDate(f.date, false);
+
+  let seller = isPurchase
+    ? by('suppliers', f.supplier)
+    : { name: 'BIOBES sh.p.k.', nipt: 'L43904401I', address: 'Lagjja Kadri Qystri, rruga Llazar Prifti, nr.53', city: 'Fier, ALB' };
+  let buyer = isPurchase
+    ? { name: 'BIOBES sh.p.k.', nipt: 'L43904401I', address: 'Fier, GRADISHTË SOPËS, nr.53', city: 'Fier, ALB' }
+    : by('customers', f.customer);
+
+  let goods = isPurchase
+    ? [{ product: f.product, net: f.billable || f.physical, price: f.price, discount: f.discount || 0 }]
+    : ((typeof saleLinesOf === 'function') ? saleLinesOf(f) : (f.lines || []));
+
+  let rows = goods.map(l => {
+    let p = by('products', l.product);
+    let qty = +l.net || 0;
+    let prc = +l.price || 0;
+    let without = qty * prc;
+    let vatRate = +(f.vat || 0);
+    let vatAmt = without * vatRate / 100;
+    let withVat = without + vatAmt;
+    let u = p?.unit || 'kg';
+    return `<tr>
+      <td style="text-align:left"><b>${esc(p?.name || 'Artikull')}</b>${p?.code ? ' / ' + esc(p.code) : ''}</td>
+      <td style="text-align:right">${fmt2(prc)}</td>
+      <td style="text-align:center">${fmt2(qty)} / ${esc(u)}</td>
+      <td style="text-align:right">${fmt2(without)}</td>
+      <td style="text-align:right">${fmt2(vatAmt)}</td>
+      <td style="text-align:right">${fmt2(withVat)}</td>
+    </tr>`;
+  }).join('');
+
+  let beforeVat = (+f.subtotal || 0) + (+f.palletCost || 0) + (+f.loadingCost || 0);
+  let vatAmt = (+f.vatAmount || 0);
+  let total = (+f.total || beforeVat + vatAmt);
+
+  return `<div id="printModel3_${esc(f.id)}" class="ep-invoice-wrap">
+  <div class="ep-head">
+    <div class="ep-logo-text">BioBes</div>
+    <div class="ep-title">Faturë Shitjeje (E Brendshme / Jo-Fiskale)</div>
+    <div></div>
+  </div>
+
+  <div class="ep-sec-title">DETAJE DOKUMENTI</div>
+  <div class="ep-details-grid">
+    <div><span class="ep-l">Data:</span> <span class="ep-v">${dtFull}</span></div>
+    <div><span class="ep-l">Porosia / Ref:</span> <span class="ep-v">${esc(f.order || f.reference || '—')}</span></div>
+    <div><span class="ep-l">Numri i Dokumentit:</span> <span class="ep-v">${invNum}</span></div>
+    <div><span class="ep-l">Statusi:</span> <span class="ep-v">${esc(f.status || 'Konfirmuar')}</span></div>
+    <div><span class="ep-l">Valuta:</span> <span class="ep-v">${esc(cur)}</span></div>
+    <div><span class="ep-l">Kursi:</span> <span class="ep-v">${fmt2(rate)}</span></div>
+  </div>
+
+  <div class="ep-parties-block">
+    <div class="ep-party-box">
+      <b>Shitësi:</b><br>
+      ${esc(seller?.name || 'BIOBES sh.p.k.')}<br>
+      ${esc(seller?.nipt || seller?.vat || 'L43904401I')}<br>
+      ${esc(seller?.address || seller?.region || 'Fier, Gradishtë Sopës, nr.53')}<br>
+      ${esc(seller?.city || 'Fier, ALB')}
+    </div>
+    <div class="ep-party-box">
+      <b>Blerësi:</b><br>
+      ${esc(buyer?.name || '—')}<br>
+      ${esc(f.customerVat || buyer?.vat || buyer?.taxId || buyer?.nipt || '—')}<br>
+      ${esc(f.billTo || buyer?.address || '—')}<br>
+      ${esc(buyer?.city || buyer?.country || 'ALB')}
+    </div>
+  </div>
+
+  <div class="ep-sec-title">Artikujt</div>
+  <table class="ep-tbl-artikujt">
+    <thead>
+      <tr>
+        <th style="text-align:left">Emri / Kodi artikullit</th>
+        <th style="text-align:right">Çmimi Për Njësi</th>
+        <th style="text-align:center">Sasia / Njësia</th>
+        <th style="text-align:right">Vlera pa TVSH</th>
+        <th style="text-align:right">TVSH</th>
+        <th style="text-align:right">Vlera me TVSH</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows}
+      <tr class="ep-tot-row">
+        <td colspan="3" style="text-align:right">TOTALI NË ${esc(cur)}</td>
+        <td style="text-align:right">${fmt2(beforeVat)}</td>
+        <td style="text-align:right">${fmt2(vatAmt)}</td>
+        <td style="text-align:right">${fmt2(total)}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="ep-sec-title">Mënyra e Pagesës</div>
+  <table class="ep-tbl-pagesa">
+    <thead>
+      <tr>
+        <th style="text-align:left">Tipi</th>
+        <th style="text-align:left">Mënyra</th>
+        <th style="text-align:right">Shuma</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>${esc(f.paymentMethod || 'Pa para në dorë')}</td>
+        <td>${esc(f.paymentTerms || 'Llogari bankare')}</td>
+        <td style="text-align:right">${fmt2(total)} ${esc(cur)}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="ep-grand-total">
+    <span>TOTALI</span>
+    <span>${fmt2(total)} ${esc(cur)}</span>
+  </div>
+
+  <div class="ep-signatures-grid">
+    <div>
+      <div class="ep-sign-line"></div>
+      LËSHOI (Emër, Firmë)
+    </div>
+    <div>
+      <div class="ep-sign-line"></div>
+      MORRI NË DORËZIM (Emër, Firmë)
+    </div>
+    <div>
+      <div class="ep-sign-line"></div>
+      TRANSPORTUESI
+    </div>
+  </div>
+
+  <div style="margin-top:14px;padding:8px 12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:4px;font-size:9px;color:#334155">
+    <b>Të dhënat bankare:</b> BioBes sh.p.k. · Banka: <b>ABI Bank Sh.A.</b> · SWIFT: <b>SGSBALTX</b> · IBAN: <b>AL632022200600000000031158942</b><br>
+    <i>Shënim: Ky dokument shërben si faturë e brendshme tregtare / faturë proformë për qëllime menaxhimi dhe nuk është e fiskalizuar në Tatime.</i>
+  </div>
+
+  <div class="ep-footer-meta">
+    <span>Dokument i Brendshëm Tregtar · BioBes ERP</span>
+    <span>1/1</span>
+  </div>
+</div>`;
+};
+
+// ==========================================================================
+// 8.2 MODELI 4: Commercial Invoice (Për Eksport Ndërkombëtar në Anglisht)
+// ==========================================================================
+window.renderFiscalModel4Html = function(f) {
+  let c = by('customers', f.customer) || {};
+  let cur = f.currency || 'EUR';
+  let sym = cur === 'EUR' ? '€' : (cur === 'USD' ? '$' : 'ALL');
+  let goods = (typeof saleLinesOf === 'function') ? saleLinesOf(f) : (f.lines || []);
+  let rows = goods.map(l => {
+    let p = by('products', l.product);
+    let qty = +l.net || 0;
+    let prc = +l.price || 0;
+    let tot = qty * prc;
+    return `<tr>
+      <td style="text-align:left">${esc(l.cn || p?.code || '—')}</td>
+      <td style="text-align:left"><b>${esc(p?.botanical || p?.name || 'Medicinal plants')}</b><br><small>${esc(l.description || p?.english || '')}</small></td>
+      <td style="text-align:center">${fmt2(qty)} ${p?.unit || 'kg'}</td>
+      <td style="text-align:right">${sym} ${fmt2(prc)}</td>
+      <td style="text-align:right">${sym} ${fmt2(tot)}</td>
+    </tr>`;
+  }).join('');
+
+  return `<div id="printModel4_${esc(f.id)}" class="ep-invoice-wrap" style="font-family:'Helvetica Neue',Arial,sans-serif">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #166534;padding-bottom:12px;margin-bottom:14px">
+    <div>
+      <div style="font-size:24px;font-weight:900;color:#166534">BioBes</div>
+      <div style="font-size:10px;color:#555;font-style:italic">Cultivation and export of medicinal and aromatic plants</div>
+    </div>
+    <div style="text-align:right;font-size:9.5px;color:#222;line-height:1.4">
+      <b>BioBes sh.p.k.</b><br>
+      Sopëz 53, Gradisht, Divjakë, 9021, Albania<br>
+      VAT No: <b>L43904401I</b> · Email: info@biobes.al · Web: www.biobes.al
+    </div>
+  </div>
+
+  <div style="text-align:center;font-size:18px;font-weight:800;letter-spacing:1px;margin:10px 0 16px;color:#0f172a">COMMERCIAL INVOICE</div>
+
+  <div class="ep-details-grid">
+    <div><span class="ep-l">Invoice No:</span> <span class="ep-v">${esc(f.invoiceNumber || f.id)}</span></div>
+    <div><span class="ep-l">Date of Issue:</span> <span class="ep-v">${f.date || new Date().toISOString().slice(0,10)}</span></div>
+    <div><span class="ep-l">Order Reference:</span> <span class="ep-v">${esc(f.order || '—')}</span></div>
+    <div><span class="ep-l">Means of Transport:</span> <span class="ep-v">${esc(f.transport || 'Road transport / Truck')}</span></div>
+    <div><span class="ep-l">Country of Origin:</span> <span class="ep-v">ALBANIA</span></div>
+    <div><span class="ep-l">Currency:</span> <span class="ep-v">${esc(cur)}</span></div>
+  </div>
+
+  <div class="ep-parties-block">
+    <div class="ep-party-box">
+      <b>EXPORTER / SHIPPER:</b><br>
+      BIOBES sh.p.k.<br>
+      Lagjja Kadri Qystri, Rruga Llazar Prifti, nr.53, Fier, Albania<br>
+      VAT: L43904401I
+    </div>
+    <div class="ep-party-box">
+      <b>BILL TO / CONSIGNEE:</b><br>
+      ${esc(c.name || 'International Buyer')}<br>
+      ${esc(f.customerVat || c.vat || c.taxId || '')}<br>
+      ${esc(f.billTo || c.address || '')}<br>
+      ${esc(c.country || 'EUROPE')}
+    </div>
+  </div>
+
+  <table class="ep-tbl-artikujt">
+    <thead>
+      <tr>
+        <th style="text-align:left">Tariff (CN)</th>
+        <th style="text-align:left">Description of Goods</th>
+        <th style="text-align:center">Quantity</th>
+        <th style="text-align:right">Unit Price</th>
+        <th style="text-align:right">Total Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows}
+      <tr class="ep-tot-row">
+        <td colspan="4" style="text-align:right">TOTAL AMOUNT (${esc(cur)})</td>
+        <td style="text-align:right">${sym} ${fmt2(f.total || 0)}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top:16px;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;font-size:9.5px;line-height:1.4">
+    <b>Payment Details:</b> Bank transfer to ABI Bank Sh.A., Tirana, Albania<br>
+    SWIFT Code: <b>SGSBALTX</b> · IBAN: <b>AL632022200600000000031158942</b><br>
+    Delivery terms: <b>FCA / CPT (Incoterms 2020)</b>
+  </div>
+
+  <div class="ep-signatures-grid" style="margin-top:24px">
+    <div>
+      <div class="ep-sign-line"></div>
+      Authorized Signature (BioBes sh.p.k.)
+    </div>
+    <div></div>
+    <div>
+      <div class="ep-sign-line"></div>
+      Received in Good Order (Consignee)
+    </div>
+  </div>
+
+  <div class="ep-footer-meta" style="margin-top:16px">
+    <span>International Commercial Export Invoice · BioBes ERP</span>
+    <span>1/1</span>
+  </div>
+</div>`;
+};
+
+// 9. Wrapper që i integron modelet me switcher
 window.albanianSaleInvoiceHtml = function(f) {
   let cfg = fiscalConfig();
   ensureFiscalized(f, cfg);
@@ -16661,16 +16918,24 @@ window.albanianSaleInvoiceHtml = function(f) {
   return `
   <div class="fiscal-model-bar">
     <div class="btn-group">
-      <button type="button" class="btn small ${curM === 1 ? 'primary' : ''}" id="btnFiscMod1" onclick="switchFiscalInvoiceModel(1, '${esc(f.id)}')">📋 Modeli 1 (easyPOS / A4 1-Fletë)</button>
-      <button type="button" class="btn small ${curM === 2 ? 'primary' : ''}" id="btnFiscMod2" onclick="switchFiscalInvoiceModel(2, '${esc(f.id)}')">🏛 Modeli 2 (DPT CIS / Format Kutish)</button>
+      <button type="button" class="btn small ${curM === 1 ? 'primary' : ''}" id="btnFiscMod1" onclick="switchFiscalInvoiceModel(1, '${esc(f.id)}')">⚡ Modeli 1 (Fiskale easyPOS)</button>
+      <button type="button" class="btn small ${curM === 2 ? 'primary' : ''}" id="btnFiscMod2" onclick="switchFiscalInvoiceModel(2, '${esc(f.id)}')">🏛 Modeli 2 (Fiskale DPT CIS)</button>
+      <button type="button" class="btn small ${curM === 3 ? 'primary' : ''}" id="btnFiscMod3" onclick="switchFiscalInvoiceModel(3, '${esc(f.id)}')">📄 Modeli 3 (Jo-Fiskale / E Brendshme)</button>
+      <button type="button" class="btn small ${curM === 4 ? 'primary' : ''}" id="btnFiscMod4" onclick="switchFiscalInvoiceModel(4, '${esc(f.id)}')">🌍 Modeli 4 (Commercial Invoice)</button>
     </div>
-    <span class="f-hint">✓ 100% Konform Ligjit 87/2019 · Modeli i certifikuar A4</span>
+    <span class="f-hint">${curM === 3 ? '📄 Dokument i brendshëm (Pa Tatime / Pa QR)' : curM === 4 ? '🌍 Commercial Export Invoice' : '✓ 100% Konform Ligjit 87/2019 · Me QR DPT'}</span>
   </div>
   <div id="fiscModelWrap1_${esc(f.id)}" style="display:${curM === 1 ? 'block' : 'none'}">
     ${renderFiscalModel1Html(f, false)}
   </div>
   <div id="fiscModelWrap2_${esc(f.id)}" style="display:${curM === 2 ? 'block' : 'none'}">
     ${renderFiscalModel2Html(f, false)}
+  </div>
+  <div id="fiscModelWrap3_${esc(f.id)}" style="display:${curM === 3 ? 'block' : 'none'}">
+    ${renderFiscalModel3Html(f, false)}
+  </div>
+  <div id="fiscModelWrap4_${esc(f.id)}" style="display:${curM === 4 ? 'block' : 'none'}">
+    ${renderFiscalModel4Html(f)}
   </div>`;
 };
 
@@ -16699,17 +16964,14 @@ window.purchaseDocumentHtml = function(f) {
 window.switchFiscalInvoiceModel = function(modNum, id) {
   let cfg = fiscalConfig();
   cfg.activeModel = modNum;
-  let w1 = document.getElementById('fiscModelWrap1_' + id);
-  let w2 = document.getElementById('fiscModelWrap2_' + id);
-  let b1 = document.getElementById('btnFiscMod1');
-  let b2 = document.getElementById('btnFiscMod2');
-  if (w1) w1.style.display = modNum === 1 ? 'block' : 'none';
-  if (w2) w2.style.display = modNum === 2 ? 'block' : 'none';
-  if (b1) { b1.classList.toggle('primary', modNum === 1); }
-  if (b2) { b2.classList.toggle('primary', modNum === 2); }
-
+  for (let m = 1; m <= 4; m++) {
+    let wrap = document.getElementById('fiscModelWrap' + m + '_' + id);
+    let btn = document.getElementById('btnFiscMod' + m);
+    if (wrap) wrap.style.display = (modNum === m) ? 'block' : 'none';
+    if (btn) btn.classList.toggle('primary', modNum === m);
+  }
   let f = salesInvoices().find(x => x.id === id) || purchaseInvoices().find(x => x.id === id);
-  if (f) renderFiscalQrsForBoth(f);
+  if (f && (modNum === 1 || modNum === 2)) renderFiscalQrsForBoth(f);
 };
 
 // Renderimi i të dy QR kodeve
@@ -16754,10 +17016,14 @@ window.printFiscalInvoice = function(id) {
   let f = salesInvoices().find(x => x.id === id) || purchaseInvoices().find(x => x.id === id);
   if (!f) return;
   let cfg = fiscalConfig();
-  renderFiscalQrsForBoth(f);
-  let elId = (cfg.activeModel === 2) ? ('printModel2_' + f.id) : ('printModel1_' + f.id);
+  let modNum = cfg.activeModel || 1;
+  let elId = 'printModel' + modNum + '_' + f.id;
+  if (modNum === 1 || modNum === 2) renderFiscalQrsForBoth(f);
+  let docTitle = (modNum === 3) ? ('Fature Shitjeje Jo-Fiskale ' + f.id)
+               : (modNum === 4) ? ('Commercial Invoice ' + f.id)
+               : ('Fatura Tatimore ' + formatFiscalInvoiceNumber(f, cfg));
   setTimeout(() => {
-    printOnly(elId, 'Fatura Tatimore ' + formatFiscalInvoiceNumber(f, cfg));
+    printOnly(elId, docTitle);
   }, 100);
 };
 
