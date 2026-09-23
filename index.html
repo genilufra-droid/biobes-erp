@@ -4310,8 +4310,9 @@ setTimeout(function(){try{if(typeof state!=='undefined'&&state&&window.__biobesB
 
   function reportsModeTabs(activeOdoo){
     return `<div class="reports-mode-tabs">
-      <button class="btn ${activeOdoo?'active':''}" onclick="reportsMode='odoo';odooReportModule='';try{localStorage.setItem('biobesReportsMode','odoo')}catch(e){};render()">Raporte Odoo 19</button>
-      <button class="btn ${activeOdoo?'':'active'}" onclick="reportsMode='alpha';try{localStorage.setItem('biobesReportsMode','alpha')}catch(e){};render()">Raporte Alpha</button>
+      <button class="btn ${activeOdoo?'':'active'}" onclick="reportsMode='alpha';try{localStorage.setItem('biobesReportsMode','alpha')}catch(e){};render()">🏛 Raporte Financiare (Alpha)</button>
+      <button class="btn ${activeOdoo?'active':''}" onclick="reportsMode='odoo';odooReportModule='';try{localStorage.setItem('biobesReportsMode','odoo')}catch(e){};render()">🏢 Raporte Odoo 19 Enterprise</button>
+      <button class="btn" onclick="if(typeof vyEnter==='function')vyEnter();else{reportsMode='vyapar';render()}">📦 Raporte Vyapar Desktop</button>
     </div>`;
   }
 
