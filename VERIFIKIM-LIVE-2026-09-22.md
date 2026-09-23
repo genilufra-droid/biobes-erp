@@ -78,3 +78,10 @@ Asnjë thirrje shkrimi/fshirjeje (POST/PUT/DELETE, wipe, backup-write) nuk u dë
    (`JWT_SECRET`, `DATABASE_URL` me pooling, `SYNC_ALL_MODULES`, SMTP) dhe migrimet `009/010` të aplikohen para restart-it.
 4. **`companies:3` vs `2`**: të vendoset nëse kompania e tretë është test-e mbetur (për t'u wipeuar per-kompani)
    apo e vërtetë — pa prekur C1/C2.
+
+### Shënim shtesë (21:20–21:35 UTC) — gjendja "Application loading"
+Në riprovat e mëvonshme `https://biobes-api.onrender.com/api/health` ktheu faqen e Render-it
+**"Application loading"** (shërbimi po nisej / free tier pas gjumi). Kjo është sjellje e pritshme
+e cold-start: përgjigja e shëndetshme e matur më 21:15:59 UTC (`db:true`) tregon që shërbimi
+funksionon kur është i ngrohtë. Rekomandim: në Render → Settings të aktivizohet *Health Check Path*
+`/api/health` dhe, nëse mbetet në plan falas, të pritet 30–60 s pas gjumit përpara verifikimit.
