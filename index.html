@@ -653,8 +653,78 @@ const closeModalAllBase=closeModal;closeModal=function(){modalNavStack.length=0;
 closeModalWindow=function(){modalNavStack.length=0;let bg=document.getElementById('modal');bg.classList.remove('window-max','window-min');closeModalAllBase();updateModalBackButton()}
 </script>
 <style>.module-live-search{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px}.module-live-search input{flex:1;min-width:110px;border:0;outline:0;padding:6px;font-size:14px}.module-live-search button{white-space:nowrap}.module-live-search .search-count{color:var(--muted);font-size:12px;white-space:nowrap}</style>
+<style>.sort-th{cursor:pointer}.sort-th:hover{background:#eef7f0}.sort-ind{margin-left:4px;color:#2E7D32;font-size:10px;user-select:none}</style>
 <script>
-function installModuleLiveSearch(){if(['dashboard','settings','registries','reports','trace','warehouse'].includes(page))return;if(['products','suppliers'].includes(page))return;if(document.querySelector('#main .module-live-search'))return;let allT=[...document.querySelectorAll('#main table')].filter(t=>!t.closest('.doc-sheet,.order-sheet,.purchase-doc,.alpha-report-paper,.alpha-paper,#pkLotOverlay'));let withRows=allT.filter(t=>[...t.tBodies].some(tb=>[...tb.rows].some(r=>!r.querySelector('.empty'))));let tables=(withRows.length?withRows:(allT.length?[allT[0]]:[]));if(!tables.length)return;let box=document.createElement('div');box.className='module-live-search';const hasNativeXlsx=[...document.querySelectorAll('#main button')].some(b=>!b.closest('.module-live-search')&&/Excel/.test(b.textContent||'')&&/xlsx/i.test(b.getAttribute('onclick')||''));box.innerHTML=`<span style="font-size:18px">⌕</span><input type="search" placeholder="Kërko live në këtë modul..."><span class="search-count"></span>${hasNativeXlsx?'':'<button class="btn small" type="button" data-mexp="xlsx" data-right="${page}:print" title="Eksporto rreshtat e dukshëm (të filtruar) në Excel">⬇ Excel</button>'}<button class="btn small" type="button" data-mexp="pdf" data-right="${page}:print" title="Eksporto rreshtat e dukshëm (të filtruar) në PDF përmes printimit">🖨 PDF</button><button class="btn small" type="button" data-mclear="1">Pastro</button>`;let target=tables[0].closest('.card')||tables[0].parentElement;target.parentNode.insertBefore(box,target);let inp=box.querySelector('input'),count=box.querySelector('.search-count');function filter(){let q=inp.value.trim().toLocaleLowerCase('sq'),visible=0,total=0;tables.forEach(table=>[...table.tBodies].forEach(tb=>[...tb.rows].forEach(row=>{if(row.querySelector('.empty'))return;total++;let show=!q||row.textContent.toLocaleLowerCase('sq').includes(q);row.style.display=show?'':'none';if(show)visible++})));count.textContent=q?visible+' / '+total+' rezultate':total+' regjistrime'}function collect(){let clean=(v)=>String(v==null?'':v).replace(/\s+/g,' ').trim();let isAction=(t)=>/^(veprime|veprimet|actions?|opsione|kolona e veprimeve)$/i.test(String(t).trim());let toNum=(v,hdr)=>{if(typeof v==='number'&&isFinite(v))return v;let s0=clean(v);if(!s0||s0==='\u2014'||s0==='-')return v;let t=s0.replace(/\s?(kg|ALL|EUR|USD|Lek[e\u00eb]?|\u20ac|\$)\b/gi,'').trim();if(!/^-?\d[\d.,]*$/.test(t))return v;if(typeof cellNum==='function'){let n1=cellNum(t,hdr||'');if(typeof n1==='number'&&isFinite(n1))return n1;}let p=(typeof parseLocal==='function')?parseLocal(t):Number(t);return isFinite(p)?p:v};let headers=null,rows=[];tables.forEach((table,ti)=>{let ths=[...table.querySelectorAll('thead th')].map(th=>clean(th.textContent));let keep=ths.map(t=>!isAction(t));let vr=[...table.tBodies].flatMap(tb=>[...tb.rows]).filter(r=>!r.querySelector('.empty')&&r.style.display!=='none').map(r=>[...r.cells].map(td=>{let txt=clean(td.innerText||td.textContent);if(!txt){let f=td.querySelector('input,select,textarea');if(f){txt=clean(f.tagName==='SELECT'?((f.options[f.selectedIndex]||{}).text):(f.value));}}let c=td.cloneNode(true);c.querySelectorAll('button,.btn').forEach(b=>b.remove());let rest=clean(c.innerText);let v=txt||rest;let inp=td.querySelector('input,select,textarea');if((!v||v==='—')&&inp){v=clean(inp.tagName==='SELECT'?((inp.options[inp.selectedIndex]||{}).text):(inp.value))||v}return v}));let pad=(r)=>{let n=ths.length-r.length;if(n>0)r=r.concat(new Array(n).fill(''));else if(n<0)r=r.slice(0,ths.length);return r};let cut=(r)=>r.map((v,i)=>keep[i]===false?'':toNum(v,ths[i])).filter((v,i)=>keep[i]!==false);vr=vr.map(r=>cut(pad(r)));if(ti===0){headers=ths.filter((t,i)=>keep[i]);rows=vr}else{rows.push(ths.filter((t,i)=>keep[i]));rows=rows.concat(vr)}});return{headers:headers||[],rows:rows}}function modTitle(){let h=document.querySelector('#main h1,#main h2,#main .page-head b,#main .head b');return (h?h.textContent:'').trim()||page}window.moduleExportCollect=collect;xBtn=box.querySelector('[data-mexp="xlsx"]');if(xBtn)xBtn.onclick=()=>{let c=collect();if(!c.rows.length)return toast('Asnjë rresht për eksport në këtë modul'+(inp.value.trim()?' (filtri: '+inp.value.trim()+')':' — regjistri është bosh'));window.moduleExportXlsx({title:modTitle(),page,filter:inp.value.trim(),headers:c.headers,rows:c.rows,filename:'BioBes-'+page+'-'+new Date().toISOString().slice(0,10)+'.xlsx'})};box.querySelector('[data-mexp="pdf"]').onclick=()=>{let c=collect();if(!c.rows.length)return toast('Asnjë rresht për eksport në këtë modul'+(inp.value.trim()?' (filtri: '+inp.value.trim()+')':' — regjistri është bosh'));window.moduleExportPdf({title:modTitle(),page,filter:inp.value.trim(),headers:c.headers,rows:c.rows,id:'moduleExportSheet'})};inp.addEventListener('input',filter);box.querySelector('[data-mclear]').onclick=()=>{inp.value='';filter();inp.focus()};filter()}
+/* ===== BioBes ERP — Renditje asc/desc për çdo tabelë me Live Search =====
+   Bllok i ri <script> për index.html (fut para installModuleLiveSearch).
+   Kliko kokën e kolonës: herë e parë ▲ (ngjitëse), klik tjetër ▼ (zbritëse).
+   Numrat renditen si numra (pa kg/ALL/EUR), datat si data, bosh në fund. */
+window.attachSortableHeaders = (function () {
+  const clean = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+  const isAction = (t) => /^(veprime|veprimet|actions?|opsione|kolona e veprimeve)$/i.test(clean(t));
+  function dateKey(s) {
+    let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s); if (m) return +new Date(+m[1], +m[2] - 1, +m[3]);
+    m = /^(\d{1,2})\.(\d{1,2})\.(\d{4})/.exec(s); if (m) return +new Date(+m[3], +m[2] - 1, +m[1]);
+    return null;
+  }
+  function key(v, hdr) {
+    if (typeof v === 'number' && isFinite(v)) return { t: 'n', n: v, s: '' };
+    const s = clean(v); if (!s || s === '—' || s === '-') return { t: 'e', n: 0, s: '' };
+    const dk = dateKey(s); if (dk != null) return { t: 'n', n: dk, s: '' };
+    const t2 = s.replace(/\s?(kg|ALL|EUR|USD|Lek[eë]?|€|\$)\b/gi, '').trim();
+    let num = null;
+    if (/^-?\d[\d.,]*$/.test(t2)) {
+      if (typeof cellNum === 'function') { const c1 = cellNum(t2, hdr || ''); if (typeof c1 === 'number' && isFinite(c1)) num = c1; }
+      if (num == null && typeof parseLocal === 'function') { const c2 = parseLocal(t2); if (isFinite(c2)) num = c2; }
+      if (num == null) { const c3 = Number(t2.replace(/\s/g, '').replace(/,(?=\d{3}\b)/g, '').replace(',', '.')); if (isFinite(c3)) num = c3; }
+    }
+    if (num != null) return { t: 'n', n: num, s: '' };
+    return { t: 's', n: 0, s: s.toLocaleLowerCase('sq') };
+  }
+  function cellValue(td) {
+    if (!td) return '';
+    const txt = clean(td.innerText != null ? td.innerText : td.textContent);
+    if (txt) return txt;
+    const f = td.querySelector('input,select,textarea');
+    if (f) return clean(f.tagName === 'SELECT' ? ((f.options[f.selectedIndex] || {}).text) : f.value);
+    const c = td.cloneNode(true); c.querySelectorAll('button,.btn').forEach((b) => b.remove());
+    return clean(c.innerText != null ? c.innerText : c.textContent);
+  }
+  function cmp(a, b) {
+    if (a.t === 'e' && b.t === 'e') return 0;
+    if (a.t === 'e') return 1; if (b.t === 'e') return -1; // bosh gjithmonë në fund
+    if (a.t === 'n' && b.t === 'n') return a.n - b.n;
+    return a.s.localeCompare(b.s, 'sq');
+  }
+  let cur = { i: -1, dir: 1 };
+  function sortBy(tables, i) {
+    cur.dir = (cur.i === i) ? -cur.dir : 1; cur.i = i;
+    tables.forEach((table) => {
+      const ths = [...table.querySelectorAll('thead th')];
+      ths.forEach((th, k) => { const s = th.querySelector('.sort-ind'); if (s) s.textContent = (k === i) ? (cur.dir === 1 ? ' ▲' : ' ▼') : ''; });
+      const hdr = clean((ths[i] || {}).textContent);
+      const rows = [...table.tBodies].flatMap((tb) => [...tb.rows]).filter((r) => !r.querySelector('.empty'));
+      const empties = [...table.tBodies].flatMap((tb) => [...tb.rows]).filter((r) => r.querySelector('.empty'));
+      rows.sort((ra, rb) => cur.dir * cmp(key(cellValue(ra.cells[i]), hdr), key(cellValue(rb.cells[i]), hdr)));
+      const tb = table.tBodies[0]; if (tb) { rows.forEach((r) => tb.appendChild(r)); empties.forEach((r) => tb.appendChild(r)); }
+    });
+  }
+  function attach(tables) {
+    if (!tables || !tables.length) return;
+    tables.forEach((table) => {
+      [...table.querySelectorAll('thead th')].forEach((th, i) => {
+        if (isAction(th.textContent) || th.dataset.sortOff || th.querySelector('.sort-ind')) return;
+        th.classList.add('sort-th'); th.title = 'Rendit ngjitëse/zbritëse';
+        const ind = document.createElement('span'); ind.className = 'sort-ind'; th.appendChild(ind);
+        th.addEventListener('click', () => sortBy(tables, i));
+      });
+    });
+  }
+  return attach;
+})();
+</script>
+<script>
+function installModuleLiveSearch(){if(['dashboard','settings','registries','reports','trace','warehouse'].includes(page))return;if(['products','suppliers'].includes(page))return;if(document.querySelector('#main .module-live-search'))return;let allT=[...document.querySelectorAll('#main table')].filter(t=>!t.closest('.doc-sheet,.order-sheet,.purchase-doc,.alpha-report-paper,.alpha-paper,#pkLotOverlay'));let withRows=allT.filter(t=>[...t.tBodies].some(tb=>[...tb.rows].some(r=>!r.querySelector('.empty'))));let tables=(withRows.length?withRows:(allT.length?[allT[0]]:[]));if(!tables.length)return;let box=document.createElement('div');box.className='module-live-search';const hasNativeXlsx=[...document.querySelectorAll('#main button')].some(b=>!b.closest('.module-live-search')&&/Excel/.test(b.textContent||'')&&/xlsx/i.test(b.getAttribute('onclick')||''));box.innerHTML=`<span style="font-size:18px">⌕</span><input type="search" placeholder="Kërko live në këtë modul..."><span class="search-count"></span>${hasNativeXlsx?'':'<button class="btn small" type="button" data-mexp="xlsx" data-right="${page}:print" title="Eksporto rreshtat e dukshëm (të filtruar) në Excel">⬇ Excel</button>'}<button class="btn small" type="button" data-mexp="pdf" data-right="${page}:print" title="Eksporto rreshtat e dukshëm (të filtruar) në PDF përmes printimit">🖨 PDF</button><button class="btn small" type="button" data-mclear="1">Pastro</button>`;let target=tables[0].closest('.card')||tables[0].parentElement;target.parentNode.insertBefore(box,target);let inp=box.querySelector('input'),count=box.querySelector('.search-count');function filter(){let q=inp.value.trim().toLocaleLowerCase('sq'),visible=0,total=0;tables.forEach(table=>[...table.tBodies].forEach(tb=>[...tb.rows].forEach(row=>{if(row.querySelector('.empty'))return;total++;let show=!q||row.textContent.toLocaleLowerCase('sq').includes(q);row.style.display=show?'':'none';if(show)visible++})));count.textContent=q?visible+' / '+total+' rezultate':total+' regjistrime'}function collect(){let clean=(v)=>String(v==null?'':v).replace(/\s+/g,' ').trim();let isAction=(t)=>/^(veprime|veprimet|actions?|opsione|kolona e veprimeve)$/i.test(String(t).trim());let toNum=(v,hdr)=>{if(typeof v==='number'&&isFinite(v))return v;let s0=clean(v);if(!s0||s0==='\u2014'||s0==='-')return v;let t=s0.replace(/\s?(kg|ALL|EUR|USD|Lek[e\u00eb]?|\u20ac|\$)\b/gi,'').trim();if(!/^-?\d[\d.,]*$/.test(t))return v;if(typeof cellNum==='function'){let n1=cellNum(t,hdr||'');if(typeof n1==='number'&&isFinite(n1))return n1;}let p=(typeof parseLocal==='function')?parseLocal(t):Number(t);return isFinite(p)?p:v};let headers=null,rows=[];tables.forEach((table,ti)=>{let ths=[...table.querySelectorAll('thead th')].map(th=>clean(th.textContent));let keep=ths.map(t=>!isAction(t));let vr=[...table.tBodies].flatMap(tb=>[...tb.rows]).filter(r=>!r.querySelector('.empty')&&r.style.display!=='none').map(r=>[...r.cells].map(td=>{let txt=clean(td.innerText||td.textContent);if(!txt){let f=td.querySelector('input,select,textarea');if(f){txt=clean(f.tagName==='SELECT'?((f.options[f.selectedIndex]||{}).text):(f.value));}}let c=td.cloneNode(true);c.querySelectorAll('button,.btn').forEach(b=>b.remove());let rest=clean(c.innerText);let v=txt||rest;let inp=td.querySelector('input,select,textarea');if((!v||v==='—')&&inp){v=clean(inp.tagName==='SELECT'?((inp.options[inp.selectedIndex]||{}).text):(inp.value))||v}return v}));let pad=(r)=>{let n=ths.length-r.length;if(n>0)r=r.concat(new Array(n).fill(''));else if(n<0)r=r.slice(0,ths.length);return r};let cut=(r)=>r.map((v,i)=>keep[i]===false?'':toNum(v,ths[i])).filter((v,i)=>keep[i]!==false);vr=vr.map(r=>cut(pad(r)));if(ti===0){headers=ths.filter((t,i)=>keep[i]);rows=vr}else{rows.push(ths.filter((t,i)=>keep[i]));rows=rows.concat(vr)}});return{headers:headers||[],rows:rows}}function modTitle(){let h=document.querySelector('#main h1,#main h2,#main .page-head b,#main .head b');return (h?h.textContent:'').trim()||page}window.moduleExportCollect=collect;xBtn=box.querySelector('[data-mexp="xlsx"]');if(xBtn)xBtn.onclick=()=>{let c=collect();if(!c.rows.length)return toast('Asnjë rresht për eksport në këtë modul'+(inp.value.trim()?' (filtri: '+inp.value.trim()+')':' — regjistri është bosh'));window.moduleExportXlsx({title:modTitle(),page,filter:inp.value.trim(),headers:c.headers,rows:c.rows,filename:'BioBes-'+page+'-'+new Date().toISOString().slice(0,10)+'.xlsx'})};box.querySelector('[data-mexp="pdf"]').onclick=()=>{let c=collect();if(!c.rows.length)return toast('Asnjë rresht për eksport në këtë modul'+(inp.value.trim()?' (filtri: '+inp.value.trim()+')':' — regjistri është bosh'));window.moduleExportPdf({title:modTitle(),page,filter:inp.value.trim(),headers:c.headers,rows:c.rows,id:'moduleExportSheet'})};inp.addEventListener('input',filter);box.querySelector('[data-mclear]').onclick=()=>{inp.value='';filter();inp.focus()};if(window.attachSortableHeaders)window.attachSortableHeaders(tables);filter()}
 const renderWithGlobalTableSearch=render;render=function(){renderWithGlobalTableSearch();setTimeout(installModuleLiveSearch,0)}
 </script>
 <script>
