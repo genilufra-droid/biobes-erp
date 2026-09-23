@@ -288,14 +288,104 @@ function printLotLabel(){document.body.classList.add('print-label');window.print
 
 <script>
 // Reliable printing on mobile: print an isolated document, never the whole ERP page.
-function printOnly(elementId,title){let el=document.getElementById(elementId);if(!el)return toast('Dokumenti nuk u gjet');document.getElementById('biobesPrintFrame')?.remove();let frame=document.createElement('iframe');frame.id='biobesPrintFrame';frame.title='Dokumenti për printim';frame.style.cssText='position:fixed;width:0;height:0;border:0;right:0;bottom:0';document.body.appendChild(frame);let css=[...document.querySelectorAll('style')].map(x=>x.textContent).join('\n');
-/* Etiketat fizike: faqe me PERMASAT E ETIKETES (jo A4 landscape qe trashegohet nga CSS-ja e raporteve Alpha); cdo @page tjeter i aplikacionit hiqet.
-   html/body mbushin SAKTESISHT zonen e printueshme (height:100%) me overflow:hidden -> asnjehere faqe e dyte, edhe kur printeri (p.sh. NRG/Ricoh A4) ka margina fizike me te medha ose nuk e njeh formatin 80x60 dhe e vendos etiketen ne mes te nje flete A4. Etiketa <=72x52mm, permbajtja ~41mm e larte. */
-let __labelIds={printWarehouseLabel:'80mm 60mm',printLabel:'80mm 60mm',vyQrLabel:'84mm 50mm'};
-if(__labelIds[elementId]){let __a4=!!(arguments[2]&&arguments[2].paper==='A4');css=css.replace(/@page\b[^{]*\{[^}]*\}/g,'');css+=' @page{size:'+(__a4?'A4 portrait':__labelIds[elementId])+';margin:0} html,body{width:100%!important;height:100%!important;margin:0!important;padding:0!important;background:#fff!important;overflow:hidden!important;box-sizing:border-box} body{display:flex!important;align-items:center;justify-content:center} #'+elementId+'{max-width:calc(100% - 4mm)!important;max-height:calc(100% - 4mm)!important;min-height:0!important;margin:0!important;box-sizing:border-box;overflow:hidden;break-inside:avoid;page-break-inside:avoid;page-break-after:avoid} #printWarehouseLabel{width:min(72mm,100%)!important;height:min(52mm,100%)!important;padding:2mm!important;border:0.4mm solid #111!important;display:flex!important;flex-direction:column;gap:1mm;font-family:Arial,Helvetica,sans-serif!important;color:#111!important;background:#fff!important} #printWarehouseLabel h2{font-size:10px!important;line-height:1.15!important;margin:0!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} #printWarehouseLabel .wl-code{font-size:15px!important;line-height:1.1!important} #printWarehouseLabel .wl-body{display:grid!important;grid-template-columns:minmax(0,1fr) 22mm!important;gap:2mm!important;align-items:stretch;flex:1 1 auto;min-height:0} #printWarehouseLabel table{font-size:8.5px!important;line-height:1.1!important;width:100%!important;height:100%;table-layout:auto!important;border-collapse:collapse} #printWarehouseLabel td:first-child{width:1%!important;white-space:nowrap} #printWarehouseLabel td:last-child{overflow-wrap:anywhere} #printWarehouseLabel td{padding:0.3mm 1mm!important;border:0.2mm solid #333!important;vertical-align:middle!important} #printWarehouseLabel .wl-side{width:22mm!important} #warehouseQr{width:20mm!important;height:20mm!important;padding:1mm!important;margin:0 auto!important;display:block!important;background:#fff!important} #warehouseQr canvas,#warehouseQr img{width:20mm!important;height:20mm!important;margin:0!important} #warehouseQr img{display:block!important} #warehouseQr img~canvas,#warehouseQr canvas[style*=none]{display:none!important} #printWarehouseLabel small{font-size:7px!important;line-height:1.15!important;margin-top:0.5mm;display:block}'+(__a4?' body{align-items:flex-start!important;justify-content:flex-start!important} #'+elementId+'{margin:12mm 0 0 12mm!important} #printWarehouseLabel{width:72mm!important;height:52mm!important}':'')}
-if(elementId==='printSupplierCard')css+=' @page{size:A4 portrait;margin:10mm} #printSupplierCard{width:100%;max-width:190mm;margin:auto} #printSupplierCard .kpis{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important} #printSupplierCard .kpi strong{font-size:16px!important} #printSupplierCard [role=tablist]{display:none!important} #printSupplierCard .table-wrap{overflow:visible!important} #printSupplierCard table{min-width:0!important;width:100%!important;table-layout:fixed} #printSupplierCard td,#printSupplierCard th{overflow-wrap:anywhere;font-size:10px}';
-if(elementId==='printTraceDossier')css+=' @page{size:A4 landscape;margin:8mm} #printTraceDossier{width:100%!important;min-width:0!important;padding:0!important} #printTraceDossier svg{max-width:100%!important;height:auto!important;min-width:0!important} #printTraceDossier .td-wrap{overflow:visible!important;border:0!important} #printTraceDossier .td-graph{page-break-inside:avoid} #printTraceDossier tr{page-break-inside:avoid} #printTraceDossier .td-sign{margin-top:10mm}';
-frame.contentDocument.open();frame.contentDocument.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title||'Dokument')}</title><style>${css} body{background:#fff;margin:0;padding:8mm}.modal,.card{box-shadow:none!important}.mandate,.doc-sheet,.order-sheet,#printLedger{margin:0 auto!important}@media print{body{padding:0!important}}</style></head><body>${el.outerHTML}<\/body></html>`);frame.contentDocument.close();frame.contentWindow.addEventListener('afterprint',()=>setTimeout(()=>frame.remove(),1500),{once:true});setTimeout(()=>{if(frame.isConnected){frame.contentWindow.focus();frame.contentWindow.print()}},350);setTimeout(()=>frame.remove(),60000)}
+function printOnly(elementId,title){
+  let el = document.getElementById(elementId);
+  if (!el) return toast('Dokumenti nuk u gjet');
+  document.getElementById('biobesPrintFrame')?.remove();
+  let frame = document.createElement('iframe');
+  frame.id = 'biobesPrintFrame';
+  frame.title = 'Dokumenti për printim';
+  frame.style.cssText = 'position:fixed;width:0;height:0;border:0;right:0;bottom:0;opacity:0';
+  document.body.appendChild(frame);
+  let css = [...document.querySelectorAll('style')].map(x => x.textContent).join('\n');
+
+  let __labelIds = { printWarehouseLabel: '80mm 60mm', printLabel: '80mm 60mm', vyQrLabel: '84mm 50mm' };
+  let isA4Doc = (elementId.indexOf('printUnifiedDpt') !== -1 || elementId.indexOf('printWtn') !== -1 || elementId === 'printSaleInvoice' || elementId === 'printPurchase');
+
+  if (__labelIds[elementId]) {
+    let __a4 = !!(arguments[2] && arguments[2].paper === 'A4');
+    css = css.replace(/@page\b[^{]*\{[^}]*\}/g, '');
+    css += ' @page{size:' + (__a4 ? 'A4 portrait' : __labelIds[elementId]) + ';margin:0} html,body{width:100%!important;height:100%!important;margin:0!important;padding:0!important;background:#fff!important;overflow:hidden!important;box-sizing:border-box} body{display:flex!important;align-items:center;justify-content:center} #' + elementId + '{max-width:calc(100% - 4mm)!important;max-height:calc(100% - 4mm)!important;min-height:0!important;margin:0!important;box-sizing:border-box;overflow:hidden;break-inside:avoid;page-break-inside:avoid;page-break-after:avoid}';
+  } else if (isA4Doc) {
+    css = css.replace(/@page\b[^{]*\{[^}]*\}/g, '');
+    css += `
+      @page {
+        size: A4 portrait;
+        margin: 10mm 12mm 10mm 12mm;
+      }
+      * {
+        box-sizing: border-box !important;
+      }
+      html, body {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      #${elementId}, .dpt-invoice-wrap {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-sizing: border-box !important;
+      }
+      @media print {
+        body { padding: 0 !important; margin: 0 !important; }
+        #${elementId}, .dpt-invoice-wrap {
+          width: 100% !important;
+          max-width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+      }
+    `;
+  } else if (elementId === 'printSupplierCard') {
+    css += ' @page{size:A4 portrait;margin:10mm} #printSupplierCard{width:100%;max-width:190mm;margin:auto}';
+  } else if (elementId === 'printTraceDossier') {
+    css += ' @page{size:A4 landscape;margin:8mm} #printTraceDossier{width:100%!important;min-width:0!important;padding:0!}';
+  }
+
+  frame.contentDocument.open();
+  frame.contentDocument.write(`<!doctype html>
+  <html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${esc(title || 'Dokument')}</title>
+    <style>
+      ${css}
+      body {
+        background: #fff;
+        margin: 0;
+        padding: ${isA4Doc ? '0' : '8mm'};
+        font-family: Arial, Helvetica, sans-serif;
+      }
+      .modal, .card { box-shadow: none !important; }
+      .mandate, .doc-sheet, .order-sheet, #printLedger { margin: 0 auto !important; }
+      @media print {
+        body { padding: 0 !important; margin: 0 !important; }
+      }
+    </style>
+  </head>
+  <body>
+    ${el.outerHTML}
+  </body>
+  </html>`);
+  frame.contentDocument.close();
+
+  frame.contentWindow.addEventListener('afterprint', () => setTimeout(() => frame.remove(), 1500), { once: true });
+  setTimeout(() => {
+    if (frame.isConnected) {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+    }
+  }, 350);
+  setTimeout(() => frame.remove(), 60000);
+}
 printMandate=function(){printOnly('printMandate','Mandat pagese')};printLedger=function(){printOnly('printLedger','Kartela e furnitorit')};printOrder=function(){printOnly('printOrder','Porosia')};doPrintWeight=function(){printOnly('printWeight','Formulari i peshimit')};printLotLabel=function(){printOnly('printLabel','Etiketa e lotit')};
 // Rebuild payment lists so document numbers and supplier ledger payments are real links.
 views.payments=function(){return head('Pagesat','Parapagime, pagesa cash/bankë dhe mandat-pagesa',`<button class="btn primary" onclick="paymentForm()">+ Pagesë e re</button>`)+tableCard(['Nr. dokumentit','Data','Furnitori','Mënyra','Shuma','Për','Veprime'],state.payments.map(x=>[`<a class="link" onclick="paymentCard('${x.id}')">${x.id}</a>`,x.date,`<a class="link" onclick="supplierCard('${x.supplier}')">${esc(by('suppliers',x.supplier).name)}</a>`,x.method,n(x.amount,0)+' '+x.currency,x.note,`<button class="btn small" onclick="paymentCard('${x.id}')">Hap mandatin</button> <button class="btn small" onclick="paymentCard('${x.id}',true)">Printo</button>`]))}
@@ -16254,48 +16344,82 @@ window.ensureFiscalized = function(f, cfg) {
 //    Mbështet Toggle ON (Fiskale me QR DPT) dhe OFF (E Brendshme pa QR)
 // ==========================================================================
 window.renderUnifiedDptInvoiceHtml = function(f, isPurchase, isFiscal) {
-  let cfg = fiscalConfig();
-  if (isFiscal) ensureFiscalized(f, cfg);
+  let cfg = (typeof fiscalConfig === 'function') ? fiscalConfig() : {};
+  if (isFiscal && typeof ensureFiscalized === 'function') ensureFiscalized(f, cfg);
+
   let cur = f.currency || 'ALL';
+  let curLabel = (cur === 'ALL' || cur === 'LEK') ? 'LEK' : cur;
   let rate = f.exchangeRate || 1;
   let invFiscalNum = isFiscal ? formatFiscalInvoiceNumber(f, cfg) : (f.invoiceNumber || f.id || '2752');
   let dtFull = formatFiscalDate(f.fiscalDateTime || f.date, true);
-  let dtPay = f.fiscalDateTime ? (new Date(f.fiscalDateTime).toLocaleDateString('en-US') + ' 00:00 AM') : '5/22/26 00:00 AM';
 
-  let seller = isPurchase
-    ? by('suppliers', f.supplier)
-    : { name: 'BIOBES sh.p.k.', nipt: 'L43904401I', address: 'Lagjja Kadri Qystri, rruga Llazar Prifti, nr.53, Fier, Albania' };
-  let buyer = isPurchase
-    ? { name: 'BIOBES sh.p.k.', nipt: 'L43904401I', address: 'Lagjja Kadri Qystri, rruga Llazar Prifti, nr.53, Fier, Albania' }
-    : by('customers', f.customer);
+  let dObj = f.fiscalDateTime ? new Date(f.fiscalDateTime) : (f.date ? new Date(f.date) : new Date());
+  let m = dObj.getMonth() + 1;
+  let d = dObj.getDate();
+  let yShort = String(dObj.getFullYear()).slice(-2);
+  let dtPay = `${m}/${d}/${yShort} 00:00 AM`;
+
+  let ci = (typeof companyInfo === 'function') ? companyInfo() : { name: 'BIOBES sh.p.k.', nipt: 'L43904401I', address: 'Lagjja Kadri Qystri, rruga Llazar Prifti, nr.53, Fier, Albania' };
+  let biobesName = ci.name || 'BIOBES sh.p.k.';
+  let biobesNipt = ci.nipt || 'L43904401I';
+  let biobesAddress = ci.address || ci.street || 'Lagjja Kadri Qystri, rruga Llazar Prifti, nr.53, Fier, Albania';
+
+  let sellerName = '', sellerAddress = '', sellerNipt = '';
+  let buyerName = '', buyerAddress = '', buyerNipt = '';
+
+  if (isPurchase) {
+    let sup = by('suppliers', f.supplier);
+    sellerName = sup?.name || f.supplierName || 'Furnitor';
+    sellerAddress = sup?.address || (sup?.region ? (sup.region + ', Albania') : 'Shqipëri');
+    sellerNipt = sup?.nipt || sup?.vat || sup?.personalId || sup?.idNumber || '—';
+
+    buyerName = biobesName;
+    buyerAddress = biobesAddress;
+    buyerNipt = biobesNipt;
+  } else {
+    let c = by('customers', f.customer);
+    sellerName = biobesName;
+    sellerAddress = biobesAddress;
+    sellerNipt = biobesNipt;
+
+    buyerName = c?.name || f.customerName || '—';
+    buyerAddress = f.billTo || c?.address || (c?.city ? (c.city + (c?.country ? ', ' + c.country : '')) : (c?.country || '—'));
+    buyerNipt = f.customerVat || c?.vat || c?.taxId || c?.nipt || '—';
+  }
 
   let goods = isPurchase
-    ? [{ product: f.product, net: f.billable || f.physical, price: f.price }]
-    : ((typeof saleLinesOf === 'function') ? saleLinesOf(f) : (f.lines || []));
+    ? [{ product: f.product, net: f.billable || f.physical, price: f.price, discount: f.discount }]
+    : ((typeof saleLinesOf === 'function') ? saleLinesOf(f) : (f.lines || [{ product: f.product, net: f.qty, price: f.price, discount: f.discount }]));
 
-  let beforeVat = (+f.subtotal || 0) + (+f.palletCost || 0) + (+f.loadingCost || 0);
-  let vatAmt = (+f.vatAmount || 0);
-  let total = (+f.total || beforeVat + vatAmt);
-  let totalAll = total * rate;
   let vatRate = +(f.vat || 0);
+  let beforeVat = (+f.subtotal || 0) + (+f.palletCost || 0) + (+f.loadingCost || 0);
+  if (!beforeVat && goods.length) {
+    beforeVat = goods.reduce((acc, l) => acc + ((+l.net || 0) * (+l.price || 0)), 0);
+  }
+  let vatAmt = (+f.vatAmount || (beforeVat * vatRate / 100));
+  let total = (+f.total || (beforeVat + vatAmt));
 
   let dptRows = goods.map(l => {
     let p = by('products', l.product);
     let qty = +l.net || 0;
     let prc = +l.price || 0;
-    let without = qty * prc;
+    let disc = +(l.discount || 0);
+    let without = qty * prc * (1 - disc / 100);
     let vatL = without * vatRate / 100;
     let totL = without + vatL;
+    let unitCode = (p?.unit === 'kg' || !p?.unit) ? 'KGM' : (p?.unit === 'copë' ? 'H87' : esc(p.unit));
+    let pName = p?.name || l.description || 'Artikull';
+
     return `<tr>
-      <td class="l">${esc(p?.name || 'Artikull')}</td>
-      <td class="c">${p?.unit === 'kg' ? 'KGM' : 'H87'}</td>
-      <td class="r">${Number(qty).toFixed(6)}000</td>
-      <td class="r">${Number(prc).toFixed(8)}00</td>
-      <td class="c"></td>
-      <td class="c">${fmt2(vatRate)}</td>
-      <td class="r">${fmt2(without)}</td>
-      <td class="r">${fmt2(vatL)}</td>
-      <td class="r">${fmt2(totL)}</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${esc(pName)}</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${unitCode}</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${Number(qty).toFixed(3)}000000</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${Number(prc).toFixed(2)}00000000</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${disc ? Number(disc).toFixed(2) : ''}</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${Number(vatRate).toFixed(2)}</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${fmt2(without)}</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${fmt2(vatL)}</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${fmt2(totL)}</td>
     </tr>`;
   }).join('');
 
@@ -16303,137 +16427,171 @@ window.renderUnifiedDptInvoiceHtml = function(f, isPurchase, isFiscal) {
     ? 'FATURË'
     : (isPurchase ? 'FATURË BLERJEJE (E BRENDSHME / VETËFATURIM)' : 'FATURË SHITJEJE (E BRENDSHME / JO-FISKALE)');
 
-  return `<div id="printUnifiedDpt_${esc(f.id)}" class="dpt-invoice-wrap">
-  <div class="dpt-main-title">${titleDoc}</div>
-
-  <div class="dpt-box">
-    <div class="dpt-box-label">Shitësi:</div><div><b>${esc(seller?.name || 'BIOBES sh.p.k.')}</b></div>
-    <div class="dpt-box-label">Adresa:</div><div>${esc(seller?.address || 'Lagjja Kadri Qystri, rruga Llazar Prifti, nr.53, Fier, Albania')}</div>
-    <div class="dpt-box-label">Numri Unik i Identifikimit :</div><div><b>${esc(seller?.nipt || seller?.vat || 'L43904401I')}</b></div>
+  return `<div id="printUnifiedDpt_${esc(f.id)}" class="dpt-invoice-wrap" style="width: 100%; max-width: 100%; margin: 0; padding: 0; background: #fff; color: #000; font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; line-height: 1.4; box-sizing: border-box;">
+  
+  <div style="text-align: center; font-size: 18pt; font-weight: bold; margin: 0 0 10pt 0; font-family: Arial, Helvetica, sans-serif; letter-spacing: 0.5px;">
+    ${titleDoc}
   </div>
 
-  <div class="dpt-box">
-    <div class="dpt-box-label">Data dhe ora e lëshimit të faturës:</div><div>${dtFull}</div>
-    <div class="dpt-box-label">Numri i Faturës:</div><div><b>${esc(invFiscalNum)}</b></div>
-    <div class="dpt-box-label">Operatori:</div><div>${esc(f.fiscalOperator || cfg.operatorCode || 'vn732ox383')}</div>
-    <div class="dpt-box-label">Kodin e vendit të ushtrimit të veprimtarisë:</div><div>${esc(f.fiscalBusinessUnit || cfg.businessUnitCode || 'bb934al551')}</div>
-    <div class="dpt-box-label">Lloji i Faturës:</div><div>${f.paymentMethod === 'Cash' ? 'Faturë me para në dorë' : 'Faturë pa para'}</div>
+  <div style="border: 1px solid #000; padding: 5pt 8pt; margin-bottom: 6pt; font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; line-height: 1.45;">
+    <table style="width: 100%; border-collapse: collapse; border: none;">
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Shitësi:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(sellerName)}</td>
+      </tr>
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Adresa:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(sellerAddress)}</td>
+      </tr>
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Numri Unik i Identifikimit :</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(sellerNipt)}</td>
+      </tr>
+    </table>
   </div>
 
-  <div class="dpt-box">
-    <div class="dpt-box-label">Blerësi:</div><div><b>${esc(buyer?.name || '—')}</b></div>
-    <div class="dpt-box-label">Adresa:</div><div>${esc(f.billTo || buyer?.address || buyer?.city || '—')}</div>
-    <div class="dpt-box-label">Numri Unik i Identifikimit:</div><div><b>${esc(f.customerVat || buyer?.vat || buyer?.taxId || buyer?.nipt || '—')}</b></div>
+  <div style="border: 1px solid #000; padding: 5pt 8pt; margin-bottom: 6pt; font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; line-height: 1.45;">
+    <table style="width: 100%; border-collapse: collapse; border: none;">
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Data dhe ora e lëshimit të faturës:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${dtFull}</td>
+      </tr>
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Numri i Faturës:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(invFiscalNum)}</td>
+      </tr>
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Operatori:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(f.fiscalOperator || cfg.operatorCode || 'vn732ox383')}</td>
+      </tr>
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Kodin e vendit të ushtrimit të veprimtarisë:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(f.fiscalBusinessUnit || cfg.businessUnitCode || 'bb934al551')}</td>
+      </tr>
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Lloji i Faturës:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${f.paymentMethod === 'Cash' ? 'Faturë me para në dorë' : 'Faturë pa para'}</td>
+      </tr>
+    </table>
   </div>
 
-  <table class="dpt-grid-tbl">
+  <div style="border: 1px solid #000; padding: 5pt 8pt; margin-bottom: 10pt; font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; line-height: 1.45;">
+    <table style="width: 100%; border-collapse: collapse; border: none;">
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Blerësi:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(buyerName)}</td>
+      </tr>
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Adresa:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(buyerAddress)}</td>
+      </tr>
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Numri Unik i Identifikimit:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(buyerNipt)}</td>
+      </tr>
+    </table>
+  </div>
+
+  <table style="width: 100%; border-collapse: collapse; font-family: Arial, Helvetica, sans-serif; font-size: 8.5pt; margin-bottom: 10pt;">
     <thead>
       <tr>
-        <th style="text-align:left">Përshkrimi i Mallit ose Shërbimit</th>
-        <th>Njësia e Matjes</th>
-        <th>Sasia</th>
-        <th>Çmimi për njësi pa %</th>
-        <th>Zbritje %</th>
-        <th>Norma e TVSH</th>
-        <th>Vlera pa TVSH<br><small>(sasi x çmimi)</small></th>
-        <th>TVSH<br><small>(vlera)</small></th>
-        <th>Vlera Totale</th>
+        <th style="border: 1px solid #000; padding: 5pt 3pt; text-align: center; font-weight: normal; width: 25%;">Përshkrimi i Mallit ose Shërbimit</th>
+        <th style="border: 1px solid #000; padding: 5pt 3pt; text-align: center; font-weight: normal; width: 6%;">Njësia e Matjes</th>
+        <th style="border: 1px solid #000; padding: 5pt 3pt; text-align: center; font-weight: normal; width: 11%;">Sasia</th>
+        <th style="border: 1px solid #000; padding: 5pt 3pt; text-align: center; font-weight: normal; width: 11%;">Çmimi për njësi pa %</th>
+        <th style="border: 1px solid #000; padding: 5pt 3pt; text-align: center; font-weight: normal; width: 6%;">Zbritje %</th>
+        <th style="border: 1px solid #000; padding: 5pt 3pt; text-align: center; font-weight: normal; width: 8%;">Norma e TVSH</th>
+        <th style="border: 1px solid #000; padding: 5pt 3pt; text-align: center; font-weight: normal; width: 11%;">Vlera pa TVSH<br>(sasi x çmimi)</th>
+        <th style="border: 1px solid #000; padding: 5pt 3pt; text-align: center; font-weight: normal; width: 9%;">TVSH<br>(vlera)</th>
+        <th style="border: 1px solid #000; padding: 5pt 3pt; text-align: center; font-weight: normal; width: 13%;">Vlera Totale</th>
       </tr>
     </thead>
     <tbody>
-      ${dptRows}
+      ${dptRows || '<tr><td colspan="9" style="border: 1px solid #000; padding: 8pt; text-align: center;">— Pa artikuj —</td></tr>'}
       <tr>
-        <td colspan="6" style="border:0"></td>
-        <td colspan="2" class="r"><b>Vlera pa TVSH</b></td>
-        <td class="r"><b>${fmt2(beforeVat)}</b></td>
+        <td colspan="6" style="border-left: 1px solid #000; border-bottom: 1px solid #000; border-top: 1px solid #000; border-right: none;"></td>
+        <td colspan="2" style="border: 1px solid #000; text-align: right; padding: 4pt 6pt; font-weight: normal;">Vlera pa TVSH</td>
+        <td style="border: 1px solid #000; text-align: right; padding: 4pt 6pt;">${fmt2(beforeVat)}</td>
       </tr>
       <tr>
-        <td colspan="6" style="border:0"></td>
-        <td colspan="2" class="r"><b>Vlera totale e TVSH-së</b></td>
-        <td class="r"><b>${fmt2(vatAmt)}</b></td>
+        <td colspan="6" style="border-left: 1px solid #000; border-bottom: 1px solid #000; border-top: none; border-right: none;"></td>
+        <td colspan="2" style="border: 1px solid #000; text-align: right; padding: 4pt 6pt; font-weight: normal;">Vlera totale e TVSH-së</td>
+        <td style="border: 1px solid #000; text-align: right; padding: 4pt 6pt;">${fmt2(vatAmt)}</td>
       </tr>
       <tr>
-        <td colspan="6" style="border:0"></td>
-        <td colspan="2" class="r" style="background:#f1f5f9"><b>Totali per tu paguar (LEK)</b></td>
-        <td class="r" style="background:#f1f5f9"><b>${fmt2(totalAll)}</b></td>
+        <td colspan="6" style="border-left: 1px solid #000; border-bottom: 1px solid #000; border-top: none; border-right: none;"></td>
+        <td colspan="2" style="border: 1px solid #000; text-align: right; padding: 4pt 6pt; font-weight: normal;">Totali per tu paguar (${curLabel})</td>
+        <td style="border: 1px solid #000; text-align: right; padding: 4pt 6pt;">${fmt2(total)}</td>
       </tr>
     </tbody>
   </table>
 
-  <div style="font-weight:700;margin:6px 0 2px">Shpërndarja e TVSH-së</div>
-  <table class="dpt-tax-tbl">
-    <thead>
-      <tr>
-        <th>Norma e TVSH-së</th>
-        <th>Baza e tatueshme (LEK)</th>
-        <th>Vlera e TVSH-së (LEK)</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>${fmt2(vatRate)}</td>
-        <td>${fmt2(beforeVat * rate)}</td>
-        <td>${fmt2(vatAmt * rate)}</td>
-      </tr>
-    </tbody>
-  </table>
-
-  ${isFiscal ? `
-  <div class="dpt-fiscal-block">
-    <div>Data dhe ora e kryerjes së pagesës: <b>${dtPay}</b></div>
-    <div>Numri i sigurisë së lëshuesit të faturës (NSLF): <b>${esc(f.nslf)}</b></div>
-    <div>Numri identifikues të veçantë të faturës (NIVF): <b>${esc(f.nivf)}</b></div>
+  <div style="font-family: Arial, Helvetica, sans-serif; margin-bottom: 10pt;">
+    <div style="font-size: 9.5pt; font-weight: normal; margin-bottom: 3pt;">Shpërndarja e TVSH-së</div>
+    <table style="width: 65%; border-collapse: collapse; font-size: 8.5pt;">
+      <thead>
+        <tr>
+          <th style="border: 1px solid #000; padding: 4pt 6pt; text-align: center; font-weight: normal; width: 30%;">Norma e TVSH-së</th>
+          <th style="border: 1px solid #000; padding: 4pt 6pt; text-align: center; font-weight: normal; width: 35%;">Baza e tatueshme (${curLabel})</th>
+          <th style="border: 1px solid #000; padding: 4pt 6pt; text-align: center; font-weight: normal; width: 35%;">Vlera e TVSH-së (${curLabel})</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="border: 1px solid #000; padding: 4pt 6pt; text-align: center;">${Number(vatRate).toFixed(2)}</td>
+          <td style="border: 1px solid #000; padding: 4pt 6pt; text-align: center;">${fmt2(beforeVat)}</td>
+          <td style="border: 1px solid #000; padding: 4pt 6pt; text-align: center;">${fmt2(vatAmt)}</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 
-  <div class="dpt-bottom-row">
-    <div>
-      <div style="font-weight:700;margin-bottom:2px">Mënyrën e pagesës:</div>
-      <table class="dpt-pay-tbl">
-        <thead><tr><th>Lloji</th><th>Sasi (LEK)</th></tr></thead>
-        <tbody><tr><td>Llogari e transaksionit</td><td>${fmt2(totalAll)}</td></tr></tbody>
+  <div style="font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; line-height: 1.55; margin: 8pt 0 14pt 0;">
+    <table style="width: 100%; border-collapse: collapse; border: none;">
+      <tr style="border: none;">
+        <td style="width: 320pt; border: none; padding: 1pt 0; vertical-align: top;">Data dhe ora e kryerjes së pagesës:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${dtPay}</td>
+      </tr>
+      <tr style="border: none;">
+        <td style="width: 320pt; border: none; padding: 1pt 0; vertical-align: top;">Numri i sigurisë së lëshuesit të faturës (NSLF):</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top; word-break: break-all;">${isFiscal ? (f.fiscalIIC || f.nslf || '—') : '— (Dokument i brendshëm)'}</td>
+      </tr>
+      <tr style="border: none;">
+        <td style="width: 320pt; border: none; padding: 1pt 0; vertical-align: top;">Numri identifikues të veçantë të faturës (NIVF):</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top; word-break: break-all;">${isFiscal ? (f.fiscalFIC || f.nivf || '—') : '— (Dokument i brendshëm)'}</td>
+      </tr>
+    </table>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 14pt; font-family: Arial, Helvetica, sans-serif;">
+    <div style="width: 48%;">
+      <div style="font-size: 9.5pt; font-weight: normal; margin-bottom: 3pt;">Mënyrën e pagesës:</div>
+      <table style="width: 100%; border-collapse: collapse; font-size: 8.5pt;">
+        <thead>
+          <tr style="background-color: #dbeafe !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
+            <th style="border: 1px solid #000; padding: 4pt 6pt; text-align: center; width: 60%; font-weight: normal;">Lloji</th>
+            <th style="border: 1px solid #000; padding: 4pt 6pt; text-align: center; width: 40%; font-weight: normal;">Sasi (${curLabel})</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="border: 1px solid #000; padding: 4pt 6pt; text-align: center;">${f.paymentMethod === 'Cash' ? 'Para në dorë' : 'Llogari e transaksionit'}</td>
+            <td style="border: 1px solid #000; padding: 4pt 6pt; text-align: center;">${fmt2(total)}</td>
+          </tr>
+        </tbody>
       </table>
     </div>
-    <div class="dpt-qr-holder">
-      <div id="unifiedQrBox_${esc(f.id)}" class="ep-qr-box"></div>
+    <div style="width: 48%; display: flex; flex-direction: column; align-items: flex-end;">
+      <div id="unifiedQrBox_${esc(f.id)}" class="ep-qr-box" style="width: 110px; height: 110px; display: flex; align-items: center; justify-content: center;"></div>
+      <div style="font-size: 8pt; color: #333; margin-top: 6pt; text-align: right; width: 100%;">1/1</div>
     </div>
-  </div>` : `
-  <div style="margin-top:8px">
-    <div style="display:flex;justify-content:space-between;align-items:flex-end">
-      <div>
-        <div style="font-weight:700;margin-bottom:2px">Mënyrën e pagesës:</div>
-        <table class="dpt-pay-tbl">
-          <thead><tr><th>Lloji</th><th>Sasi (LEK)</th></tr></thead>
-          <tbody><tr><td>Llogari e transaksionit</td><td>${fmt2(totalAll)}</td></tr></tbody>
-        </table>
-        <div style="margin-top:4px;font-size:9px;color:#555">
-          ABI Bank Sh.A. · IBAN: AL632022200600000000031158942 · SWIFT: SGSBALTX
-        </div>
-      </div>
-      <div style="text-align:right;font-size:9.5px;color:#475569;border:1px dashed #94a3b8;padding:6px 12px;border-radius:4px">
-        <b>Dokument i Brendshëm Tregtar</b><br>
-        <i>Pa transmetim në serverin e Tatimeve</i>
-      </div>
-    </div>
-    <div class="ep-signatures-grid" style="margin-top:16px">
-      <div><div class="ep-sign-line"></div>LËSHOI (Emër, Firmë)</div>
-      <div><div class="ep-sign-line"></div>PRITI NË DORËZIM</div>
-      <div><div class="ep-sign-line"></div>TRANSPORTUESI</div>
-    </div>
-  `}
-
-  <div class="ep-footer-meta" style="margin-top:10px">
-    <span>Gjeneruar nga BioBes ERP</span>
-    <span>1/1</span>
   </div>
+
 </div>`;
 };
 
-// ==========================================================================
-// 8. FATURË SHOQËRUESE E MALLIT (WTN - GOODS TRANSPORT NOTE)
-//    Dokumenti Zyrtar i Lëvizjes së Mallit sipas Ligjit Nr. 87/2019
-// ==========================================================================
 window.renderGoodsTransportNoteHtml = function(doc, sourceKind, isFiscal) {
-  let cfg = fiscalConfig();
+  let cfg = (typeof fiscalConfig === 'function') ? fiscalConfig() : {};
   let f = doc || {};
   let sh = (sourceKind === 'shipment') ? f : (f.shipment ? by('shipments', f.shipment) : null);
   let isPur = (sourceKind === 'purchase');
@@ -16444,21 +16602,25 @@ window.renderGoodsTransportNoteHtml = function(doc, sourceKind, isFiscal) {
   let departureTime = f.departureTime || formatFiscalDate(f.date || now, true);
   let arrivalTime = f.arrivalTime || formatFiscalDate(new Date(now.getTime() + 8*3600*1000), true);
 
-  let senderName = isPur ? (by('suppliers', f.supplier)?.name || 'Fermeri / Bujku') : 'BIOBES sh.p.k.';
-  let senderNipt = isPur ? (by('suppliers', f.supplier)?.nipt || '—') : 'L43904401I';
-  let senderAddress = isPur ? (by('suppliers', f.supplier)?.address || 'Fier, Sopëz') : 'Lagjja Kadri Qystri, rruga Llazar Prifti, nr.53, Fier, Albania';
+  let ci = (typeof companyInfo === 'function') ? companyInfo() : { name: 'BIOBES sh.p.k.', nipt: 'L43904401I', address: 'Lagjja Kadri Qystri, rruga Llazar Prifti, nr.53, Fier, Albania' };
+  let biobesName = ci.name || 'BIOBES sh.p.k.';
+  let biobesNipt = ci.nipt || 'L43904401I';
+  let biobesAddress = ci.address || ci.street || 'Lagjja Kadri Qystri, rruga Llazar Prifti, nr.53, Fier, Albania';
 
-  let recipientName = isPur ? 'BIOBES sh.p.k. (Magazina Qendrore)' : (by('customers', f.customer)?.name || 'Klient / Marrës');
-  let recipientNipt = isPur ? 'L43904401I' : (f.customerVat || by('customers', f.customer)?.vat || '—');
-  let recipientAddress = isPur ? 'Gradishtë Sopës nr.53, Fier' : (f.billTo || by('customers', f.customer)?.address || 'Destinacion Marrësi');
+  let senderName = isPur ? (by('suppliers', f.supplier)?.name || 'Fermeri / Bujku') : biobesName;
+  let senderNipt = isPur ? (by('suppliers', f.supplier)?.nipt || by('suppliers', f.supplier)?.personalId || '—') : biobesNipt;
+  let senderAddress = isPur ? (by('suppliers', f.supplier)?.address || 'Fier, Sopëz') : biobesAddress;
+
+  let recipientName = isPur ? biobesName : (by('customers', f.customer)?.name || 'Klient / Marrës');
+  let recipientNipt = isPur ? biobesNipt : (f.customerVat || by('customers', f.customer)?.vat || '—');
+  let recipientAddress = isPur ? biobesAddress : (f.billTo || by('customers', f.customer)?.address || 'Destinacion Marrësi');
 
   let carrierName = f.carrier || sh?.carrier || 'BIOBES sh.p.k. (Vetë-transport)';
   let driverName = f.driver || sh?.driver || 'Shofer i Autorizuar';
-  let driverId = f.driverId || sh?.driverId || 'ID-AL-2026';
   let plate = f.plate || sh?.plate || 'AA 892 XZ';
   let trailer = f.trailerPlate || sh?.trailerPlate || '—';
   let seal = f.seal || sh?.seal || '—';
-  let purpose = isPur ? 'Grumbullim bimësh medicinale nga bujku në magazinë' : 'Dorëzim malli tek klienti sipas faturës së shitjes';
+  let purpose = isPur ? 'Grumbullim bimësh medicinale nga bujku në magazinë' : 'Dorëzim malli tek klienti sipas faturës';
   let refDoc = f.invoiceNumber || f.id || 'FS-2026-001';
 
   let goods = isPur
@@ -16474,174 +16636,157 @@ window.renderGoodsTransportNoteHtml = function(doc, sourceKind, isFiscal) {
     totNet += net;
     totGross += gross;
     totPkgs += pkgs;
+    let unitCode = (p?.unit === 'kg' || !p?.unit) ? 'KGM' : 'H87';
     return `<tr>
-      <td class="c">${i + 1}</td>
-      <td class="c">${esc(p?.code || 'ART-' + (i + 1))}</td>
-      <td class="l"><b>${esc(p?.name || 'Bimë Medicinale')}</b>${p?.botanical ? ' <i>(' + esc(p.botanical) + ')</i>' : ''}</td>
-      <td class="c">${p?.unit || 'kg'}</td>
-      <td class="r">${fmt2(net)}</td>
-      <td class="c">${pkgs} thasë</td>
-      <td class="r">${fmt2(gross)}</td>
-      <td class="r">${fmt2(net)}</td>
-      <td class="c">E rregullt</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center;">${i + 1}</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center;">${esc(p?.code || 'ART-' + (i + 1))}</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: left;">${esc(p?.name || 'Bimë Medicinale')}</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center;">${unitCode}</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center;">${fmt2(net)}</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center;">${pkgs} thasë</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center;">${fmt2(gross)}</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center;">${fmt2(net)}</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center;">E rregullt</td>
     </tr>`;
   }).join('');
 
-  let wtnNslf = f.wtnNslf || f.nslf || '7F4122E487CC5D661D6787FD6F444FD3';
-  let wtnNivf = f.wtnNivf || f.nivf || '70420810-f22e-4482-8392-54a3795072e7';
-
-  return `<div id="printWtn_${esc(wtnId)}" class="dpt-invoice-wrap">
-  <div class="dpt-main-title">FATURË SHOQËRUESE E MALLIT</div>
-  <div style="text-align:center;font-size:10px;font-weight:700;color:#1e293b;margin:-6px 0 8px">
-    DOKUMENT TRANSPORTI DHE LËVIZJEJE MALLI · LIGJI NR. 87/2019 (WTN)
+  return `<div id="printWtn_${esc(wtnId)}" class="dpt-invoice-wrap" style="width: 100%; max-width: 100%; margin: 0; padding: 0; background: #fff; color: #000; font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; line-height: 1.4; box-sizing: border-box;">
+  
+  <div style="text-align: center; font-size: 18pt; font-weight: bold; margin: 0 0 4pt 0; font-family: Arial, Helvetica, sans-serif; letter-spacing: 0.5px;">
+    FATURË SHOQËRUESE E MALLIT
+  </div>
+  <div style="text-align: center; font-size: 9.5pt; font-weight: normal; margin: 0 0 10pt 0;">
+    Dokument Transporti dhe Lëvizjeje Malli · Ligji Nr. 87/2019 (WTN)
   </div>
 
-  <div class="dpt-box">
-    <div class="dpt-box-label">Dërguesi (Vendi i Nisjes):</div><div><b>${esc(senderName)}</b> (NIPT: <b>${esc(senderNipt)}</b>)</div>
-    <div class="dpt-box-label">Adresa e Nisjes së Mallit:</div><div>${esc(senderAddress)}</div>
+  <div style="border: 1px solid #000; padding: 5pt 8pt; margin-bottom: 6pt; font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; line-height: 1.45;">
+    <table style="width: 100%; border-collapse: collapse; border: none;">
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Dërguesi (Vendi i Nisjes):</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(senderName)} (NIPT: ${esc(senderNipt)})</td>
+      </tr>
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Adresa e Nisjes:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(senderAddress)}</td>
+      </tr>
+    </table>
   </div>
 
-  <div class="dpt-box">
-    <div class="dpt-box-label">Numri i Faturës Shoqëruese:</div><div><b>${esc(wtnNumber)}</b></div>
-    <div class="dpt-box-label">Data dhe ora e nisjes së mjetit:</div><div><b>${departureTime}</b></div>
-    <div class="dpt-box-label">Data dhe ora e parashikuar e mbërritjes:</div><div>${arrivalTime}</div>
-    <div class="dpt-box-label">Qëllimi i lëvizjes së mallit:</div><div>${esc(purpose)}</div>
-    <div class="dpt-box-label">Dokumenti / Fatura Referente:</div><div><b>${esc(refDoc)}</b></div>
+  <div style="border: 1px solid #000; padding: 5pt 8pt; margin-bottom: 6pt; font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; line-height: 1.45;">
+    <table style="width: 100%; border-collapse: collapse; border: none;">
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Numri i Faturës Shoqëruese:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(wtnNumber)}</td>
+      </tr>
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Data dhe ora e nisjes së mjetit:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${departureTime}</td>
+      </tr>
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Data dhe ora e mbërritjes:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${arrivalTime}</td>
+      </tr>
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Qëllimi i lëvizjes:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(purpose)}</td>
+      </tr>
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Dokumenti bazë (Fatura):</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(refDoc)}</td>
+      </tr>
+    </table>
   </div>
 
-  <div class="dpt-box">
-    <div class="dpt-box-label">Marrësi (Destinacioni):</div><div><b>${esc(recipientName)}</b> (NIPT: <b>${esc(recipientNipt)}</b>)</div>
-    <div class="dpt-box-label">Vendi i Shkarkimit / Dorëzimit:</div><div>${esc(recipientAddress)}</div>
+  <div style="border: 1px solid #000; padding: 5pt 8pt; margin-bottom: 6pt; font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; line-height: 1.45;">
+    <table style="width: 100%; border-collapse: collapse; border: none;">
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Marrësi (Destinacioni):</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(recipientName)} (NIPT: ${esc(recipientNipt)})</td>
+      </tr>
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Adresa e Mbërritjes:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(recipientAddress)}</td>
+      </tr>
+    </table>
   </div>
 
-  <div class="dpt-box">
-    <div class="dpt-box-label">Transportuesi:</div><div><b>${esc(carrierName)}</b></div>
-    <div class="dpt-box-label">Drejtuesi i Mjetit (Shoferi):</div><div><b>${esc(driverName)}</b> (ID: <b>${esc(driverId)}</b>)</div>
-    <div class="dpt-box-label">Targa e Mjetit (Kamion/Furgon):</div><div><b>${esc(plate)}</b> ${trailer !== '—' ? '· Rimorkio: <b>' + esc(trailer) + '</b>' : ''}</div>
-    <div class="dpt-box-label">Numri i Plumbçes (Seal):</div><div>${esc(seal)}</div>
+  <div style="border: 1px solid #000; padding: 5pt 8pt; margin-bottom: 10pt; font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; line-height: 1.45;">
+    <table style="width: 100%; border-collapse: collapse; border: none;">
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Transportuesi:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(carrierName)}</td>
+      </tr>
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Targa e mjetit / Rimorkio:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;"><b>${esc(plate)}</b> / ${esc(trailer)} (Plumbçja: ${esc(seal)})</td>
+      </tr>
+      <tr style="border: none;">
+        <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Drejtuesi i mjetit:</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(driverName)}</td>
+      </tr>
+    </table>
   </div>
 
-  <table class="dpt-grid-tbl">
+  <table style="width: 100%; border-collapse: collapse; font-family: Arial, Helvetica, sans-serif; font-size: 8.5pt; margin-bottom: 10pt;">
     <thead>
       <tr>
-        <th>Nr.</th>
-        <th>Kodi</th>
-        <th style="text-align:left">Përshkrimi i Mallit</th>
-        <th>Njësia</th>
-        <th>Sasia e Ngarkuar</th>
-        <th>Paketimi</th>
-        <th>Pesha Bruto (kg)</th>
-        <th>Pesha Neto (kg)</th>
-        <th>Vërejtje</th>
+        <th style="border: 1px solid #000; padding: 5pt 3pt; text-align: center; font-weight: normal; width: 4%;">Nr.</th>
+        <th style="border: 1px solid #000; padding: 5pt 3pt; text-align: center; font-weight: normal; width: 10%;">Kodi</th>
+        <th style="border: 1px solid #000; padding: 5pt 3pt; text-align: center; font-weight: normal; width: 26%;">Përshkrimi i Mallit</th>
+        <th style="border: 1px solid #000; padding: 5pt 3pt; text-align: center; font-weight: normal; width: 7%;">Njësia</th>
+        <th style="border: 1px solid #000; padding: 5pt 3pt; text-align: center; font-weight: normal; width: 11%;">Sasia Neto</th>
+        <th style="border: 1px solid #000; padding: 5pt 3pt; text-align: center; font-weight: normal; width: 11%;">Paketimi</th>
+        <th style="border: 1px solid #000; padding: 5pt 3pt; text-align: center; font-weight: normal; width: 11%;">Pesha Bruto</th>
+        <th style="border: 1px solid #000; padding: 5pt 3pt; text-align: center; font-weight: normal; width: 11%;">Faturueshme</th>
+        <th style="border: 1px solid #000; padding: 5pt 3pt; text-align: center; font-weight: normal; width: 9%;">Gjendja</th>
       </tr>
     </thead>
     <tbody>
-      ${rowsHtml}
+      ${rowsHtml || '<tr><td colspan="9" style="border: 1px solid #000; padding: 8pt; text-align: center;">— Pa artikuj —</td></tr>'}
       <tr>
-        <td colspan="4" style="border:0"></td>
-        <td class="r"><b>${fmt2(totNet)}</b></td>
-        <td class="c"><b>${totPkgs}</b></td>
-        <td class="r"><b>${fmt2(totGross)}</b></td>
-        <td class="r"><b>${fmt2(totNet)}</b></td>
-        <td></td>
+        <td colspan="4" style="border: 1px solid #000; text-align: right; padding: 4pt 6pt;">TOTALI I MALLIT TË TRANSPORTUAR</td>
+        <td style="border: 1px solid #000; text-align: center; padding: 4pt 6pt;"><b>${fmt2(totNet)} kg</b></td>
+        <td style="border: 1px solid #000; text-align: center; padding: 4pt 6pt;"><b>${totPkgs} thasë</b></td>
+        <td style="border: 1px solid #000; text-align: center; padding: 4pt 6pt;"><b>${fmt2(totGross)} kg</b></td>
+        <td style="border: 1px solid #000; text-align: center; padding: 4pt 6pt;"><b>${fmt2(totNet)} kg</b></td>
+        <td style="border: 1px solid #000; text-align: center; padding: 4pt 6pt;">OK</td>
       </tr>
     </tbody>
   </table>
 
-  ${isFiscal ? `
-  <div class="dpt-fiscal-block" style="margin-top:6px">
-    <div>Kodi i Sigurisë së Transportit (NSLF-WTN): <b>${esc(wtnNslf)}</b></div>
-    <div>Numri Identifikues i Veçantë (NIVF-WTN): <b>${esc(wtnNivf)}</b></div>
-  </div>
-  <div class="dpt-bottom-row" style="margin-top:4px">
-    <div style="font-size:8.5px;color:#555">
-      Dokument zyrtar i detyrueshëm për verifikim rrugor nga Policia dhe Hetimi Tatimor gjatë qarkullimit.
-    </div>
-    <div class="dpt-qr-holder">
-      <div id="wtnQrBox_${esc(wtnId)}" class="ep-qr-box"></div>
-    </div>
-  </div>` : `
-  <div style="margin-top:8px;padding:5px 8px;background:#f8fafc;border:1px dashed #cbd5e1;font-size:9px;color:#475569">
-    Dokument zyrtar transporti i brendshëm ndërmjet njësive ose për dorëzim malli · Shoqëron mjetin <b>${esc(plate)}</b>.
-  </div>`}
-
-  <div class="ep-signatures-grid" style="margin-top:16px">
-    <div>
-      <div class="ep-sign-line"></div>
-      PËRGJEGJËSI I MAGAZINËS (Dërguesi)
-    </div>
-    <div>
-      <div class="ep-sign-line"></div>
-      DREJTUESI I MJETIT (Shoferi)
-    </div>
-    <div>
-      <div class="ep-sign-line"></div>
-      PRITI NË DORËZIM (Marrësi)
-    </div>
+  <div style="font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; line-height: 1.55; margin: 8pt 0 14pt 0;">
+    <table style="width: 100%; border-collapse: collapse; border: none;">
+      <tr style="border: none;">
+        <td style="width: 320pt; border: none; padding: 1pt 0; vertical-align: top;">Kodi i Sigurisë së Transportit (NSLF-WTN):</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top; word-break: break-all;">${f.wtnNslf || f.nslf || '7F4122E487CC5D661D6787FD6F444FD3'}</td>
+      </tr>
+      <tr style="border: none;">
+        <td style="width: 320pt; border: none; padding: 1pt 0; vertical-align: top;">Kodi Unik i Identifikimit të Lëvizjes (NIVF-WTN):</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top; word-break: break-all;">${f.wtnNivf || f.nivf || '70420810-f22e-4482-8392-54a3795072e7'}</td>
+      </tr>
+    </table>
   </div>
 
-  <div class="ep-footer-meta" style="margin-top:10px">
-    <span>Gjeneruar nga BioBes ERP · Faturë Shoqëruese Malli</span>
-    <span>1/1</span>
+  <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 14pt; font-family: Arial, Helvetica, sans-serif;">
+    <div style="display: flex; gap: 30pt; font-size: 9pt; text-align: center;">
+      <div style="width: 110pt;">
+        <div style="border-top: 1px solid #000; padding-top: 4pt; margin-top: 24pt;">Dërguesi (Nisja)</div>
+      </div>
+      <div style="width: 110pt;">
+        <div style="border-top: 1px solid #000; padding-top: 4pt; margin-top: 24pt;">Transportuesi</div>
+      </div>
+      <div style="width: 110pt;">
+        <div style="border-top: 1px solid #000; padding-top: 4pt; margin-top: 24pt;">Marrësi (Pranimi)</div>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: flex-end;">
+      <div id="wtnQrBox_${esc(wtnId)}" class="ep-qr-box" style="width: 100px; height: 100px; display: flex; align-items: center; justify-content: center;"></div>
+      <div style="font-size: 8pt; color: #333; margin-top: 6pt; text-align: right; width: 100%;">1/1</div>
+    </div>
   </div>
+
 </div>`;
 };
-
-// ==========================================================================
-// 9. TOGGLE INTERACTIV: ON (Fiskale DPT) / OFF (E Brendshme)
-// ==========================================================================
-window.toggleInvoiceFiscalMode = function(id, kind, isChecked) {
-  let f = (kind === 'purchase')
-    ? purchaseInvoices().find(x => x.id === id)
-    : salesInvoices().find(x => x.id === id);
-  if (!f) return;
-  f.isFiscal = !!isChecked;
-  if (f.isFiscal) {
-    f.fiscalStatus = 'FISCALIZED';
-    ensureFiscalized(f);
-  } else {
-    f.fiscalStatus = 'NON_FISCAL';
-  }
-  save();
-
-  // Update container
-  let container = document.getElementById('unifiedInvoiceContainer_' + id);
-  if (container) {
-    container.innerHTML = renderUnifiedDptInvoiceHtml(f, kind === 'purchase', f.isFiscal);
-    if (f.isFiscal) {
-      setTimeout(() => renderUnifiedQr(f, 'unifiedQrBox_' + f.id), 40);
-    }
-  }
-
-  // Update badge label
-  let lbl = document.getElementById('fiscalToggleStatus_' + id);
-  if (lbl) {
-    lbl.className = f.isFiscal ? 'toggle-badge-on' : 'toggle-badge-off';
-    lbl.innerHTML = f.isFiscal
-      ? '🟢 FISKALE (Zyrtare DPT · Me QR & NIVF)'
-      : '⚪ JO-FISKALE (E Brendshme · Pa Tatime)';
-  }
-};
-
-window.renderUnifiedQr = function(f, boxId) {
-  let box = document.getElementById(boxId);
-  if (!box || !f) return;
-  box.innerHTML = '';
-  try {
-    if (typeof QRCode !== 'undefined') {
-      new QRCode(box, {
-        text: f.fiscalQrUrl || buildFiscalQrUrl(f),
-        width: 100,
-        height: 100,
-        correctLevel: QRCode.CorrectLevel.M
-      });
-    }
-  } catch(e) { console.error('[qr:unified]', e); }
-};
-
-// ==========================================================================
-// 10. MODALET KRYESORE ME TOGGLE DHE FATURË SHOQËRUESE
-// ==========================================================================
 window.openAlbanianSaleInvoice = function(id) {
   let f = salesInvoices().find(x => x.id === id);
   if (!f) return toast('Fatura nuk u gjet');
