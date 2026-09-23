@@ -13701,4 +13701,538 @@ try{setTimeout(()=>{try{applyRoleSecurity()}catch(e){}},0)}catch(e){}
 })();
 </script>
 
+<style>
+/* biobes-table-sort-v1 — kokat e kolonave të klikueshme (↑ rritës / ↓ zbritës) */
+table.bb-sortable thead th.bb-sort{cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+table.bb-sortable thead th.bb-sort:hover{background:#e8f3ed;color:var(--brand)}
+table.bb-sortable thead th.bb-sort:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
+table.bb-sortable thead th.bb-sort::after{content:' \21C5';font-size:10px;opacity:.4;color:#5d6e65}
+table.bb-sortable thead th.bb-sort:hover::after{opacity:.95;color:var(--brand)}
+table.bb-sortable thead th.bb-sort-asc,table.bb-sortable thead th.bb-sort-desc{background:#eaf4ee;color:var(--brand);font-weight:700}
+table.bb-sortable thead th.bb-sort-asc::after{content:' \25B2';font-size:9px;opacity:1;color:var(--brand)}
+table.bb-sortable thead th.bb-sort-desc::after{content:' \25BC';font-size:9px;opacity:1;color:var(--brand)}
+@media print{table.bb-sortable thead th.bb-sort::after{content:''}}
+</style>
+<script id="biobes-table-sort-v1">
+/* =============================================================================
+   biobes-table-sort-v1 — RENDITJE ↑ / ↓ NË ÇDO TABELË TË MODULEVE
+   Kliko kokën e kolonës:  1) rritës (A→Z, 0→9, data e vjetër → e reja)
+                           2) zbritës
+                           3) kthehet në rendin origjinal
+   • Punon kudo ku shfaqet një tabelë liste — module, kartela, regjistra,
+     raporte dhe modal-e — pa ndryshuar asnjë bllok ekzistues të index.html.
+   • Numrat lexohen sipas formatit shqiptar: "1 234,56 kg", "12,5 %", "(100)".
+   • Datat lexohen ISO (2026-09-23) dhe shqiptare (23.9.2026, 14:05).
+   • Qelizat bosh zbresin gjithmonë në fund, në të dyja drejtimet.
+   • Renditja mbahet edhe pas ri-renderimit (filtra, kërkim live, ruajtje).
+   • Nuk preken: dokumentet për print (kartela, peshat, faturat, raportet
+     Alpha me gjendje progresive), formularët me input-e dhe tabelat që e kanë
+     renditjen e tyre (p.sh. regjistri i magazinës, .sdr-table).
+   ============================================================================= */
+(function(){
+  'use strict';
+  var API=window.__biobesTableSortV1;
+  if(API){try{API.refresh()}catch(e){}return}
+
+  var STATS={sortable:0,headers:0,clicks:0,sorts:0,restores:0,reapplied:0,errors:0};
+  var STORE={};                       /* nënshkrimi i tabelës → {label,dir} */
+  var ORIGINALS=new WeakMap();        /* tbody → rreshtat në rendin origjinal */
+  var NR_ORIG=new WeakMap();          /* tr → teksti origjinal i kolonës "Nr." */
+  var applying=false,timer=null;
+
+  /* tabela me renditje të brendshme, dokumente print-i ose dekorative */
+  var SKIP_TABLE='.sdr-table,.alpha-card-table,.alpha-situation-table,.mbf,.ei-totals,'+
+                 '.al-total,.export-order-footer,.bshead,.final-label,.cross-matrix';
+  /* brenda këtyre kontejnerëve tabelat NUK renditen (dokumente / print) */
+  var SKIP_IN='.doc-sheet,.weight-paper,.alpha-paper,.alpha-preview-wrap,.mandate,.final-label,'+
+              '.alpha-filter-screen,[data-no-sort],[id^="print"]';
+  /* rrjeta me input-e (formulare) lejohen vetëm nëse njihen si regjistra të sigurt:
+     çdo rresht lidhet me regjistrimin me data-* (jo me pozicionin), prandaj renditja është e sigurt */
+  var ALLOW_EDITABLE='.excel-registry,.sales-excel,[data-sortable]';
+  var NONSORT_LABEL=/^(veprime|veprimi|veprimet|actions?)$/i;
+  var TOTAL_RE=/^(totali|total|shuma|shum\u00eb|n\u00ebntotali|gjithsej|gjendja)$/i;
+
+  function $all(sel,root){try{return Array.prototype.slice.call((root||document).querySelectorAll(sel))}catch(e){return[]}}
+  function norm(s){return String(s==null?'':s).replace(/[\u00a0\u202f\u2007]/g,' ').replace(/\s+/g,' ').trim()}
+  function deAlb(s){return norm(s).toLowerCase().replace(/\u00eb/g,'e').replace(/\u00e7/g,'c')}
+  function thLabel(th){return norm(th.dataset&&th.dataset.bbLabel?th.dataset.bbLabel:(th.textContent||''))}
+  function headerRow(t){var h=t.tHead;return (h&&h.rows.length)?h.rows[h.rows.length-1]:null}
+  function currentPage(){try{return (typeof page!=='undefined'&&page)?String(page):'?'}catch(e){return '?'}}
+
+  /* ---------- leximi i vlerave ---------- */
+  function cellText(tr,i){
+    var td=tr.cells[i];if(!td)return '';
+    var ov=td.querySelector('[data-sort-value]');
+    if(ov)return norm(ov.getAttribute('data-sort-value'));
+    var t=norm(td.textContent||'');
+    if(t)return t;
+    /* qelizat e rrjetave të redaktueshme (regjistri Excel) mbahen nga input-e → lexo vlerën */
+    var el=td.querySelector('input,select,textarea');
+    if(!el)return '';
+    if(el.tagName==='SELECT'){var o=el.options&&el.options[el.selectedIndex];return norm(o?o.textContent:el.value)}
+    return norm(el.value);
+  }
+  var DATE_ISO=/^\d{4}-\d{1,2}-\d{1,2}/,DATE_ALB=/^\d{1,2}[.\/\-]\d{1,2}[.\/\-]\d{4}/;
+  function toDate(raw){
+    var s=norm(raw);if(!s)return null;
+    var m=s.match(DATE_ISO);
+    if(m){var a=s.slice(0,m[0].length).split('-');return Date.UTC(+a[0],+a[1]-1,+a[2])}
+    m=s.match(DATE_ALB);
+    if(m){var b=m[0].split(/[.\/\-]/);return Date.UTC(+b[2],+b[1]-1,+b[0])}
+    return null;
+  }
+  function toNumber(raw){
+    var s=norm(raw);if(!s)return null;
+    if(DATE_ISO.test(s)||DATE_ALB.test(s))return null;             /* datat nuk janë numra */
+    var negP=s.charAt(0)==='('&&s.charAt(s.length-1)===')';
+    if(negP)s=s.slice(1,-1).trim();
+    var m=s.match(/^([+\-\u2212\u2013])?\s*(\d[\d .,]*)/);
+    if(!m)return null;
+    var rest=s.slice(m[0].length).replace(/\s/g,'');
+    if(rest){
+      var u=deAlb(rest).replace(/[^a-z%]/g,'');
+      if(u.length>8)return null;                                   /* njësi e panjohur → tekst */
+    }
+    var core=(m[1]&&m[1]!=='+'?'-':'')+m[2].replace(/[^\d.,]/g,'');
+    if(!/\d/.test(core))return null;
+    var v;
+    try{v=(typeof parseLocal==='function')?parseLocal(core):parseFloat(core.replace(/,/g,'.'))}catch(e){v=NaN}
+    if(typeof v!=='number'||!isFinite(v))return null;
+    return negP?-v:v;
+  }
+  var COLL=(function(){
+    var o={numeric:true,sensitivity:'base'};
+    try{return new Intl.Collator('sq',o)}catch(e){}
+    try{return new Intl.Collator(undefined,o)}catch(e){}
+    return null;
+  })();
+  /* A e njeh browser-i kollacionin shqip? (disa browser-a me ICU të shkurtuar
+     e kthejnë 'sq' në en-US, çka e humbet rendin e shkronjave ç/ë dhe digrafëve) */
+  var SQ_NATIVE=(function(){try{return !!COLL&&/^sq\b/i.test(COLL.resolvedOptions().locale)}catch(e){return false}})();
+  /* rendi i alfabetit shqip me digrafët: a b c ç d dh e ë f g gj h i j k l ll m n nj o p q r rr s sh t th u v x xh y z zh */
+  var SQ_ORDER=['a','b','c','\u00e7','d','dh','e','\u00eb','f','g','gj','h','i','j','k','l','ll','m','n','nj',
+                'o','p','q','r','rr','s','sh','t','th','u','v','x','xh','y','z','zh'];
+  var SQ_W=(function(){var m={};SQ_ORDER.forEach(function(l,i){m[l]=i+1});return m})();
+  function sqTokens(s){
+    var t=norm(s).toLowerCase(),out=[],i=0;
+    while(i<t.length){
+      var two=t.substr(i,2);
+      if(SQ_W[two]!==undefined){out.push({w:SQ_W[two],t:0});i+=2;continue}
+      var one=t.charAt(i);
+      if(SQ_W[one]!==undefined){out.push({w:SQ_W[one],t:0});i+=1;continue}
+      var d=t.slice(i).match(/^\d+/);
+      if(d){out.push({w:+d[0],t:1});i+=d[0].length;continue}
+      if(/\s/.test(one)){i+=1;continue}
+      out.push({w:t.charCodeAt(i),t:2});i+=1;
+    }
+    return out;
+  }
+  function cmpSq(a,b){
+    var x=sqTokens(a),y=sqTokens(b),n=Math.min(x.length,y.length);
+    for(var i=0;i<n;i++){
+      if(x[i].t!==y[i].t)return x[i].t-y[i].t;      /* shkronjat para numrave, numrat para simboleve */
+      if(x[i].w!==y[i].w)return x[i].w-y[i].w;
+    }
+    return x.length-y.length;                        /* më e shkurtra para më së gjatës */
+  }
+  function cmpText(a,b){
+    try{
+      if(SQ_NATIVE&&COLL)return COLL.compare(a,b);   /* browser-i e njeh shqipen → kollacioni amtar */
+      var r=cmpSq(a,b);                              /* përndryshe → rendi i alfabetit shqip */
+      if(r)return r;
+      if(COLL)return COLL.compare(a,b);
+      return a<b?-1:(a>b?1:0);
+    }catch(e){return a<b?-1:(a>b?1:0)}
+  }
+
+  /* ---------- rreshtat ---------- */
+  function isPinned(tr){
+    if(!tr.cells||!tr.cells.length)return true;
+    if(tr.classList.contains('alpha-total-row')||tr.classList.contains('total-row')||tr.hasAttribute('data-total-row'))return true;
+    var c=tr.cells;
+    if(c.length===1&&(c[0].colSpan>1||/\bempty\b/.test(c[0].className||'')))return true;
+    return TOTAL_RE.test(deAlb(cellText(tr,0)));
+  }
+  function rowsOf(tbody,only){
+    var out=[];
+    if(!tbody)return out;
+    for(var i=0;i<tbody.rows.length;i++){
+      var tr=tbody.rows[i],p=isPinned(tr);
+      if(only==='data'&&!p)out.push(tr);
+      else if(only==='pinned'&&p)out.push(tr);
+      else if(!only)out.push(tr);
+    }
+    return out;
+  }
+
+  /* ---------- cilat tabela bëhen të renditshme ---------- */
+  function isSortable(table){
+    try{
+      if(!table||table.tagName!=='TABLE')return 'jo-tabele';
+      if(table.hasAttribute('data-no-sort'))return 'data-no-sort';
+      if(table.matches&&table.matches(SKIP_TABLE))return 'dokument/renditje-e-brendshme';
+      if(table.closest&&table.closest(SKIP_IN))return 'dokument-print';
+      var hrow=headerRow(table);
+      if(!hrow)return 'pa-koke';
+      if(hrow.cells.length<2)return 'nje-kolone';
+      var r,i,cs;
+      for(r=0;r<table.tHead.rows.length;r++){
+        cs=table.tHead.rows[r].cells;
+        for(i=0;i<cs.length;i++)if(cs[i].rowSpan>1||cs[i].colSpan>1)return 'koke-e-bashkuar';
+      }
+      for(i=0;i<hrow.cells.length;i++)if(hrow.cells[i].hasAttribute('onclick'))return 'onclick-ekzistues';
+      var tbody=table.tBodies[0];
+      if(!tbody)return 'pa-trup';
+      if(tbody.querySelector('input,select,textarea,[contenteditable="true"]')&&!(table.matches&&table.matches(ALLOW_EDITABLE)))return 'formular';
+      if(rowsOf(tbody,'data').length<2)return 'rreshta';
+      return '';
+    }catch(e){STATS.errors++;return 'gabim'}
+  }
+
+  /* ---------- kurorëzimi i kokave ---------- */
+  function enhance(root){
+    root=root||document;
+    var tables=(root.nodeType===1&&root.tagName==='TABLE')?[root]:$all('table',root);
+    tables.forEach(function(table){
+      try{
+        if(table.__bbNo&&table.__bbNo!=='rreshta')return;          /* vendim përfundimtar */
+        var why=isSortable(table);
+        if(why){table.__bbNo=why;return}
+        table.__bbNo=null;
+        if(!table.classList.contains('bb-sortable')){table.classList.add('bb-sortable');STATS.sortable++}
+        var hrow=headerRow(table);
+        for(var i=0;i<hrow.cells.length;i++){
+          var th=hrow.cells[i],lbl=thLabel(th);
+          if(!lbl||NONSORT_LABEL.test(deAlb(lbl))){th.classList.remove('bb-sort');continue}
+          if(th.classList.contains('bb-sort'))continue;
+          th.classList.add('bb-sort');
+          th.setAttribute('tabindex','0');
+          th.setAttribute('aria-sort','none');
+          th.setAttribute('title','Kliko për të renditur rritës / zbritës');
+          th.dataset.bbLabel=lbl;
+          STATS.headers++;
+        }
+      }catch(e){STATS.errors++}
+    });
+  }
+
+  /* ---------- renditja ---------- */
+  function columnKind(rows,i){
+    var num=0,dat=0,tot=0;
+    for(var k=0;k<rows.length;k++){
+      var t=cellText(rows[k],i);if(!t)continue;
+      tot++;
+      if(toDate(t)!==null){dat++;continue}
+      if(toNumber(t)!==null)num++;
+    }
+    if(!tot)return 'text';
+    if(dat/tot>=0.6)return 'date';
+    if(num/tot>=0.6)return 'num';
+    return 'text';
+  }
+  function orderRows(rows,i,kind,dir){
+    var s=(dir==='desc')?-1:1;
+    var keyed=rows.map(function(tr,idx){
+      var t=cellText(tr,i),v=null;
+      if(kind!=='text')v=(kind==='num')?toNumber(t):toDate(t);
+      var empty=(t==='')||(kind!=='text'&&v===null);
+      /* teksti krahasohet me cmpText: kollacion amtar shqip ose rendi i alfabetit shqip */
+      return {tr:tr,idx:idx,key:t,val:v,empty:empty};
+    });
+    keyed.sort(function(a,b){
+      if(a.empty&&b.empty)return a.idx-b.idx;
+      if(a.empty)return 1;                                          /* boshllëket në fund */
+      if(b.empty)return -1;
+      var r=(kind==='text')?cmpText(a.key,b.key):(a.val-b.val);
+      if(!r)r=cmpText(a.key,b.key);
+      if(!r)r=a.idx-b.idx;
+      return r*s;
+    });
+    return keyed.map(function(x){return x.tr});
+  }
+  function writeOrder(tbody,order,pinned){
+    applying=true;
+    try{
+      var frag=document.createDocumentFragment();
+      order.forEach(function(tr){frag.appendChild(tr)});
+      (pinned||[]).forEach(function(tr){frag.appendChild(tr)});
+      tbody.appendChild(frag);
+    }finally{setTimeout(function(){applying=false},0)}
+  }
+  function renumber(tbody,order,idx){
+    try{
+      if(idx===0)return;                                            /* po renditet vetë kolona "Nr." */
+      var table=tbody.parentNode;if(!table)return;
+      var hrow=headerRow(table);if(!hrow||!hrow.cells.length)return;
+      var lbl=deAlb(thLabel(hrow.cells[0])).replace(/[^a-z#]/g,'');
+      if(lbl!=='nr'&&lbl!=='#'&&lbl!=='radhe'&&lbl!=='rend')return;
+      var orig=(ORIGINALS.get(tbody)||[]).filter(function(tr){return !isPinned(tr)});
+      if(orig.length!==order.length)return;
+      for(var i=0;i<orig.length;i++){
+        var td=orig[i].cells[0];if(!td)return;
+        /* nëse kolona është rinumëruar më parë, merret vlera origjinale e ruajtur */
+        var base=NR_ORIG.has(orig[i])?norm(NR_ORIG.get(orig[i])):norm(td.textContent);
+        if(base!==String(i+1))return;                               /* nuk është numërim 1..N */
+      }
+      order.forEach(function(tr,k){
+        var td2=tr.cells[0];if(!td2)return;
+        if(!NR_ORIG.has(tr))NR_ORIG.set(tr,td2.textContent);
+        td2.textContent=String(k+1);
+      });
+    }catch(e){STATS.errors++}
+  }
+  function markHeaders(table,idx,dir){
+    var hrow=headerRow(table);if(!hrow)return;
+    for(var i=0;i<hrow.cells.length;i++){
+      var th=hrow.cells[i];
+      th.classList.remove('bb-sort-asc','bb-sort-desc');
+      if(!th.classList.contains('bb-sort'))continue;
+      if(i===idx&&dir){
+        th.classList.add(dir==='asc'?'bb-sort-asc':'bb-sort-desc');
+        th.setAttribute('aria-sort',dir==='asc'?'ascending':'descending');
+        th.setAttribute('title',dir==='asc'
+          ?'E renditur rritës — kliko për zbritës'
+          :'E renditur zbritës — kliko për të kthyer rendin origjinal');
+      }else{
+        th.setAttribute('aria-sort','none');
+        th.setAttribute('title','Kliko për të renditur rritës / zbritës');
+      }
+    }
+  }
+  function notify(table,detail){try{table.dispatchEvent(new CustomEvent('bb:sorted',{bubbles:true,detail:detail}))}catch(e){}}
+  function sort(table,idx,dir){
+    var tbody=table.tBodies[0];if(!tbody)return false;
+    var hrow=headerRow(table);if(!hrow||!hrow.cells[idx])return false;
+    if(!ORIGINALS.has(tbody))ORIGINALS.set(tbody,rowsOf(tbody));
+    var rows=rowsOf(tbody,'data'),pinned=rowsOf(tbody,'pinned');
+    if(rows.length<2)return false;
+    var kind=columnKind(rows,idx),order=orderRows(rows,idx,kind,dir);
+    writeOrder(tbody,order,pinned);
+    renumber(tbody,order,idx);
+    markHeaders(table,idx,dir);
+    table.__bbSort={idx:idx,dir:dir,kind:kind,label:thLabel(hrow.cells[idx])};
+    notify(table,{column:idx,label:table.__bbSort.label,dir:dir,kind:kind,rows:rows.length});
+    return true;
+  }
+  function restore(table){
+    var tbody=table.tBodies[0];if(!tbody)return false;
+    var orig=(ORIGINALS.get(tbody)||[]).slice(),cur=rowsOf(tbody);
+    var kept=orig.filter(function(tr){return cur.indexOf(tr)>=0});
+    markHeaders(table,-1,null);
+    table.__bbSort=null;
+    if(kept.length!==cur.length){ORIGINALS.set(tbody,cur);return false}
+    kept.forEach(function(tr){if(NR_ORIG.has(tr)&&tr.cells[0])tr.cells[0].textContent=NR_ORIG.get(tr)});
+    writeOrder(tbody,kept,[]);
+    notify(table,{column:-1,label:null,dir:'none',kind:null,rows:kept.length});
+    return true;
+  }
+
+  /* ---------- nënshkrimi i tabelës (renditja mbahet pas ri-renderimit) ---------- */
+  function keyBase(table){
+    var hrow=headerRow(table);if(!hrow)return null;
+    var heads=[];
+    for(var i=0;i<hrow.cells.length;i++)heads.push(thLabel(hrow.cells[i]));
+    var scope;
+    try{
+      scope=(table.closest&&table.closest('#modalBody'))
+        ?'modal:'+norm((document.getElementById('modalTitle')||{}).textContent)
+        :'page:'+currentPage();
+    }catch(e){scope='page:?'}
+    return scope+' :: '+heads.join('|');
+  }
+  function keyedTables(){
+    var seen={},out=[];
+    $all('table.bb-sortable').forEach(function(t){
+      var b=keyBase(t);if(b===null)return;
+      var n=(seen[b]=(seen[b]||0)+1);
+      out.push([t,b+' #'+n]);
+    });
+    return out;
+  }
+  function keyOf(table){
+    var l=keyedTables();
+    for(var i=0;i<l.length;i++)if(l[i][0]===table)return l[i][1];
+    return null;
+  }
+  function remember(table){
+    var k=keyOf(table);if(!k)return;
+    var st=table.__bbSort,hrow=headerRow(table);
+    if(st&&hrow&&hrow.cells[st.idx])STORE[k]={label:thLabel(hrow.cells[st.idx]),dir:st.dir};
+    else delete STORE[k];
+  }
+
+  /* ---------- cikli 3-gjendësh i klikimit: rritës → zbritës → origjinal ---------- */
+  function cycle(table,idx){
+    if(!table||idx==null||idx<0)return false;
+    var cur=table.__bbSort;
+    var dir=(!cur||cur.idx!==idx)?'asc':(cur.dir==='asc'?'desc':null);
+    if(dir===null){restore(table);STATS.restores++}
+    else if(!sort(table,idx,dir))return false;else STATS.sorts++;
+    remember(table);
+    return true;
+  }
+  /* ---------- thirrje nga kodi/API: vendos drejtimin e kërkuar, pa cikël ---------- */
+  function force(table,idx,dir){
+    if(!table||idx==null||idx<0)return false;
+    dir=(dir==='desc')?'desc':'asc';
+    var cur=table.__bbSort;
+    if(!(cur&&cur.idx===idx&&cur.dir===dir)){
+      if(!sort(table,idx,dir))return false;
+      STATS.sorts++;
+    }
+    remember(table);
+    return true;
+  }
+  function reapply(){
+    try{
+      if(applying)return;
+      keyedTables().forEach(function(pair){
+        var table=pair[0],st=STORE[pair[1]];
+        if(!st)return;
+        var cur=table.__bbSort;
+        if(cur&&cur.label===st.label&&cur.dir===st.dir)return;
+        var hrow=headerRow(table);if(!hrow)return;
+        var idx=-1;
+        for(var i=0;i<hrow.cells.length;i++)if(thLabel(hrow.cells[i])===st.label){idx=i;break}
+        if(idx<0)return;
+        if(sort(table,idx,st.dir))STATS.reapplied++;
+      });
+    }catch(e){STATS.errors++}
+  }
+  function refresh(){try{enhance(document);reapply()}catch(e){STATS.errors++}}
+  function schedule(){
+    if(timer)return;
+    timer=setTimeout(function(){timer=null;if(applying){schedule();return}refresh()},90);
+  }
+
+  /* ---------- klikimi (deleguar) + tastiera ---------- */
+  document.addEventListener('click',function(e){
+    try{
+      var t=e.target;if(!t||!t.closest)return;
+      if(t.closest('input,select,textarea,button,a,label,summary,[data-no-sort],.sales-reg-col-handle,.sales-reg-row-handle'))return;
+      var th=t.closest('th');
+      if(!th||!th.classList||!th.classList.contains('bb-sort'))return;
+      var table=th.closest('table');if(!table)return;
+      var idx=Array.prototype.indexOf.call(th.parentNode.cells,th);
+      if(idx<0)return;
+      STATS.clicks++;
+      cycle(table,idx);
+    }catch(err){STATS.errors++}
+  },false);
+  document.addEventListener('keydown',function(e){
+    try{
+      if(e.key!=='Enter'&&e.key!==' '&&e.key!=='Spacebar')return;
+      var th=e.target;
+      if(!th||th.tagName!=='TH'||!th.classList||!th.classList.contains('bb-sort'))return;
+      var table=th.closest('table');if(!table)return;
+      var idx=Array.prototype.indexOf.call(th.parentNode.cells,th);
+      if(idx<0)return;
+      e.preventDefault();
+      STATS.clicks++;
+      cycle(table,idx);
+    }catch(err){STATS.errors++}
+  },false);
+
+  /* ---------- ripërtëritje pas çdo ri-renderimi / modal-je të re ---------- */
+  try{
+    var rB=window.render;
+    if(typeof rB==='function'){
+      window.render=function(){var r=rB.apply(this,arguments);setTimeout(refresh,0);return r};
+    }
+  }catch(e){}
+  try{
+    var mB=window.modal;
+    if(typeof mB==='function'){
+      window.modal=function(){var r=mB.apply(this,arguments);setTimeout(refresh,0);return r};
+    }
+  }catch(e){}
+  try{
+    var mo=new MutationObserver(function(muts){
+      if(applying)return;
+      for(var i=0;i<muts.length;i++){
+        var add=muts[i].addedNodes;
+        for(var j=0;j<add.length;j++){
+          var nd=add[j];
+          if(nd.nodeType!==1)continue;
+          if(nd.tagName==='TABLE'||(nd.querySelector&&nd.querySelector('table'))){schedule();return}
+        }
+      }
+    });
+    mo.observe(document.body||document.documentElement,{childList:true,subtree:true});
+  }catch(e){}
+
+  /* ---------- API për module të tjera, teste dhe diagnostikë ---------- */
+  function resolve(table){
+    if(typeof table==='string')return document.querySelector(table);
+    return table||null;
+  }
+  function columnIndex(table,label){
+    var hrow=headerRow(table);if(!hrow)return -1;
+    var want=deAlb(label);
+    for(var i=0;i<hrow.cells.length;i++)if(deAlb(thLabel(hrow.cells[i]))===want)return i;
+    return -1;
+  }
+  function resetAll(){
+    $all('table.bb-sortable').forEach(function(t){try{restore(t)}catch(e){}});
+    for(var k in STORE)if(Object.prototype.hasOwnProperty.call(STORE,k))delete STORE[k];
+  }
+  API=window.__biobesTableSortV1={
+    version:'1.1.0',
+    enhance:enhance,
+    isSortable:isSortable,
+    columnIndex:columnIndex,
+    compareText:cmpText,
+    compareAlbanian:cmpSq,
+    nativeCollation:SQ_NATIVE,
+    readValue:function(s){var d=toDate(s);if(d!==null)return {kind:'date',value:d};
+      var v=toNumber(s);if(v!==null)return {kind:'num',value:v};
+      return {kind:'text',value:norm(s)};
+    },
+    sort:function(table,label,dir){
+      var t=resolve(table);if(!t)return false;
+      var i=columnIndex(t,label);if(i<0)return false;
+      return dir?force(t,i,dir):cycle(t,i);
+    },
+    sortColumn:function(table,idx,dir){
+      var t=resolve(table);if(!t)return false;
+      return dir?force(t,idx,dir):cycle(t,idx);
+    },
+    toggle:function(table,label){
+      var t=resolve(table);if(!t)return false;
+      var i=(label==null)?0:columnIndex(t,label);if(i<0)return false;
+      return cycle(t,i);
+    },
+    restore:function(table){var t=resolve(table);return t?restore(t):false},
+    resetAll:resetAll,
+    reapply:reapply,
+    refresh:refresh,
+    state:function(table){var t=resolve(table);return t?(t.__bbSort||null):null},
+    stats:STATS,
+    store:STORE,
+    report:function(){
+      var list=keyedTables(),all=$all('table'),reasons={};
+      all.forEach(function(t){var w=isSortable(t)||'OK';reasons[w]=(reasons[w]||0)+1});
+      return {
+        version:API.version,
+        stats:STATS,
+        tablesInPage:all.length,
+        sortableTables:list.length,
+        byReason:reasons,
+        sortedNow:list.filter(function(p){return !!p[0].__bbSort}).map(function(p){
+          return {key:p[1],label:p[0].__bbSort.label,dir:p[0].__bbSort.dir,kind:p[0].__bbSort.kind};
+        }),
+        remembered:Object.keys(STORE).map(function(k){return {key:k,label:STORE[k].label,dir:STORE[k].dir}})
+      };
+    }
+  };
+  window.tableSortReport=API.report;
+  window.sortTableColumn=function(table,label,dir){return API.sort(table,label,dir)};
+
+  try{
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(refresh,60)});
+    else setTimeout(refresh,60);
+  }catch(e){}
+})();
+</script>
+
 </body></html>
