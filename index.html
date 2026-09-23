@@ -2264,8 +2264,8 @@ function officialSalesBookView() {
     `<div id="printSalesBook" class="alpha-paper" style="max-width:1400px;margin:auto">
       <div style="display:flex;justify-content:space-between;border-bottom:2px solid #168246;padding-bottom:10px;margin-bottom:12px">
         <div>
-          <h1 style="margin:0;color:#168246;font-size:22px">LIBRI I SHITJEVE</h1>
-          <div style="font-size:12px;color:#555">Sipas Ligjit nr. 92/2014 & Drejtorisë së Përgjithshme të Tatimeve</div>
+          <h1 style="margin:0;color:#168246;font-size:22px;letter-spacing:0.5px">LIBRI I SHITJEVE</h1>
+          <div style="font-size:12px;color:#555">Sipas Ligjit nr. 92/2014 & Drejtorisë së Përgjithshme të Tatimeve (DPT)</div>
         </div>
         <div style="text-align:right;font-size:12px">
           <b>${esc(ci.name)}</b><br>NIPT: <b>${esc(ci.nipt)}</b><br>Periudha: <b>${esc(officialTaxFilters.month || 'Gjithsej')}</b>
@@ -2275,19 +2275,36 @@ function officialSalesBookView() {
         <table class="alpha-card-table">
           <thead>
             <tr>
+              <th colspan="7" style="text-align:center;border-right:2px solid #285d43">FATURA E LËSHUAR</th>
+              <th rowspan="2" style="vertical-align:middle;text-align:right">Totali me TVSH (ALL)</th>
+              <th colspan="2" style="text-align:center">Shitjet e Tatueshme 20%</th>
+              <th rowspan="2" style="vertical-align:middle;text-align:right">Eksporte mallrash (0%)</th>
+              <th rowspan="2" style="vertical-align:middle;text-align:right">Shitje të Përjashtuara</th>
+            </tr>
+            <tr>
               <th>Nr.</th>
-              <th>Lloji Dokumentit</th>
+              <th>Lloji Dok.</th>
               <th>Nr. Faturës</th>
               <th>Data</th>
               <th>NIPT Blerësi</th>
               <th>Emërtimi i Blerësit</th>
               <th>Shteti/Qyteti</th>
-              <th>Monedha</th>
-              <th>Totali ALL</th>
-              <th>Baza 20%</th>
+              <th>Vlera e Tatueshme</th>
               <th>TVSH 20%</th>
-              <th>Eksporte (0%)</th>
-              <th>Të Përjashtuara</th>
+            </tr>
+            <tr style="background:#e8f4ec;font-size:10px;text-align:center;color:#285d43;font-weight:700">
+              <td>a</td>
+              <td>—</td>
+              <td>b</td>
+              <td>c</td>
+              <td>d</td>
+              <td>e</td>
+              <td>f</td>
+              <td style="text-align:right">G=(h+i+j+k)</td>
+              <td style="text-align:right">j</td>
+              <td style="text-align:right">k</td>
+              <td style="text-align:right">i</td>
+              <td style="text-align:right">h</td>
             </tr>
           </thead>
           <tbody>
@@ -2299,22 +2316,31 @@ function officialSalesBookView() {
               <td><b>${esc(x.buyerVat)}</b></td>
               <td>${esc(x.buyerName)}</td>
               <td>${esc(x.buyerPlace)}</td>
-              <td>${x.currency} ${x.currency !== 'ALL' ? '(' + fmt2(x.totalCur) + ')' : ''}</td>
               <td style="text-align:right"><b>${fmt2(x.totalALL)}</b></td>
               <td style="text-align:right">${fmt2(x.base20)}</td>
               <td style="text-align:right">${fmt2(x.vat20)}</td>
               <td style="text-align:right;color:#0d6832"><b>${fmt2(x.exportVal)}</b></td>
               <td style="text-align:right">${fmt2(x.exemptVal)}</td>
-            </tr>`).join('') || '<tr><td colspan="13" class="empty">Nuk ka faturime shitjeje për këtë periudhë.</td></tr>'}
+            </tr>`).join('') || '<tr><td colspan="12" class="empty">Nuk ka faturime shitjeje për këtë periudhë.</td></tr>'}
+          </tbody>
+          <tfoot>
             <tr class="alpha-total-row">
-              <td colspan="8">TOTALI I PËRGJITHSHËM (${rows.length} fatura)</td>
+              <td colspan="7">TOTALI I PËRGJITHSHËM (${rows.length} fatura)</td>
               <td style="text-align:right">${fmt2(tot('totalALL'))}</td>
               <td style="text-align:right">${fmt2(tot('base20'))}</td>
               <td style="text-align:right">${fmt2(tot('vat20'))}</td>
               <td style="text-align:right;color:#0d6832">${fmt2(tot('exportVal'))}</td>
               <td style="text-align:right">${fmt2(tot('exemptVal'))}</td>
             </tr>
-          </tbody>
+            <tr style="background:#f1f5f9;font-weight:700;font-size:11px;color:#334155;border-top:2px solid #64748b">
+              <td colspan="7" style="text-align:right;font-weight:800;color:#0f172a">Kutia sipas Formularit të Deklarimit dhe Pagesës së TVSH-së (FDP):</td>
+              <td></td>
+              <td style="text-align:right;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">kutia 11</td>
+              <td style="text-align:right;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">kutia 12</td>
+              <td style="text-align:right;background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd">kutia 10</td>
+              <td style="text-align:right;background:#fef3c7;color:#92400e;border:1px solid #fde68a">kutia 9</td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </div>`;
@@ -2330,8 +2356,8 @@ function officialPurchaseBookView() {
     `<div id="printPurchaseBook" class="alpha-paper" style="max-width:1400px;margin:auto">
       <div style="display:flex;justify-content:space-between;border-bottom:2px solid #168246;padding-bottom:10px;margin-bottom:12px">
         <div>
-          <h1 style="margin:0;color:#168246;font-size:22px">LIBRI I BLERJEVE</h1>
-          <div style="font-size:12px;color:#555">Sipas Ligjit nr. 92/2014 & Drejtorisë së Përgjithshme të Tatimeve</div>
+          <h1 style="margin:0;color:#168246;font-size:22px;letter-spacing:0.5px">LIBRI I BLERJEVE</h1>
+          <div style="font-size:12px;color:#555">Sipas Ligjit nr. 92/2014 & Drejtorisë së Përgjithshme të Tatimeve (DPT)</div>
         </div>
         <div style="text-align:right;font-size:12px">
           <b>${esc(ci.name)}</b><br>NIPT: <b>${esc(ci.nipt)}</b><br>Periudha: <b>${esc(officialTaxFilters.month || 'Gjithsej')}</b>
@@ -2341,20 +2367,39 @@ function officialPurchaseBookView() {
         <table class="alpha-card-table">
           <thead>
             <tr>
+              <th colspan="7" style="text-align:center;border-right:2px solid #285d43">FATURA E MARRË NGA FURNIZUESI</th>
+              <th rowspan="2" style="vertical-align:middle;text-align:right">Totali me TVSH (ALL)</th>
+              <th colspan="2" style="text-align:center">Blerje Vendase 20%</th>
+              <th colspan="2" style="text-align:center">Importe Mallrash 20%</th>
+              <th rowspan="2" style="vertical-align:middle;text-align:right">Përjashtuar / Fermer</th>
+            </tr>
+            <tr>
               <th>Nr.</th>
-              <th>Lloji Dokumentit</th>
+              <th>Lloji Dok.</th>
               <th>Nr. Faturës Furnitorit</th>
               <th>Data</th>
               <th>NIPT Furnitori</th>
               <th>Emërtimi i Furnitorit</th>
               <th>Rrethi/Vendi</th>
-              <th>Monedha</th>
-              <th>Totali ALL</th>
-              <th>Baza Vendase 20%</th>
-              <th>TVSH e Zbritshme 20%</th>
-              <th>Importe 20%</th>
-              <th>TVSH Importi</th>
-              <th>Përjashtuar / Fermer</th>
+              <th>Baza e Tatueshme</th>
+              <th>TVSH e Zbritshme</th>
+              <th>Vlera Doganore</th>
+              <th>TVSH Doganore</th>
+            </tr>
+            <tr style="background:#e8f4ec;font-size:10px;text-align:center;color:#285d43;font-weight:700">
+              <td>a</td>
+              <td>—</td>
+              <td>b</td>
+              <td>c</td>
+              <td>d</td>
+              <td>dh</td>
+              <td>e</td>
+              <td style="text-align:right">ë=(f+gj+i+k)</td>
+              <td style="text-align:right">i</td>
+              <td style="text-align:right">k</td>
+              <td style="text-align:right">i doganë</td>
+              <td style="text-align:right">k doganë</td>
+              <td style="text-align:right">f</td>
             </tr>
           </thead>
           <tbody>
@@ -2366,16 +2411,17 @@ function officialPurchaseBookView() {
               <td><b>${esc(x.supVat)}</b></td>
               <td>${esc(x.supName)}</td>
               <td>${esc(x.supPlace)}</td>
-              <td>${x.currency} ${x.currency !== 'ALL' ? '(' + fmt2(x.totalCur) + ')' : ''}</td>
               <td style="text-align:right"><b>${fmt2(x.totalALL)}</b></td>
               <td style="text-align:right">${fmt2(x.base20)}</td>
               <td style="text-align:right;color:#0d6832"><b>${fmt2(x.vat20)}</b></td>
               <td style="text-align:right">${fmt2(x.importBase)}</td>
               <td style="text-align:right">${fmt2(x.importVat)}</td>
               <td style="text-align:right">${fmt2(x.exemptFarmer)}</td>
-            </tr>`).join('') || '<tr><td colspan="14" class="empty">Nuk ka faturime blerjeje për këtë periudhë.</td></tr>'}
+            </tr>`).join('') || '<tr><td colspan="13" class="empty">Nuk ka faturime blerjeje për këtë periudhë.</td></tr>'}
+          </tbody>
+          <tfoot>
             <tr class="alpha-total-row">
-              <td colspan="8">TOTALI I PËRGJITHSHËM (${rows.length} fatura)</td>
+              <td colspan="7">TOTALI I PËRGJITHSHËM (${rows.length} fatura)</td>
               <td style="text-align:right">${fmt2(tot('totalALL'))}</td>
               <td style="text-align:right">${fmt2(tot('base20'))}</td>
               <td style="text-align:right;color:#0d6832">${fmt2(tot('vat20'))}</td>
@@ -2383,7 +2429,16 @@ function officialPurchaseBookView() {
               <td style="text-align:right">${fmt2(tot('importVat'))}</td>
               <td style="text-align:right">${fmt2(tot('exemptFarmer'))}</td>
             </tr>
-          </tbody>
+            <tr style="background:#f1f5f9;font-weight:700;font-size:11px;color:#334155;border-top:2px solid #64748b">
+              <td colspan="7" style="text-align:right;font-weight:800;color:#0f172a">Kutia sipas Formularit të Deklarimit dhe Pagesës së TVSH-së (FDP):</td>
+              <td></td>
+              <td style="text-align:right;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">kutia 30</td>
+              <td style="text-align:right;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">kutia 31</td>
+              <td style="text-align:right;background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd">kutia 28</td>
+              <td style="text-align:right;background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd">kutia 28 TVSH</td>
+              <td style="text-align:right;background:#fef3c7;color:#92400e;border:1px solid #fde68a">kutia 26</td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </div>`;
