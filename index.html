@@ -16609,6 +16609,7 @@ window.openAlbanianSaleInvoice = function(id) {
       </span>
     </div>
     <div class="toggle-banner-actions">
+      <button class="btn small" onclick="saleInvoiceCard('${f.id}')" title="Kthehu te Fatura Origjinale e Eksportit">🌍 Fatura e Eksportit (Commercial)</button>
       <button class="btn small primary" onclick="openGoodsTransportNote('${f.id}', 'sale')">🚚 Faturë Shoqëruese Malli</button>
     </div>
   </div>
@@ -16618,6 +16619,7 @@ window.openAlbanianSaleInvoice = function(id) {
 
   modal('Faturë — ' + (f.invoiceNumber || f.id), bannerHtml,
     `<button class="btn" onclick="closeModal()">Mbyll</button>
+     <button class="btn" onclick="saleInvoiceCard('${f.id}')">🌍 Fatura e Eksportit</button>
      <button class="btn" onclick="openGoodsTransportNote('${f.id}', 'sale')">🚚 Faturë Shoqëruese</button>
      <button class="btn" onclick="verifyInvoiceOnDPT('${f.id}')">🔍 Verifiko DPT</button>
      <button class="btn" onclick="openFiscalXmlModal('${f.id}')">XML DPT</button>
