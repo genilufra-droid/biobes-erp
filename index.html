@@ -128,9 +128,18 @@ function closeModal(){
   ['modalTitle','modalBody','modalFoot'].forEach(id=>document.getElementById(id)?.replaceChildren());
 }
 function opts(arr,label,sel=''){return arr.map(x=>`<option value="${x.id}" ${x.id===sel?'selected':''}>${esc(label(x))}</option>`).join('')}
-function entityForm(type){if(type==='product')modal('Produkt i ri',`<div class="form-grid"><div class="field"><label>Kodi</label><input id="fCode"></div><div class="field"><label>Kategoria</label><select id="fCat"><option>Gjethe</option><option>Herbat</option><option>Lulet</option><option>Rrënjët</option><option>Frutat</option><option>Farat</option><option>Lëvoret</option><option>Vajrat</option></select></div><div class="field"><label>Emri shqip</label><input id="fName"></div><div class="field"><label>Emri botanik</label><input id="fBot"></div><div class="field full"><label>Emri anglisht</label><input id="fEng"></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addProduct()">Ruaj</button>`);else modal('Furnitor i ri',`<div class="form-grid"><div class="field"><label>Kodi</label><input id="fCode"></div><div class="field"><label>Emri</label><input id="fName"></div><div class="field"><label>Qarku / Zona</label><input id="fRegion"></div><div class="field"><label>Telefon</label><input id="fPhone"></div><div class="field"><label>Qyteti</label><input id="fCity"></div><div class="field"><label>Shteti</label><input id="fCountry" value="Albania"></div><div class="field"><label>Website</label><input id="fWebsite" placeholder="https://..."></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addSupplier()">Ruaj</button>`)}
+function entityForm(type){if(type==='product')modal('Produkt i ri',`<div class="form-grid"><div class="field"><label>Kodi</label><input id="fCode"></div><div class="field"><label>Kategoria</label><select id="fCat"><option>Gjethe</option><option>Herbat</option><option>Lulet</option><option>Rrënjët</option><option>Frutat</option><option>Farat</option><option>Lëvoret</option><option>Vajrat</option></select></div><div class="field"><label>Emri shqip</label><input id="fName"></div><div class="field"><label>Emri botanik</label><input id="fBot"></div><div class="field full"><label>Emri anglisht</label><input id="fEng"></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addProduct()">Ruaj</button>`);else modal('Furnitor i ri',`<div class="form-grid">
+  <div class="field"><label>Kodi *</label><input id="fCode" placeholder="p.sh. S-04"></div>
+  <div class="field"><label>Emri i plotë / Subjekti *</label><input id="fName" placeholder="Emër Mbiemër ose Kompani"></div>
+  <div class="field"><label>NIPT / Numri Personal (ID) *</label><input id="fNipt" placeholder="p.sh. K91234567A ose ID"></div>
+  <div class="field"><label>Adresa e plotë</label><input id="fAddress" placeholder="Fshati/Rruga, Bashkia"></div>
+  <div class="field"><label>Qarku / Zona</label><input id="fRegion" placeholder="p.sh. Fier, Berat"></div>
+  <div class="field"><label>Telefon</label><input id="fPhone"></div>
+  <div class="field"><label>IBAN / Llogaria Bankare</label><input id="fIban" placeholder="AL..."></div>
+  <div class="field"><label>Shteti</label><input id="fCountry" value="Albania"></div>
+</div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="addSupplier()">Ruaj</button>`)}
 function addProduct(){try{if(!$val('fCode')?.trim()||!$val('fName')?.trim())return toast('Plotësoni kodin dhe emrin e produktit');state.products.push({id:'P'+($id('fCode')?.value||''),code:$val('fCode'),name:$val('fName'),botanical:$val('fBot'),english:$val('fEng'),category:$val('fCat'),active:true});save();closeModal();render();toast('Produkti u shtua')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
-function addSupplier(){try{if(!$val('fCode')?.trim()||!$val('fName')?.trim())return toast('Plotësoni kodin dhe emrin e furnitorit');state.suppliers.push({id:uid('S'),code:$val('fCode'),name:$val('fName'),region:$val('fRegion'),phone:$val('fPhone'),city:$val('fCity'),country:$val('fCountry','Albania'),website:$val('fWebsite'),balance:0});save();closeModal();render();toast('Furnitori u shtua')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
+function addSupplier(){try{if(!$val('fCode')?.trim()||!$val('fName')?.trim())return toast('Plotësoni kodin dhe emrin e furnitorit');state.suppliers.push({id:uid('S'),code:$val('fCode'),name:$val('fName'),nipt:$val('fNipt')||'',address:$val('fAddress')||'',region:$val('fRegion')||'',phone:$val('fPhone')||'',iban:$val('fIban')||'',country:$val('fCountry','Albania'),balance:0});save();closeModal();render();toast('Furnitori u shtua me sukses me NIPT dhe adresë')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
 function weighForm(){modal('Peshim i ri',`<div class="stepbar"><span class="step on">Të dhënat</span><span class="step">Peshimet</span><span class="step">Konfirmimi</span></div><div class="form-grid"><div class="field"><label>Data</label><input id="wDate" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div class="field"><label>Kush e priti mallin?</label><input id="wReceiver" value="${esc((activeUser()||{}).name||'')}"></div><div class="field"><label>Furnitori</label><select id="wSupplier"><option value="">Zgjidh...</option>${opts(state.suppliers,x=>x.code+' — '+x.name)}</select><span class="hint">Nuk gjendet? Shtohet te moduli Furnitorë.</span></div><div class="field"><label>Produkti</label><select id="wProduct"><option value="">Zgjidh...</option>${opts(state.products,x=>x.code+' — '+x.name)}</select></div><div class="field"><label>Nr. thasëve (opsional)</label><input id="wBags" type="number"></div><div class="field"><label>Zbritja për faturim %</label><input id="wDiscount" type="number" value="3" oninput="calcW()"></div><div class="field full"><label>Peshimet bruto — një peshë për rresht (kg)</label><textarea id="wGross" placeholder="p.sh. 187\n168.2\n281.8" oninput="calcW()"></textarea></div><div class="field full"><label>Peshat e ambalazhit — një peshë për rresht (kg)</label><textarea id="wTare" placeholder="p.sh. 50\n40\n50" oninput="calcW()"></textarea></div><div class="field full"><label>Foto/PDF e printerit elektronik</label><input id="wFile" type="file" accept="image/*,.pdf"><span class="hint">Ruhet emri i dokumentit.</span></div></div><div class="totals"><div class="total"><small>Peshime</small><b id="tCount">0</b></div><div class="total"><small>Bruto Z</small><b id="tGross">0 kg</b></div><div class="total"><small>Ambalazh Y</small><b id="tTare">0 kg</b></div><div class="total"><small>Mall fizik X</small><b id="tNet">0 kg</b></div><div class="total"><small>Peshë faturueshme</small><b id="tBill">0 kg</b></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn" onclick="saveWeigh(false)">Ruaj draft</button><button class="btn primary" onclick="saveWeigh(true)">Konfirmo & krijo lot</button>`);calcW()}
 function nums(id){return document.getElementById(id).value.split(/[\n,;]+/).map(Number).filter(x=>!isNaN(x)&&x)}
 function calcW(){try{let g=nums('wGross'),t=nums('wTare'),G=g.reduce((a,x)=>a+x,0),T=t.reduce((a,x)=>a+x,0),N=G-T,d=$num('wDiscount',0);let tc=$id('tCount'),tg=$id('tGross'),tt=$id('tTare'),tn=$id('tNet'),tb=$id('tBill');if(tc)tc.textContent=g.length;if(tg)tg.textContent=n(G)+' kg';if(tt)tt.textContent=n(T)+' kg';if(tn)tn.textContent=n(N)+' kg';if(tb)tb.textContent=n(N*(1-d/100))+' kg'}catch(e){console.error(e)}}
@@ -200,12 +209,20 @@ views.customers=function(){let rows=(state.customers||[]).map(x=>{let inv=salesI
 if(!modules.some(m=>m[0]==='customers')){let ix=modules.findIndex(m=>m[0]==='orders');modules.splice(ix<0?modules.length-1:ix,0,['customers','☷','Klientët'])}
 function actionBtns(type,id){return `<span class="row-actions"><button class="btn small" onclick="editEntity('${type}','${id}')">Ndrysho</button><button class="btn small danger" onclick="deleteEntity('${type}','${id}')">Fshi</button></span>`}
 views.products=function(){return head('Produktet','Kodet, emërtimet dhe kategoritë e bimëve',`<button class="btn" onclick="downloadTemplate('products')">Shkarko template</button><button class="btn" onclick="document.getElementById('productImport').click()">Import CSV</button><input hidden type="file" id="productImport" accept=".csv,text/csv" onchange="importProducts(this)"><button class="btn" onclick="exportProductsXls()">Eksporto Excel</button><button class="btn primary" onclick="entityForm('product')">+ Shto produkt</button>`)+`<div class="toolbar"><input placeholder="Kërko live me kod, emër ose kategori..." oninput="liveFilter(this)"></div><div class="liveTable">${tableCard(['Kodi','Shqip','Botanik','Anglisht','Kategoria','Veprime'],state.products.map(x=>[x.code,x.name,x.botanical,x.english,x.category,actionBtns('product',x.id)]))}</div>`}
-views.suppliers=function(){return head('Furnitorët','Kartela, blerjet, pagesat dhe gjendja',`<button class="btn" onclick="exportSuppliersXls()">Eksporto Excel</button><button class="btn primary" onclick="entityForm('supplier')">+ Shto furnitor</button>`)+`<div class="toolbar"><input placeholder="Kërko live..." oninput="liveFilter(this)"></div><div class="liveTable">${tableCard(['Kodi','Emri','Qarku/Zona','Telefon','Gjendja','Veprime'],state.suppliers.map(x=>[x.code,`<a class="link" onclick="supplierCard('${x.id}')">${esc(x.name)}</a>`,x.region,x.phone,`${n(x.balance,0)} ALL`,actionBtns('supplier',x.id)]))}</div>`}
+views.suppliers=function(){return head('Furnitorët','Kartela, blerjet, pagesat dhe gjendja',`<button class="btn" onclick="exportSuppliersXls()">Eksporto Excel</button><button class="btn primary" onclick="entityForm('supplier')">+ Shto furnitor</button>`)+`<div class="toolbar"><input placeholder="Kërko live..." oninput="liveFilter(this)"></div><div class="liveTable">${tableCard(['Kodi','Emri','NIPT / ID','Adresa','Telefon','Gjendja','Veprime'],state.suppliers.map(x=>[x.code,`<a class="link" onclick="supplierCard('${x.id}')">${esc(x.name)}</a>`,esc(x.nipt||'—'),esc(x.address||x.region||'—'),x.phone,`${n(x.balance,0)} ALL`,actionBtns('supplier',x.id)]))}</div>`}
 views.weighings=function(){return head('Blerje & Peshime','Peshimi fizik, dokumenti i printerit dhe formulari për firmë',`<button class="btn primary" onclick="weighForm()">+ Peshim i ri</button>`)+`<div class="stepbar"><span class="step on">1 Pranim</span><span class="step">2 Peshim</span><span class="step">3 Konfirmim</span><span class="step">4 Lot & Raft</span><span class="step">5 Faturim</span></div>`+tableCard(['Dokumenti','Data','Furnitori','Produkti','Pesha fizike','Skedari i peshimit','Status','Veprime'],state.weighings.map(x=>[`<a class="link" onclick="weightCard('${x.id}')">${x.id}</a>`,x.date,by('suppliers',x.supplier).name,by('products',x.product).name,n(x.net)+' kg',x.attachmentData?`<a class="link" onclick="openStoredFileByWeight('${x.id}')">${esc(x.attachment||'Hap')}</a>`:'<span class="pill orange">Nuk është ngarkuar</span>',status(x.status),`<button class="btn small" onclick="weightCard('${x.id}')">Hap</button><button class="btn small" onclick="printWeight('${x.id}')">Printo</button>`]))}
 views.exports=function(){return head('Dosjet e Eksportit','Dokumentet reale të lidhura me ngarkesën')+tableCard(['Dokumenti','Ngarkesa','Numri','Data','Status','Skedari','Veprime'],state.documents.map(x=>[x.type,`<a class="link" onclick="shipmentCard('${x.shipment}')">${x.shipment}</a>`,x.number||'—',x.date,status(x.fileData?'Ngarkuar':'Nuk është ngarkuar'),x.fileData?`<a class="link" onclick="openDocument('${x.id}')">${esc(x.fileName||'Hap dokumentin')}</a>`:'—',`<button class="btn small" onclick="uploadDocument('${x.id}')">${x.fileData?'Zëvendëso':'Ngarko'}</button>${x.fileData?`<button class="btn small" onclick="downloadDocument('${x.id}')">Shkarko</button>`:''}`]))}
-function editEntity(type,id){let x=by(type==='product'?'products':'suppliers',id);if(type==='product')modal('Ndrysho produktin',`<div class="form-grid"><div class="field"><label>Kodi</label><input id="eCode" value="${esc(x.code)}"></div><div class="field"><label>Kategoria</label><input id="eCat" value="${esc(x.category)}"></div><div class="field"><label>Emri shqip</label><input id="eName" value="${esc(x.name)}"></div><div class="field"><label>Botanik</label><input id="eBot" value="${esc(x.botanical)}"></div><div class="field full"><label>Anglisht</label><input id="eEng" value="${esc(x.english)}"></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="saveEditProduct('${id}')">Ruaj ndryshimet</button>`);else modal('Ndrysho furnitorin',`<div class="form-grid"><div class="field"><label>Kodi</label><input id="eCode" value="${esc(x.code)}"></div><div class="field"><label>Emri</label><input id="eName" value="${esc(x.name)}"></div><div class="field"><label>Qarku/Zona</label><input id="eRegion" value="${esc(x.region)}"></div><div class="field"><label>Telefon</label><input id="ePhone" value="${esc(x.phone)}"></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="saveEditSupplier('${id}')">Ruaj ndryshimet</button>`)}
+function editEntity(type,id){let x=by(type==='product'?'products':'suppliers',id);if(type==='product')modal('Ndrysho produktin',`<div class="form-grid"><div class="field"><label>Kodi</label><input id="eCode" value="${esc(x.code)}"></div><div class="field"><label>Kategoria</label><input id="eCat" value="${esc(x.category)}"></div><div class="field"><label>Emri shqip</label><input id="eName" value="${esc(x.name)}"></div><div class="field"><label>Botanik</label><input id="eBot" value="${esc(x.botanical)}"></div><div class="field full"><label>Anglisht</label><input id="eEng" value="${esc(x.english)}"></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="saveEditProduct('${id}')">Ruaj ndryshimet</button>`);else modal('Ndrysho furnitorin',`<div class="form-grid">
+  <div class="field"><label>Kodi</label><input id="eCode" value="${esc(x.code||'')}"></div>
+  <div class="field"><label>Emri i plotë / Subjekti</label><input id="eName" value="${esc(x.name||'')}"></div>
+  <div class="field"><label>NIPT / Numri Personal (ID)</label><input id="eNipt" value="${esc(x.nipt||'')}"></div>
+  <div class="field"><label>Adresa e plotë</label><input id="eAddress" value="${esc(x.address||'')}"></div>
+  <div class="field"><label>Qarku / Zona</label><input id="eRegion" value="${esc(x.region||'')}"></div>
+  <div class="field"><label>Telefon</label><input id="ePhone" value="${esc(x.phone||'')}"></div>
+  <div class="field full"><label>IBAN / Llogaria Bankare</label><input id="eIban" value="${esc(x.iban||'')}"></div>
+</div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="saveEditSupplier('${id}')">Ruaj ndryshimet</button>`)}
 function saveEditProduct(id){try{Object.assign(by('products',id),{code:$val('eCode'),category:$val('eCat'),name:$val('eName'),botanical:$val('eBot'),english:$val('eEng')});audit('Ndryshim produkti',id);save();closeModal();render();toast('Produkti u ndryshua')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
-function saveEditSupplier(id){try{Object.assign(by('suppliers',id),{code:$val('eCode'),name:$val('eName'),region:$val('eRegion'),phone:$val('ePhone')});audit('Ndryshim furnitori',id);save();closeModal();render();toast('Furnitori u ndryshua')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
+function saveEditSupplier(id){try{Object.assign(by('suppliers',id),{code:$val('eCode'),name:$val('eName'),nipt:$val('eNipt')||'',address:$val('eAddress')||'',region:$val('eRegion')||'',phone:$val('ePhone')||'',iban:$val('eIban')||''});audit('Ndryshim furnitori',id);save();closeModal();render();toast('Furnitori u përditësua me sukses')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
 function deleteEntity(type,id){let used=type==='product'?(state.weighings.some(x=>x.product===id)||state.lots.some(x=>x.product===id)):(state.weighings.some(x=>x.supplier===id)||state.lots.some(x=>x.supplier===id)||state.payments.some(x=>x.supplier===id));if(used)return toast('Nuk fshihet: ka dokumente të lidhura');if(!confirm('Ta fshijmë këtë regjistrim?'))return;let key=type==='product'?'products':'suppliers';state[key]=state[key].filter(x=>x.id!==id);save();render();toast('Regjistrimi u fshi')}
 function audit(type,ref){state.events.push({user:evUser(),date:new Date().toLocaleString('sq-AL'),type,ref,text:`U ndryshua ${ref}`})}
 function csvCell(v){return '"'+String(v??'').replace(/"/g,'""')+'"'}
@@ -16158,6 +16175,52 @@ else setTimeout(function(){refresh();buildUserFilter()},30);
 
 <script id="biobes-fiscalization-suite">
 (function(){
+// Auto-migrim dhe plotësim i të dhënave tatimore për Furnitorët dhe Klientët
+(function syncOfficialFiscalParties(){
+  try {
+    if (!window.state) return;
+    let sups = state.suppliers || [];
+    let defaultSups = {
+      'S1': { nipt: 'K51204018A', address: 'Lagjja Çlirim, Berat', region: 'Berat' },
+      'S2': { nipt: 'L11405022B', address: 'Fshati Sopës, Gradishtë, Lushnjë', region: 'Fier' },
+      'S3': { nipt: 'J81822019C', address: 'Rruga Kryesore, Elbasan', region: 'Elbasan' }
+    };
+    sups.forEach(s => {
+      if (defaultSups[s.id]) {
+        if (!s.nipt) s.nipt = defaultSups[s.id].nipt;
+        if (!s.address) s.address = defaultSups[s.id].address;
+      }
+    });
+
+    let custs = state.customers || [];
+    let defaultCusts = {
+      'C1': { vat: 'CHE-105.823.111', address: 'Franzosenstr. 23, 3014 Bern', country: 'Switzerland', city: 'Bern' },
+      'C2': { vat: 'DE115829104', address: 'Am Giezenbach 1, 37539 Bad Grund', country: 'Germany', city: 'Bad Grund' }
+    };
+    custs.forEach(c => {
+      if (defaultCusts[c.id]) {
+        if (!c.vat) c.vat = defaultCusts[c.id].vat;
+        if (!c.address) c.address = defaultCusts[c.id].address;
+        if (!c.city) c.city = defaultCusts[c.id].city;
+      }
+    });
+
+    if (!custs.some(c => c.id === 'C3')) {
+      custs.push({
+        id: 'C3',
+        code: 'K-003',
+        name: 'Agro-Bio Albania sh.p.k.',
+        vat: 'M12345678A',
+        address: 'Autostrada Tiranë-Durrës, Km 7',
+        city: 'Tiranë',
+        country: 'Albania',
+        phone: '+355 4 222 3344',
+        email: 'info@agrobio.al'
+      });
+    }
+  } catch(e) { console.warn('syncOfficialFiscalParties:', e); }
+})();
+
 'use strict';
 
 // 1. Sinkronizimi Kriptografik SHA-256
