@@ -12,6 +12,20 @@ python3 -m http.server 8000 --bind 0.0.0.0
 npm test
 ```
 
+## `npm test` = i gjithë suite (35 hapa)
+
+Që nga 2026-09-23 `npm test` i ekzekuton **të gjitha** provat, përfshirë ato cloud
+(multi-company, realtime, izolimi, blind, doc-number-sync, server-backups) dhe
+eksportet/gjurmueshmërinë. Zinxhiri i vjetër (18 hapa, pa cloud) mbetet si
+`npm run test:core`.
+
+`BIOBES_BROWSER_EXECUTABLE` tani respektohet nga **çdo** skedar prove (më parë
+`multi-company`, `cloud-realtime`, `cloud-isolation`, `blind-write` dhe
+`doc-number-sync` e shpërfillnin dhe dështonin me "Executable doesn't exist").
+
+**Mos i ekzekuto provat njëkohësisht** — Chromium me `--single-process` në të njëjtën
+makinë ngadalëson renderimin dhe pritjet kohore bëhen të paqëndrueshme.
+
 ## Çfarë ekzekutohet
 
 | Script | Kontrollet |

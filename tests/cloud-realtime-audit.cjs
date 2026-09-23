@@ -153,7 +153,7 @@ const bootId = (page) => page.evaluate(() => localStorage.getItem('biobesCloudBo
 // Emulon njoftimin e serverit real: pajisja merr versionin më të ri përpara se të shkruajë.
 const fresh = async (page, fake, co) => { await notify(page, co || 'C1', fake.versions[co || 'C1'], 'x'); await sleep(700); };
 
-const launch = () => chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const launch = () => chromium.launch({ executablePath: process.env.BIOBES_BROWSER_EXECUTABLE || undefined, headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 
 (async () => {
   let browser = null, n = 0;

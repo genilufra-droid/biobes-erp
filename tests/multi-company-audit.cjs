@@ -142,7 +142,7 @@ const addInvoice=(page,id,invNo)=>page.evaluate(([i,n])=>{
 },[id,invNo]);
 const invoiceNumbers=page=>page.evaluate(()=>salesInvoices().map(x=>x.invoiceNumber||x.id));
 
-const launch=()=>chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--no-zygote','--single-process','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+const launch=()=>chromium.launch({executablePath:process.env.BIOBES_BROWSER_EXECUTABLE||undefined,headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--no-zygote','--single-process','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
 
 (async()=>{
   let browser=null;

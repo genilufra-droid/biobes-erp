@@ -105,7 +105,7 @@ async function boot(browser, fake) {
     const fake = fakeServer();
     fake.store.C1 = fake.state0();          // gjendja e serverit: deri FH-2026-0006
     fake.versions.C1 = 1;
-    browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+    browser = await chromium.launch({ executablePath: process.env.BIOBES_BROWSER_EXECUTABLE || undefined, headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
     const A = await boot(browser, fake);
 
     // Ruajtja e parë: krijohet baza e sinkronizimit (patch pa konflikt)

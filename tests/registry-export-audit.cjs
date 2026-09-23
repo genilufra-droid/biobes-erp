@@ -96,18 +96,32 @@ function assertWorkbookValid(zip){
   await p.locator('.module-live-search input').fill(q);await p.waitForTimeout(250);
  });
 
- await step('⬇ Excel: 100% si në sistem — të njëjtat kolona dhe TEKSTI i njëjtë i qelizave',async()=>{
+ await step('⬇ Excel: kolonat e të dhënave + vlerat e ekranit (numrat shkruhen si numra)',async()=>{
+  /* Kolonat e veprimeve (butona) nuk janë të dhëna: eksporti i heq qëllimisht
+     (shih `isAction` te installModuleLiveSearch). Prova i krahason kokat e të
+     dhënave dhe kërkon që kolona e veprimeve të MOS jetë në skedar. */
   const onScreen=await ev(()=>{const t=document.querySelector('#main .table-wrap table');
    return {heads:[...t.querySelectorAll('thead th')].map(x=>x.innerText.trim()),
     rows:[...t.tBodies].flatMap(tb=>[...tb.rows]).filter(r=>!r.querySelector('.empty')&&r.style.display!=='none').map(r=>[...r.cells].map(td=>{const c=td.cloneNode(true);c.querySelectorAll('button,.btn').forEach(b=>b.remove());return c.innerText.replace(/\s+/g,' ').trim()}))}});
+  const isAction=h=>/^(veprime|veprimet|actions?|opsione|kolona e veprimeve)$/i.test(String(h).trim());
+  const dataHeads=onScreen.heads.filter(h=>!isAction(h));
+  const actionHeads=onScreen.heads.filter(h=>isAction(h));
+  assert.ok(dataHeads.length>=6,'koka e të dhënave: '+JSON.stringify(dataHeads));
   const dl=p.waitForEvent('download',{timeout:6000});
   await p.locator('.module-live-search button[data-mexp="xlsx"]').click();
   const d=await dl;
   assert.match(d.suggestedFilename(),/^BioBes-purchases-\d{4}-\d{2}-\d{2}\.xlsx$/,'emër: '+d.suggestedFilename());
   const buf=fs.readFileSync(await d.path()).toString('utf8');
   const xmlEsc=v=>v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  onScreen.heads.forEach(h=>assert.ok(buf.includes(xmlEsc(h)),'kolona mungon në Excel: '+h));
-  onScreen.rows.forEach(r=>r.forEach(v=>{if(v)assert.ok(buf.includes(xmlEsc(v)),'qeliza jo identike: '+v)}));
+  /* Eksporti i kthen qelizat numerike në numra realë të Excel-it (shih `toNum` te
+     installModuleLiveSearch) — p.sh. "359.4 kg" → 359.4 me formatin #,##0.00, që
+     kërkon edhe vetë prova më poshtë. Prandaj një qelizë është e saktë nëse skedari
+     përmban tekstin e ekranit OSE vlerën numerike të së njëjtës qelize. */
+  const numericOf=v=>{const t=String(v).replace(/\s?(kg|ALL|EUR|USD|GBP|CHF|Lek[eë]?|€|\$)\b/gi,'').trim();if(!/^-?\d+(?:\.\d+)?$/.test(t))return null;const n=Number(t);return isFinite(n)?n:null};
+  const cellInWorkbook=(b,v)=>{if(b.includes(xmlEsc(v)))return true;const n=numericOf(v);return n!=null&&(b.includes('>'+n+'</v>')||b.includes('>'+n.toFixed(2)+'</v>'))};
+  dataHeads.forEach(h=>assert.ok(buf.includes(xmlEsc(h)),'kolona mungon në Excel: '+h));
+  actionHeads.forEach(h=>assert.ok(!buf.includes('<t>'+xmlEsc(h)+'</t>'),'kolona e butonave nuk duhet të jetë në Excel: '+h));
+  onScreen.rows.forEach(r=>r.forEach(v=>{if(v)assert.ok(cellInWorkbook(buf,v),'qeliza jo identike: '+v)}));
   assert.ok(buf.includes('TOTALI'),'rreshti TOTALI');
   // Excel-i (Office) e hap pa "found a problem": rendi i elementeve duhet të jetë i saktë
   assert.ok(buf.indexOf('<autoFilter')<buf.indexOf('<mergeCells'),'autoFilter para mergeCells (schema e Excel)');
