@@ -14235,4 +14235,600 @@ table.bb-sortable thead th.bb-sort-desc::after{content:' \25BC';font-size:9px;op
 })();
 </script>
 
+<style>
+/* ── Aktiviteti: autori i vërtetë i veprimit (shtesë e re, nuk prek blloqet ekzistuese) ── */
+.activity-user{white-space:nowrap}
+.activity-user[data-actor-src="unknown"]{color:var(--muted,#718079);font-style:italic}
+.activity-user[data-actor-src="document"],.activity-user[data-actor-src="role"]{opacity:.88}
+.activity-user-role{display:block;font-size:11px;color:var(--muted,#718079);line-height:1.25}
+#activityUser{min-width:160px}
+</style>
+<script id="biobes-activity-actor-v1">
+/*
+  BIOPES · Aktiviteti pasqyron përdoruesin që kreu veprimin (jo gjithmonë "Admin")
+  ───────────────────────────────────────────────────────────────────────────────
+  Bug-u: te "Veprimet e fundit / Auditimi" kolona «Përdoruesi» ishte e shkruar
+  fiks "<td>Admin</td>" për çdo rresht dhe ngjarjet e ruajtura nuk e mbanin fare
+  autorin — pra faturat, peshimet, pagesat… të krijuara nga përdorues të ndryshëm
+  shfaqeshin sikur i kishte bërë Admin (edhe në eksportin XLSX të auditimit).
+
+  Rregullimi (vetëm shtesë, asnjë bllok ekzistues nuk ndryshohet):
+   1. Çdo ngjarje e RE vuloset me autorin e sesionit në momentin e ruajtjes:
+      event.user / event.userName / event.userRole / event.at.
+      Bëhet duke instaluar push/unshift të vetin mbi state.events, kështu që të
+      gjitha vendet ekzistuese që shtojnë ngjarje (~130) punojnë pa u prekur.
+   2. Dokumenti që lind nga veprimi plotësohet me createdBy / createdByName,
+      kështu që edhe raportet që lexojnë dokumentin tregojnë autorin real.
+   3. Tabela e Aktivitetit shfaq autorin real (me rolin poshtë tij) në vend të
+      "Admin". Ngjarjet e VJETRA pa autor lexohen nga dokumenti i referencës,
+      ndërsa ato pa asnjë gjurmë shfaqen "—" (kurrë më "Admin" i rremë).
+   4. Filtrat pasurohen: kërkimi live gjen edhe emrin/rolin e përdoruesit dhe
+      shtohet dropdown «Përdoruesi» për të parë vetëm veprimet e një personi.
+   5. Eksporti XLSX merr emrin e pastër të autorit për kolonën «Përdoruesi».
+   6. Përshëndetja e panelit ("Mirë se vini, Admin"), «Kush e priti mallin?» te
+      forma e peshores dhe «Shitësi» te raportet e shitjes marrin përdoruesin real.
+
+  API: window.activityActorReport() · window.__biobesActivityActorV1
+*/
+(function(){
+'use strict';
+if(window.__biobesActivityActorV1){try{window.__biobesActivityActorV1.refresh()}catch(e){}return}
+
+var VERSION='1.0.0';
+var HOOK_MARK='__bbActivityActor';
+var COLLECTIONS=['weighings','lots','payments','customerPayments','purchaseInvoices','salesInvoices','stockDocs','stockMovements','expenses','orders','shipments','samples','processes','packagings','bankTransactions','bankAccounts','inventories','inventoryTransfers','customerReturns','supplierReturns','exportDossiers','documentSets','documents'];
+var DOC_ACTOR_FIELDS=['createdByName','createdBy','confirmedByName','confirmedBy','openedBy','uploader','user'];
+var ROLE_ID_RE=/^(ROLE-)?(ADMIN|USER|MANAGER)$/i;
+var STATS={installed:0,stamped:0,resolved:0,fromEvent:0,fromDocument:0,unknown:0,documentsStamped:0,filters:0,fallbackUsed:0,mismatch:0,errors:0};
+var IDX=null,IDX_AT=0,STRING_PASS_OK=false;
+
+function esc2(v){
+  try{if(typeof esc==='function')return esc(v)}catch(e){}
+  return String(v==null?'':v).replace(/[&<>"']/g,function(c){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+  });
+}
+/* state/views janë deklaruar me let/const në blloqet e para → lexohen si globale leksikore */
+function st(){
+  try{if(typeof state!=='undefined'&&state)return state}catch(e){}
+  try{return window.state||{}}catch(e){return{}}
+}
+function users(){var u=st().users;return Array.isArray(u)?u:[]}
+
+/* ── Kush është përdoruesi i sesionit tani? ─────────────────────────────── */
+function actorNow(){
+  var u=null,role=null;
+  try{u=(typeof activeUser==='function')?activeUser():null}catch(e){}
+  try{role=(typeof currentRole==='function')?currentRole():null}catch(e){}
+  if(u&&typeof u==='object'){
+    var nm=String(u.name||u.username||'').trim();
+    return {id:u.id||nm||null,name:nm||null,role:String(u.role||'').trim()||String(role||'').trim()||null};
+  }
+  return {id:null,name:null,role:String(role||'').trim()||null};
+}
+function findUser(key){
+  var s=String(key==null?'':key).trim();if(!s)return null;
+  var low=s.toLowerCase(),list=users();
+  for(var i=0;i<list.length;i++){
+    var u=list[i];if(!u)continue;
+    if(u.id===s||String(u.username||'').toLowerCase()===low||String(u.name||'').toLowerCase()===low)return u;
+  }
+  return null;
+}
+function prettyRole(r){
+  var s=String(r==null?'':r).trim();if(!s)return '';
+  var low=s.toLowerCase();
+  if(/admin/.test(low))return 'Administrator';
+  if(/menaxher|manager/.test(low))return 'Menaxher';
+  if(/user|përdorues|perdorues/.test(low))return 'Përdorues';
+  return s.charAt(0).toUpperCase()+s.slice(1);
+}
+function displayNameOf(cand){
+  var u=findUser(cand);
+  if(u)return String(u.name||u.username||u.id||'').trim();
+  return String(cand==null?'':cand).trim();
+}
+
+/* ── Indeksi i dokumenteve sipas numrit/ID (për ngjarjet e vjetra) ──────── */
+function refIndex(force){
+  var now=Date.now();
+  if(!force&&IDX&&now-IDX_AT<1200)return IDX;
+  var idx={};IDX_AT=now;
+  COLLECTIONS.forEach(function(k){
+    var arr=null;try{arr=st()[k]}catch(e){}
+    if(!Array.isArray(arr))return;
+    arr.forEach(function(rec){
+      if(!rec||typeof rec!=='object')return;
+      [rec.id,rec.number,rec.invoiceNumber,rec.code,rec.docNumber].forEach(function(key){
+        if(key==null||key==='')return;
+        var s=String(key);
+        if(idx[s]===undefined)idx[s]=rec;
+      });
+    });
+  });
+  IDX=idx;
+  return idx;
+}
+function recordOfRef(ref,force){
+  var s=String(ref==null?'':ref).trim();
+  if(!s)return null;
+  var rec=refIndex()[s]||null;
+  /* kur vuloset një ngjarje e re, dokumenti sapo është krijuar → një rindërtim i indexit */
+  if(!rec&&force)rec=refIndex(true)[s]||null;
+  return rec;
+}
+
+/* ── Leximi i autorit të një ngjarjeje (për shfaqje) ───────────────────── */
+function resolveActor(e){
+  STATS.resolved++;
+  if(!e||typeof e!=='object')return {name:'—',role:'',src:'unknown',tip:'Ngjarje pa të dhëna'};
+  if(e.userName!=null&&String(e.userName).trim()!==''){
+    STATS.fromEvent++;
+    var u0=findUser(e.userName)||findUser(e.user);
+    return {name:String(e.userName).trim(),role:prettyRole(e.userRole||(u0&&u0.role)),src:'event',tip:'Regjistruar nga '+e.userName};
+  }
+  if(e.user!=null&&String(e.user).trim()!==''){
+    STATS.fromEvent++;
+    var u=findUser(e.user),nm=displayNameOf(e.user);
+    return {name:nm||'—',role:prettyRole((u&&u.role)||e.userRole),src:'event',tip:'Regjistruar nga '+nm};
+  }
+  var direct=e.uploader||e.actor||e.by;
+  if(direct!=null&&String(direct).trim()!==''&&!ROLE_ID_RE.test(String(direct).trim())){
+    STATS.fromEvent++;
+    return {name:displayNameOf(direct),role:prettyRole(e.userRole),src:'event',tip:'Regjistruar nga '+displayNameOf(direct)};
+  }
+  var rec=recordOfRef(e.ref);
+  if(rec){
+    for(var i=0;i<DOC_ACTOR_FIELDS.length;i++){
+      var cand=rec[DOC_ACTOR_FIELDS[i]];
+      if(cand==null||String(cand).trim()==='')continue;
+      var raw=String(cand).trim();
+      if(ROLE_ID_RE.test(raw)){
+        STATS.fromDocument++;
+        return {name:prettyRole(raw),role:prettyRole(rec.createdByRole||rec.role||''),src:'role',tip:'Nga dokumenti '+e.ref+' · rol i ruajtur'};
+      }
+      var u2=findUser(raw);
+      STATS.fromDocument++;
+      return {name:displayNameOf(raw),role:prettyRole((u2&&u2.role)||rec.createdByRole||''),src:'document',tip:'Nga dokumenti '+e.ref+' · '+DOC_ACTOR_FIELDS[i]};
+    }
+  }
+  STATS.unknown++;
+  return {name:'—',role:'',src:'unknown',tip:'Autor i paregjistruar (ngjarje e ruajtur para këtij rregullimi)'};
+}
+
+/* ── Vulosja e ngjarjeve të reja + plotësimi i dokumentit ──────────────── */
+function stampActor(e){
+  try{
+    if(!e||typeof e!=='object'||Array.isArray(e))return e;
+    if(e.userName!=null&&String(e.userName).trim()!=='')return e;   /* ka autor të ruajtur */
+    if(e.user!=null&&String(e.user).trim()!=='')return e;
+    var a=actorNow();
+    if(!a.name&&!a.id)return e;                                     /* s'ka sesion → mos shpik */
+    if(a.id!=null&&a.id!=='')e.user=a.id;
+    if(a.name)e.userName=a.name;
+    if(a.role)e.userRole=a.role;
+    if(!e.at){try{e.at=new Date().toISOString()}catch(err){}}
+    STATS.stamped++;
+    if(a.name&&e.ref){
+      var rec=recordOfRef(e.ref,true);
+      if(rec&&!rec.createdBy&&!rec.createdByName){
+        rec.createdBy=a.name||a.id;          /* emër i lexueshëm: e përdorin edhe raportet */
+        rec.createdByName=a.name;
+        if(a.role)rec.createdByRole=a.role;
+        STATS.documentsStamped++;
+      }
+    }
+  }catch(err){STATS.errors++}
+  return e;
+}
+
+function installHooks(){
+  var ev=null;try{ev=st().events}catch(e){}
+  if(!Array.isArray(ev))return false;
+  if(ev[HOOK_MARK])return true;
+  try{
+    var P=Array.prototype.push,U=Array.prototype.unshift;
+    Object.defineProperty(ev,'push',{configurable:true,writable:true,value:function(){
+      for(var i=0;i<arguments.length;i++)stampActor(arguments[i]);
+      return P.apply(this,arguments);
+    }});
+    Object.defineProperty(ev,'unshift',{configurable:true,writable:true,value:function(){
+      for(var i=0;i<arguments.length;i++)stampActor(arguments[i]);
+      return U.apply(this,arguments);
+    }});
+    Object.defineProperty(ev,HOOK_MARK,{configurable:true,writable:true,value:true});
+    STATS.installed++;
+    return true;
+  }catch(e){STATS.errors++;return false}
+}
+
+/* ── Tabela e Aktivitetit: kolona «Përdoruesi» me autorin real ─────────── */
+function actorCell(a){
+  return '<td class="activity-user" data-actor="'+esc2(a.name)+'" data-actor-role="'+esc2(a.role||'')+
+    '" data-actor-src="'+esc2(a.src)+'" title="'+esc2(a.tip||'')+'">'+esc2(a.name)+
+    (a.role?'<span class="activity-user-role">'+esc2(a.role)+'</span>':'')+'</td>';
+}
+function keyOfEvent(e){
+  var ts=0;try{ts=(typeof eventTimestamp==='function')?eventTimestamp(e&&e.date):0}catch(err){}
+  return ts+'|'+String((e&&e.type)||'')+'|'+String((e&&e.ref)||'');
+}
+function patchActivityHtml(){
+  var base=null;try{base=window.dashboardActivityHtml}catch(e){}
+  if(typeof base!=='function'||base.__bbActor)return;
+  var wrap=function(){
+    var h='';
+    try{h=base.apply(this,arguments)||''}catch(e){h=''}
+    try{
+      installHooks();
+      /* baza i nxjerr rreshtat në rendin state.events.reverse() → zëvendësimi bëhet pozicional */
+      var evs=[],i=0;
+      try{evs=(st().events||[]).slice().reverse()}catch(e){}
+      STRING_PASS_OK=false;
+      h=h.replace(/<td>Admin<\/td>/g,function(){
+        STRING_PASS_OK=true;
+        return actorCell(resolveActor(evs[i++]||null));
+      });
+      if(i&&i!==evs.length)STATS.mismatch++;
+    }catch(e){STATS.errors++}
+    return h;
+  };
+  wrap.__bbActor=true;
+  try{window.dashboardActivityHtml=wrap}catch(e){STATS.errors++}
+}
+
+/* Fusha e DOM-it: autori në data-search (për kërkim) + rrjetë sigurie */
+function domPass(){
+  try{
+    var rows=document.querySelectorAll('#activityRows [data-activity-row]');
+    if(!rows.length)return;
+    var queues=null;
+    if(!STRING_PASS_OK){
+      /* baza nuk nxjerr më "<td>Admin</td>": përputhja bëhet me kyçin e rreshtit */
+      queues={};
+      var evs=[];try{evs=(st().events||[]).slice().reverse()}catch(e){}
+      evs.forEach(function(e){var k=keyOfEvent(e);(queues[k]=queues[k]||[]).push(resolveActor(e))});
+    }
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i];
+      if(!r.cells||r.cells.length<3)continue;
+      var cell=r.cells[r.cells.length-1];
+      if(!cell)continue;
+      if(!STRING_PASS_OK&&queues){
+        var ts=0;try{ts=(typeof eventTimestamp==='function')?eventTimestamp(r.dataset.date||r.dataset.ts):0}catch(e){}
+        var k=ts+'|'+((r.cells[1]&&r.cells[1].textContent)||'').trim()+'|'+((r.cells[2]&&r.cells[2].textContent)||'').trim();
+        var q=queues[k],a=q&&q.length?q.shift():null;
+        if(a){
+          STATS.fallbackUsed++;
+          cell.className='activity-user';
+          cell.dataset.actor=a.name;cell.dataset.actorRole=a.role||'';cell.dataset.actorSrc=a.src;
+          cell.title=a.tip||'';
+          cell.innerHTML=esc2(a.name)+(a.role?'<span class="activity-user-role">'+esc2(a.role)+'</span>':'');
+        }
+      }
+      if(r.dataset.actorIndexed)continue;
+      var nm=(cell.dataset&&cell.dataset.actor)||cell.textContent.trim()||'—';
+      var role=(cell.dataset&&cell.dataset.actorRole)||'';
+      r.dataset.search=((r.dataset.search||'')+' '+String(nm).toLowerCase()+' '+String(role).toLowerCase()).replace(/\s+/g,' ').trim();
+      r.dataset.actorIndexed='1';
+    }
+  }catch(e){STATS.errors++}
+}
+
+/* ── Dropdown «Përdoruesi» + filtrimi përkatës ─────────────────────────── */
+function filterValue(){
+  try{
+    var sel=document.getElementById('activityUser');
+    if(sel)return sel.value||'';
+    if(window.__bbActivityUserFilter)return window.__bbActivityUserFilter;
+  }catch(e){}
+  return '';
+}
+function applyUserFilter(){
+  try{
+    var f=filterValue(),me=actorNow().name||'';
+    var rows=document.querySelectorAll('#activityRows [data-activity-row]');
+    var shown=0;
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i],cell=r.cells[r.cells.length-1];
+      var nm=(cell&&cell.dataset&&cell.dataset.actor)||(cell?cell.textContent.trim():'');
+      var role=(cell&&cell.dataset&&cell.dataset.actorRole)||'';
+      var mine=true;
+      if(f==='__unknown')mine=(nm==='—'||!nm);
+      else if(f==='me')mine=(!!me&&nm===me);
+      else if(f)mine=(nm===f||role===f);
+      r.dataset.actorMatch=mine?'1':'0';
+      if(!mine)r.style.display='none';
+      else if(r.style.display!=='none')shown++;
+    }
+    STATS.filters++;
+    if(window.activityCount){
+      var cnt=document.getElementById('activityCount');
+      if(cnt)cnt.textContent=shown+' rezultate';
+    }
+    return shown;
+  }catch(e){STATS.errors++;return 0}
+}
+/* dropdown-i të tregojë zgjedhjen aktive (përveç rastit "të gjithë") dhe një titull të qartë */
+function syncUserWidget(){
+  try{
+    var sel=document.getElementById('activityUser');
+    if(!sel)return;
+    var wrap=sel.previousElementSibling;
+    if(!wrap||!wrap.classList||!wrap.classList.contains('global-live-search'))return;
+    var inp=wrap.querySelector('input');
+    if(!inp)return;
+    inp.placeholder='Filtro sipas përdoruesit…';
+    inp.title='Filtro sipas përdoruesit që kreu veprimin';
+    var o=sel.options[sel.selectedIndex];
+    inp.value=(o&&sel.value!=='')?String(o.textContent||'').trim():'';
+  }catch(e){STATS.errors++}
+}
+function buildUserFilter(){
+  try{
+    var search=document.getElementById('activitySearch');
+    var tools=search&&search.parentElement;
+    if(!tools||document.getElementById('activityUser'))return false;
+    var names={},hasUnknown=false,me=actorNow().name||'',evs=[];
+    try{evs=st().events||[]}catch(e){}
+    for(var i=0;i<evs.length;i++){
+      var a=resolveActor(evs[i]);
+      if(a.src==='unknown')hasUnknown=true;
+      else if(a.name&&a.name!=='—')names[a.name]=1;
+    }
+    var keys=Object.keys(names).sort(function(x,y){return x.localeCompare(y,'sq')});
+    var sel=document.createElement('select');
+    sel.id='activityUser';
+    sel.className='mini';
+    sel.title='Filtro sipas përdoruesit që kreu veprimin';
+    sel.innerHTML='<option value="">Të gjithë përdoruesit</option>'+
+      (me?'<option value="me">Veprimet e mia ('+esc2(me)+')</option>':'')+
+      (hasUnknown?'<option value="__unknown">Pa autor të regjistruar</option>':'')+
+      keys.map(function(nm){return '<option value="'+esc2(nm)+'">'+esc2(nm)+'</option>'}).join('');
+    var prev=window.__bbActivityUserFilter||'';
+    tools.insertBefore(sel,document.getElementById('activityOrder')||search.nextSibling);
+    /* select-et e futura direkt nuk kapen nga MutationObserver-i i aplikacionit
+       (globalizeAllSelects(root) kërkon select-et BRENDA nyjes së shtuar) → e thërrasim vetë,
+       që dropdown-i të marrë të njëjtën pamje/kërkim live si pjesa tjetër e sistemit */
+    try{if(typeof globalizeAllSelects==='function')globalizeAllSelects(tools)}catch(e){STATS.errors++}
+    syncUserWidget();
+    sel.value=prev;
+    if(sel.value!==prev){sel.value='';window.__bbActivityUserFilter=''}
+    sel.onchange=function(){
+      window.__bbActivityUserFilter=sel.value;
+      try{window.filterActivity()}catch(e){applyUserFilter()}
+    };
+    return true;
+  }catch(e){STATS.errors++;return false}
+}
+function patchFilter(){
+  var base=null;try{base=window.filterActivity}catch(e){}
+  if(typeof base!=='function'||base.__bbActor)return;
+  var wrap=function(){
+    var out;
+    domPass();                                   /* data-search pasurohet PARA kërkimit */
+    try{out=base.apply(this,arguments)}catch(e){out=null}
+    try{installHooks()}catch(e){}
+    buildUserFilter();
+    applyUserFilter();
+    return out;
+  };
+  wrap.__bbActor=true;
+  try{window.filterActivity=wrap}catch(e){STATS.errors++}
+}
+
+/* ── Eksporti XLSX: kolona «Përdoruesi» me emrin e pastër të autorit ───── */
+function patchExport(){
+  var base=null;try{base=window.exportFilteredActivity}catch(e){}
+  if(typeof base!=='function'||base.__bbActor)return;
+  var wrap=function(){
+    var rows=[];
+    try{
+      var list=[].slice.call(document.querySelectorAll('#activityRows [data-activity-row]'))
+        .filter(function(r){return r.style.display!=='none'});
+      list.forEach(function(r){
+        var cells=[].slice.call(r.cells).map(function(c){return (c.innerText||'').trim()});
+        var last=r.cells[r.cells.length-1];
+        if(last&&last.dataset&&last.dataset.actor)cells[cells.length-1]=last.dataset.actor;
+        rows.push(cells);
+      });
+      makeXlsx('Auditimi-BioBes-'+new Date().toISOString().slice(0,10)+'.xlsx',
+        ['Data/Ora','Veprimi','Dokumenti','Përshkrimi','Moduli','Përdoruesi'],rows);
+      try{toast('Historiku i filtruar u eksportua')}catch(e){}
+    }catch(e){
+      STATS.errors++;
+      try{return base.apply(this,arguments)}catch(e2){return rows}
+    }
+    return rows;
+  };
+  wrap.__bbActor=true;
+  try{window.exportFilteredActivity=wrap}catch(e){STATS.errors++}
+}
+
+/* ── Përshëndetja e panelit me emrin real ──────────────────────────────── */
+function patchDashboard(){
+  try{
+    var VW=(typeof views!=='undefined'&&views)?views:(window.views||null);
+    var base=VW&&VW.dashboard;
+    if(typeof base!=='function'||base.__bbActor)return;
+    var wrap=function(){
+      var h='';
+      try{h=base.apply(this,arguments)||''}catch(e){h=''}
+      try{
+        var a=actorNow();
+        if(a.name&&h.indexOf('Mirë se vini, Admin')>=0)h=h.replace('Mirë se vini, Admin','Mirë se vini, '+esc2(a.name));
+      }catch(e){STATS.errors++}
+      return h;
+    };
+    wrap.__bbActor=true;
+    VW.dashboard=wrap;
+  }catch(e){STATS.errors++}
+}
+
+/* ── Forma e peshores: «Kush e priti mallin?» merr përdoruesin e sesionit ─ */
+function patchWeighForm(){
+  try{
+    var base=window.weighForm;
+    if(typeof base!=='function'||base.__bbActor)return;
+    var wrap=function(){
+      var out;
+      try{out=base.apply(this,arguments)}catch(e){out=null}
+      try{
+        var el=document.getElementById('wReceiver'),v=el?String(el.value||'').trim():'';
+        if(el&&(!v||v==='Admin')){
+          var a=actorNow();
+          if(a.name)el.value=a.name;
+        }
+      }catch(e){STATS.errors++}
+      return out;
+    };
+    wrap.__bbActor=true;
+    window.weighForm=wrap;
+  }catch(e){STATS.errors++}
+}
+
+/* ── Raportet e shitjes: «Shitësi» nga autori real i faturës ───────────── */
+function actorOfInvoice(inv){
+  if(!inv)return null;
+  var cand=inv.createdByName||inv.createdBy;
+  if(cand!=null&&String(cand).trim()!==''&&!ROLE_ID_RE.test(String(cand).trim()))return displayNameOf(cand);
+  var sp=String(inv.salesperson||'').trim();
+  if(sp&&sp!=='Admin')return displayNameOf(sp);
+  return null;
+}
+function patchSalesReports(){
+  try{
+    var base=window.salesReportData;
+    if(typeof base==='function'&&!base.__bbActor){
+      var wrap=function(){
+        var rows=[];
+        try{rows=base.apply(this,arguments)||[]}catch(e){rows=[]}
+        try{
+          if(Array.isArray(rows)){
+            var idx=refIndex();
+            rows.forEach(function(r){
+              if(!r||r.salesperson!=='Admin')return;
+              r.salesperson=actorOfInvoice(idx[String(r.invoice||r.invoiceId||'')])||'—';
+            });
+          }
+        }catch(e){STATS.errors++}
+        return rows;
+      };
+      wrap.__bbActor=true;
+      window.salesReportData=wrap;
+    }
+  }catch(e){STATS.errors++}
+  try{
+    var baseA=window.alphaSalesAnalyticRows;
+    if(typeof baseA==='function'&&!baseA.__bbActor){
+      var wrapA=function(){
+        var rows=[];
+        try{rows=baseA.apply(this,arguments)||[]}catch(e){rows=[]}
+        try{
+          if(Array.isArray(rows)){
+            var idx=refIndex();
+            rows.forEach(function(r){
+              if(!r||r.user!=='Admin')return;
+              r.user=actorOfInvoice(idx[String(r.docNo||r.invoice||r.invoiceId||'')])||'—';
+            });
+          }
+        }catch(e){STATS.errors++}
+        return rows;
+      };
+      wrapA.__bbActor=true;
+      window.alphaSalesAnalyticRows=wrapA;
+    }
+  }catch(e){STATS.errors++}
+}
+
+/* ── Instalimi + rifreskimi ────────────────────────────────────────────── */
+function refresh(){
+  installHooks();
+  patchActivityHtml();
+  patchFilter();
+  patchExport();
+  patchDashboard();
+  patchWeighForm();
+  patchSalesReports();
+  domPass();
+}
+function wrapLifecycle(name){
+  try{
+    var base=window[name];
+    if(typeof base!=='function'||base.__bbActor)return;
+    var wrap=function(){
+      var out=base.apply(this,arguments);
+      try{
+        if(out&&typeof out.then==='function')return out.then(function(v){installHooks();return v},function(e){installHooks();throw e});
+        installHooks();
+      }catch(e){STATS.errors++}
+      return out;
+    };
+    wrap.__bbActor=true;
+    window[name]=wrap;
+  }catch(e){STATS.errors++}
+}
+function keepAlive(){
+  ['load','save','render','restore','applyServerState','loginUser','logoutUser','ensureInitialAdmin','showLogin'].forEach(wrapLifecycle);
+}
+/* state zëvendësohet pas load/login → hook-u rikthehet shpesh në fillim, pastaj rrallë */
+function bootstrap(){
+  var ticks=0;
+  try{
+    var fast=setInterval(function(){
+      installHooks();
+      if(++ticks>60){clearInterval(fast)}
+    },150);
+  }catch(e){}
+}
+function report(){
+  var evs=[],byName={},missing=0;
+  try{evs=st().events||[]}catch(e){}
+  evs.forEach(function(e){
+    var a=resolveActor(e);
+    if(a.src==='unknown'){missing++;return}
+    byName[a.name]=(byName[a.name]||0)+1;
+  });
+  var hooked=false;try{hooked=!!(st().events&&st().events[HOOK_MARK])}catch(e){}
+  var sel=document.getElementById('activityUser');
+  return {
+    version:VERSION,
+    hookInstalled:hooked,
+    stringPassOk:STRING_PASS_OK,
+    events:evs.length,
+    eventsWithoutActor:missing,
+    byUser:byName,
+    actorNow:actorNow(),
+    userFilterOptions:sel?[].map.call(sel.options,function(o){return o.textContent}):null,
+    rowsInTable:document.querySelectorAll('#activityRows [data-activity-row]').length,
+    stats:Object.assign({},STATS)
+  };
+}
+window.__biobesActivityActorV1={
+  version:VERSION,
+  refresh:refresh,
+  keepAlive:keepAlive,
+  installHooks:installHooks,
+  stampActor:stampActor,
+  resolveActor:resolveActor,
+  actorNow:actorNow,
+  recordOfRef:recordOfRef,
+  buildUserFilter:buildUserFilter,
+  applyUserFilter:applyUserFilter,
+  report:report,
+  stats:STATS
+};
+window.activityActorReport=function(){
+  var r=report();
+  try{console.log('[Aktiviteti/autori v'+VERSION+']',r)}catch(e){}
+  return r;
+};
+
+refresh();
+keepAlive();
+bootstrap();
+try{window.__bbActivityActorTimer=setInterval(installHooks,2000)}catch(e){}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){refresh();buildUserFilter()},false);
+else setTimeout(function(){refresh();buildUserFilter()},30);
+})();
+</script>
 </body></html>

@@ -90,3 +90,60 @@ Shëmbull i matricës së mbulimit që shtyp auditi (desktop):
 
 ## Deploy
 `index.html` është statik — Render ribën deploy automatikisht pas merge në `main`.
+
+---
+
+# Shtesë në të njëjtën degë: Aktiviteti pasqyron përdoruesin që kreu veprimin
+
+## Bug-u i raportuar
+Te **Paneli → "Veprimet e fundit / Auditimi"** kolona «Përdoruesi» tregonte gjithmonë **"Admin"**,
+edhe kur faturat dhe dokumentet e tjera i krijonin përdorues të ndryshëm. Shkaku ishte dyfish:
+
+1. `dashboardActivityHtml()` e shkruante qelizën fiks — `<td>Admin</td>` për çdo rresht;
+2. ngjarjet në `state.events` (~130 vende `events.push(...)`) nuk e mbanin fare autorin,
+   vetëm `{date, type, ref, text}` — pra nuk ekzistonte asnjë e dhënë për t'u shfaqur.
+
+## Rregullimi
+Bllok i ri i vetëm `biobes-activity-actor-v1` në fund të `index.html`
+(**580 rreshta të shtuar, 0 rreshta ekzistues të ndryshuar**):
+
+1. **Vulosja e autorit** — `push`/`unshift` i `state.events` mbështjellen, kështu që çdo ngjarje
+   e re merr `user` (id), `userName`, `userRole` dhe `at` (kohë ISO) nga sesioni (`activeUser()`),
+   pa prekur asnjë nga vendet që shtojnë ngjarje. Hook-u riinstalohet pas `load`/`save`/`render`/
+   `login`/`logout`/`restore` dhe kur `state.events` zëvendësohet (`slice(-500)` te ruajtja,
+   `state.events=[]` te reset-i, `state=…` te load/restore).
+2. **Plotësimi i dokumentit** — kur ngjarja referon dokument pa autor, ai merr
+   `createdBy`/`createdByName`/`createdByRole` (emër i lexueshëm). Kjo ndreq edhe shfaqjet që
+   lexonin `createdBy||salesperson||'Admin'`.
+3. **Tabela** — kolona «Përdoruesi» tregon emrin real + rolin poshtë tij, me tooltip
+   ("Regjistruar nga …"). Ngjarjet e vjetra lexohen nga dokumenti i referencës; roli i ruajtur
+   (`ROLE-ADMIN`) kthehet në "Administrator"; ato pa asnjë gjurmë shfaqen "—" dhe **kurrë**
+   "Admin" i rremë (as kur dokumenti ka vetëm `salesperson:'Admin'`).
+4. **Filtrat** — `data-search` pasurohet me emrin/rolin (kërkimi live gjen përdoruesin) dhe
+   shtohet dropdown «Përdoruesi»: *Të gjithë* · *Veprimet e mia (…)* · *Pa autor të regjistruar* ·
+   secili emër. Dropdown-i mbështillet nga kërkimi live i sistemit (`globalizeAllSelects`),
+   zgjedhja mbahet gjatë navigimit dhe numëruesi i rezultateve përditësohet.
+5. **Eksporti XLSX** — kolona «Përdoruesi» merr emrin e pastër (pa rolin si rresht të dytë).
+6. **Gjetkë** — përshëndetja "Mirë se vini, <emri>", «Kush e priti mallin?» te forma e peshores
+   dhe «Shitësi» te `salesReportData()`/`alphaSalesAnalyticRows()` ndjekin përdoruesin real.
+
+## Verifikimi
+`npm run test:activity-actor` → **24/24** (desktop 1440×1000 + telefon 390×844), 0 gabime konzole,
+`stats.errors=0`, `stats.mismatch=0`. Provohen tre përdorues (`Audit lokal` ROLE-ADMIN, `Ana Kola`
+ROLE-ADMIN, `Besnik Rama` ROLE-USER) me veprime reale (shpenzim i konfirmuar `SHP-…`, peshim `PS-…`),
+ngjarje të vjetra të pashtjelluara, filtrat, kërkimi, eksporti XLSX dhe `reload()`.
+
+Regresionet: browser 32/32 · table-sort 92/92 · expenses 36/36 · cloud-realtime 56/56 ·
+opening 32/32 · warehouse-docs 32/32 · stock-doc-ux 28/28 · cloud-isolation 22/22 ·
+multi-company 20/20 · bank-csv 18/18 · blind 15/15 · doc-numbers 15/15 · returns 13/13 ·
+trace-dossier 12/12 · doc-number-sync 10/10 · sales-prepay 9/9 · openings-alpha 9/9 · manual 7/7 ·
+weigh-group 6/6 · recovery OK.
+`registry-export` (12/13) dhe `operations` (hapi i paketimit) dështojnë **njësoj edhe në HEAD pa këtë
+patch** → të parafillora; `ocr` kërkon motorët lokalë (`tesseract.js`) siç përshkruhet në `tests/README.md`.
+
+## API
+```js
+window.activityActorReport()   // diagnostikë: autorë për ngjarje, filtri, statistika
+window.__biobesActivityActorV1.{version,refresh,keepAlive,installHooks,stampActor,resolveActor,
+  actorNow,recordOfRef,buildUserFilter,applyUserFilter,report,stats}
+```
