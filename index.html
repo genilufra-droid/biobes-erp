@@ -16634,7 +16634,7 @@ window.formatFiscalDate = function(dtStr, withTime) {
       let hh = String(d.getHours()).padStart(2, '0');
       let mm = String(d.getMinutes()).padStart(2, '0');
       let ss = String(d.getSeconds()).padStart(2, '0');
-      return `${yr}-${mon}-${day} ${hh}:${mm}:${ss}.0`;
+      return `${yr}-${mon}-${day} ${hh}:${mm}:${ss}`;
     }
     return `${day}.${mon}.${yr}`;
   } catch(e) { return dtStr; }
@@ -16780,10 +16780,10 @@ window.renderUnifiedDptInvoiceHtml = function(f, isPurchase, isFiscal) {
     return `<tr>
       <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${esc(pName)}</td>
       <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${unitCode}</td>
-      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${Number(qty).toFixed(3)}000000</td>
-      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${Number(prc).toFixed(2)}00000000</td>
-      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${disc ? Number(disc).toFixed(2) : ''}</td>
-      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${Number(vatRate).toFixed(2)}</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${fmt2(qty)}</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${fmt2(prc)}</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${disc ? fmt2(disc) : '0,00'}</td>
+      <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${fmt2(vatRate)}</td>
       <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${fmt2(without)}</td>
       <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${fmt2(vatL)}</td>
       <td style="border: 1px solid #000; padding: 4pt 3pt; text-align: center; vertical-align: middle;">${fmt2(totL)}</td>
@@ -16907,7 +16907,7 @@ window.renderUnifiedDptInvoiceHtml = function(f, isPurchase, isFiscal) {
       </thead>
       <tbody>
         <tr>
-          <td style="border: 1px solid #000; padding: 4pt 6pt; text-align: center;">${Number(vatRate).toFixed(2)}</td>
+          <td style="border: 1px solid #000; padding: 4pt 6pt; text-align: center;">${fmt2(vatRate)}</td>
           <td style="border: 1px solid #000; padding: 4pt 6pt; text-align: center;">${fmt2(beforeVat)}</td>
           <td style="border: 1px solid #000; padding: 4pt 6pt; text-align: center;">${fmt2(vatAmt)}</td>
         </tr>
