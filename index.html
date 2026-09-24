@@ -72,6 +72,7 @@ const seedProducts=[
 ['801','Dafinë','Laurus nobilis','Laurel oil','Vajrat'],['802','Lavandula','Lavandula','Lavender oil','Vajrat'],['803','Rigon','Origanum','Oregano oil','Vajrat'],['804','Rozmarinë','Rosmarinus officinalis','Rosemary oil','Vajrat'],['805','Sherëbelë','Salvia officinalis','Sage oil','Vajrat'],['809','Timus capitatus','Thymus capitatus','Conehead thyme oil','Vajrat'],['810','Dëllinjë','Juniperus communis','Juniper oil','Vajrat']].map(x=>({id:'P'+x[0],code:x[0],name:x[1],botanical:x[2],english:x[3],category:x[4],active:true}));
 const initial={products:seedProducts,suppliers:[{id:'S1',code:'S01/1',name:'Sokol Agalliu',region:'Berat',phone:'',balance:-120000},{id:'S2',code:'S01/2',name:'Flamur Guri',region:'Berat',phone:'',balance:350000},{id:'S3',code:'S04/3',name:'Arben Koci',region:'Elbasan',phone:'',balance:0}],customers:[{id:'C1',name:'Nutreco Switzerland GmbH',country:'Switzerland'},{id:'C2',name:'Alfred Galke GmbH',country:'Germany'}],warehouses:[{id:'W1',code:'MQ',name:'Magazina Qendrore'},{id:'W2',code:'MG',name:'Magazina Gur'},{id:'W3',code:'MB',name:'Magazina Belsh'}],racks:Array.from({length:9},(_,i)=>({id:'R'+(i+1),warehouse:'W1',code:'R'+String(i+1).padStart(2,'0'),name:i===0?'Rafti i Sokolit':'Rafti '+(i+1)})),machines:[{id:'M1',code:'MK-01',name:'Makineria e pastrimit',status:'E lirë'},{id:'M2',code:'MK-02',name:'Makineria e prerjes',status:'E lirë'},{id:'M3',code:'DH-01',name:'Dhoma e seleksionimit',status:'Në pastrim'}],weighings:[],lots:[{id:'L1',code:'B1S01/1-105-26',supplier:'S1',product:'P105',gross:1240,tare:40,net:1200,warehouse:'W1',rack:'R1',status:'Në magazinim',date:'2026-09-03'}],payments:[],samples:[{id:'SM-2026-0001',date:'2026-09-01',customer:'C2',product:'P105',lot:'L1',tracking:'2957976265',status:'E aprovuar'}],orders:[{id:'PO-2026-0070',date:'2026-09-02',customer:'C1',status:'Në prodhim',items:[{product:'P105',qty:20250,done:0}]}],processes:[],shipments:[],documents:[],events:[{date:'2026-09-03 09:20',type:'Magazinim',ref:'L1',text:'Loti B1S01/1-105-26 u vendos në Rafti i Sokolit'}]};
 let state,db;function clone(x){return JSON.parse(JSON.stringify(x))}
+try{Object.defineProperty(window,'state',{get:function(){return state},set:function(v){state=v},configurable:true});Object.defineProperty(window,'db',{get:function(){return db},set:function(v){db=v},configurable:true})}catch(e){window.state=state;window.db=db}
 async function openDB(){return new Promise((res,rej)=>{let r=indexedDB.open('BioBesERP',1);r.onupgradeneeded=e=>{let d=e.target.result;if(!d.objectStoreNames.contains('app'))d.createObjectStore('app')};r.onsuccess=e=>{db=e.target.result;res()};r.onerror=rej})}
 async function load(){await openDB();return new Promise(res=>{let r=db.transaction('app','readonly').objectStore('app').get('state');r.onsuccess=()=>{state=r.result||clone(initial);res()};r.onerror=()=>{try{state=normalizeState({});state._loadError=true;toast('Gabim leximi i memories lokale — u hap me bazë boshe. Rikthe nga backup!')}catch(__le){state=clone(initial)}res()}})}
 function save(){if(state&&state.events&&state.events.length>500)state.events=state.events.slice(-500);if(!db)return;let pushAfter=!(typeof skipPush!=='undefined'&&skipPush);try{let sq=db.transaction('app','readwrite').objectStore('app').put(state,'state');let done=false;function finish(){if(done)return;done=true;if(!pushAfter)return;try{queuePush()}catch(_q){}}if(sq&&typeof sq==='object'){sq.onsuccess=()=>finish();sq.onerror=()=>{toast('Ruajtja lokale dështoi — kontrollo hapësirën dhe provo përsëri');finish()}}else{finish()}}catch(e){console.error('save error',e);toast('Ruajtja lokale dështoi — kontrollo hapësirën dhe provo përsëri');try{queuePush()}catch(_q){}}}
@@ -115,7 +116,7 @@ shipments(){return head('Ngarkesat','Përgatitja, kontrolli fizik dhe vulosja',`
 exports(){return head('Dosjet e Eksportit','Të gjitha dokumentet e ngarkesës në një vend')+tableCard(['Dokumenti','Ngarkesa','Numri','Data','Status','Skedari'],state.documents.map(x=>[x.type,x.shipment,x.number,x.date,status(x.status),`<a class="link">Hap / Shkarko</a>`]))},
 reports(){let cards=[['Blerjet','Sipas furnitorit, produktit, zonës dhe periudhës'],['Magazina','Gjendja sipas lotit, raftit dhe statusit'],['Mostrat','Aprovime, refuzime dhe analiza'],['Porositë','Porositur, prodhuar, paketuar, ngarkuar'],['Përpunimi','Hyrje, dalje, humbje dhe rendiment'],['Eksportet','Sipas klientit, shtetit, produktit dhe monedhës'],['Financa','Kartela furnitori, parapagime dhe detyrime'],['Gjurmueshmëria','Nga furnitori te klienti dhe anasjelltas']];return head('Raportet','Filtrim, printim dhe eksport')+`<div class="apps">${cards.map((x,i)=>`<div class="app" onclick="report('${x[0]}')"><i>${['₳','▦','⌁','☷','⚙','🚚','∑','⌘'][i]}</i><b>${x[0]}</b><small>${x[1]}</small></div>`).join('')}</div>`},
 trace(){return head('Gjurmueshmëria','Kërko një lot, porosi, faturë ose ngarkesë')+`<div class="card"><div class="toolbar"><input id="traceQ" placeholder="p.sh. B1S01/1-105-26"><button class="btn primary" onclick="traceSearch()">Gjurmo</button></div><div id="traceResult"><div class="empty">Vendosni kodin për të parë rrjedhën dokumentare.</div></div></div>`},
-settings(){return head('Konfigurime','Regjistrat bazë dhe mirëmbajtja')+`<div class="apps"><div class="app" onclick="simpleForm('warehouse')"><i>▦</i><b>Magazinat</b></div><div class="app" onclick="simpleForm('rack')"><i>▤</i><b>Raftet</b></div><div class="app" onclick="simpleForm('machine')"><i>⚙</i><b>Makineritë</b></div><div class="app"><i>👤</i><b>Përdoruesit</b></div><div class="app" onclick="backup()"><i>⇩</i><b>Backup</b></div><div class="app" onclick="resetDemo()"><i>↻</i><b>Rivendos Demo</b></div></div>`}}
+settings(){return head('Konfigurime','Regjistrat bazë dhe mirëmbajtja')+`<div class="apps"><div class="app" onclick="simpleForm('warehouse')"><i>▦</i><b>Magazinat</b></div><div class="app" onclick="simpleForm('rack')"><i>▤</i><b>Raftet</b></div><div class="app" onclick="simpleForm('machine')"><i>⚙</i><b>Makineritë</b></div><div class="app"><i>👤</i><b>Përdoruesit</b></div><div class="app" onclick="backup()"><i>⇩</i><b>Backup</b></div><div class="app" onclick="resetDemo()"><i>↻</i><b>Rivendos Demo</b></div></div>`}};window.views=views;
 function tableCard(headers,rows){return `<div class="card" style="padding:0"><div class="table-wrap" style="border:0"><table><thead><tr>${headers.map(h=>`<th>${esc(h??'')}</th>`).join('')}</tr></thead><tbody>${rows.length?rows.map(r=>`<tr>${r.map(c=>{let s=c??'';return `<td>${(typeof s==='string' && /<[a-z][\s\S]*>/i.test(s)) ? s : esc(s)}</td>`}).join('')}</tr>`).join(''):`<tr><td colspan="${headers.length}" class="empty">Nuk ka regjistrime</td></tr>`}</tbody></table></div></div>`}
 function listPage(title,sub,type,data,headers,row){return head(title,sub,`<button class="btn primary" onclick="entityForm('${type}')">+ Shto</button>`)+`<div class="toolbar"><input placeholder="Kërko live..." oninput="liveFilter(this)"><select onchange="liveFilter(this)"><option value="">Të gjitha</option></select></div><div class="liveTable">${tableCard(headers,data.map(row))}</div>`}
 function liveFilter(el){let q=el.value.toLowerCase();let root=el.closest('.card')?.parentElement||document;let tables=root.querySelectorAll('.liveTable');if(!tables.length) tables=document.querySelectorAll('.liveTable');tables.forEach(tbl=>tbl.querySelectorAll('tbody tr').forEach(r=>r.style.display=r.textContent.toLowerCase().includes(q)?'':'none'))}
@@ -778,7 +779,7 @@ closeModalWindow=function(){modalNavStack.length=0;let bg=document.getElementByI
 <style>.sort-th{cursor:pointer}.sort-th:hover{background:#eef7f0}.sort-ind{margin-left:4px;color:#2E7D32;font-size:10px;user-select:none}</style>
 <script>
 /* ===== BioBes ERP — Renditje asc/desc për çdo tabelë me Live Search =====
-   Bllok i ri <script> për index.html (fut para installModuleLiveSearch).
+   Bllok i ri script për index.html (fut para installModuleLiveSearch).
    Kliko kokën e kolonës: herë e parë ▲ (ngjitëse), klik tjetër ▼ (zbritëse).
    Numrat renditen si numra (pa kg/ALL/EUR), datat si data, bosh në fund. */
 window.attachSortableHeaders = (function () {
@@ -1077,68 +1078,11 @@ document.addEventListener('keydown',function(e){let row=e.target.closest('#saleL
 <style>.al-invoice{max-width:190mm;margin:auto;background:#fff;color:#111;padding:8mm;font-family:Arial;font-size:11px;border:1px solid #222}.al-invoice h1{text-align:center;font-size:23px;margin:5px}.al-head,.al-parties{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222}.al-head>div,.al-parties>div{padding:8px;border-right:1px solid #222}.al-head>div:last-child,.al-parties>div:last-child{border:0}.al-invoice table{width:100%;border-collapse:collapse;margin-top:10px}.al-invoice th,.al-invoice td{border:1px solid #222;padding:5px}.al-total{width:55%;margin-left:auto!important}.nonfiscal-note{border:2px solid #b07800;background:#fff8df;padding:7px;text-align:center;font-weight:700;margin:8px 0}</style><script>
 function saleRateDefault(currency='EUR',date){if(currency==='ALL')return 1;configData();let list=(state.exchangeRates||[]).filter(r=>r.currency===currency&&(!date||r.date<=date)).sort((a,b)=>String(b.date).localeCompare(String(a.date)));return list[0]?.rate||1}
 function syncSaleRate(){try{let c=document.getElementById('sfiCurrency')?.value,r=$id('sfiRate');if(r)r.value=fmt2((typeof saleRateDefault==='function'?saleRateDefault(c,document.getElementById('sfiDate')?.value):1));if(typeof calcSaleV2==='function')calcSaleV2()}catch(e){console.error(e)}}
+// Integrimi me suitën zyrtare tatimore DPT (biobes-fiscalization-suite)
 function albanianSaleInvoiceHtml(f){
   return (typeof renderUnifiedDptInvoiceHtml === 'function') ? renderUnifiedDptInvoiceHtml(f, false, f.isFiscal !== false) : '';
 }
-function openAlbanianSaleInvoice(id){
-  let f=salesInvoices().find(x=>x.id===id);
-  if(!f)return toast('Fatura nuk u gjet');
-  let cfg = fiscalConfig();
-  if (f.isFiscal === undefined) f.isFiscal = true;
-  if (f.isFiscal) ensureFiscalized(f, cfg);
 
-  let bannerHtml = `
-  <div class="fiscal-toggle-banner">
-    <div class="fiscal-toggle-wrap">
-      <span class="switch-label">⚡ Fiskalizimi Tatimor (DPT):</span>
-      <label class="toggle-switch">
-        <input type="checkbox" ${f.isFiscal ? 'checked' : ''} onchange="toggleInvoiceFiscalMode('${f.id}', 'sale', this.checked)">
-        <span class="toggle-slider"></span>
-      </label>
-      <span id="fiscalToggleStatus_${f.id}" class="${f.isFiscal ? 'toggle-badge-on' : 'toggle-badge-off'}">
-        ${f.isFiscal ? '🟢 FISKALE (Zyrtare DPT · Me QR & NIVF)' : '⚪ JO-FISKALE (E Brendshme · Pa Tatime)'}
-      </span>
-    </div>
-    <div class="toggle-banner-actions">
-      <button class="btn small" onclick="saleInvoiceCard('${f.id}')" title="Kthehu te Fatura e Eksportit">🌍 Fatura e Eksportit</button>
-      <button class="btn small primary" onclick="openGoodsTransportNote('${f.id}', 'sale')">🚚 Faturë Shoqëruese Malli</button>
-    </div>
-  </div>
-  <div id="unifiedInvoiceContainer_${f.id}">
-    ${renderUnifiedDptInvoiceHtml(f, false, f.isFiscal)}
-  </div>`;
-
-  modal('Faturë Tatimore Zyrtare — ' + (f.invoiceNumber || f.id), bannerHtml,
-    `<button class="btn" onclick="closeModal()">Mbyll</button>
-     <button class="btn" onclick="saleInvoiceCard('${f.id}')">🌍 Fatura e Eksportit</button>
-     <button class="btn" onclick="openGoodsTransportNote('${f.id}', 'sale')">🚚 Faturë Shoqëruese</button>
-     <button class="btn" onclick="verifyInvoiceOnDPT('${f.id}')">🔍 Verifiko DPT</button>
-     <button class="btn" onclick="openFiscalXmlModal('${f.id}')">XML DPT</button>
-     <button class="btn primary" onclick="printUnifiedInvoice('${f.id}')">Printo / PDF</button>`
-  );
-
-  if (f.isFiscal) setTimeout(() => renderUnifiedQr(f, 'unifiedQrBox_' + f.id), 50);
-}
-
-const saleInvoiceCardAlbanianBase=saleInvoiceCard;
-saleInvoiceCard=function(id){
-  saleInvoiceCardAlbanianBase(id);
-  let f=salesInvoices().find(x=>x.id===id);
-  if(!f)return;
-  let mf = document.getElementById('modalFoot');
-  if(mf){
-    // Remove any duplicate buttons before appending
-    mf.querySelectorAll('.btn-fiscal-action').forEach(b => b.remove());
-    mf.insertAdjacentHTML('beforeend', `
-      <button class="btn btn-fiscal-action" onclick="openGoodsTransportNote('${id}', 'sale')">🚚 Faturë Shoqëruese</button>
-      <button class="btn primary btn-fiscal-action" onclick="openAlbanianSaleInvoice('${id}')">🏛 Faturë Tatimore (DPT me Kuti)</button>
-    `);
-  }
-};
-
-function albanianSaleInvoiceHtml(f){
-  return renderUnifiedDptInvoiceHtml(f, false, f.isFiscal !== false);
-}
 </script>
 <script>
 // Company info & banks — 100% nga sistemi (state), me fallback vetëm nëse sistemi bosh
@@ -1186,9 +1130,9 @@ setTimeout(()=>{if(window.state){syncExportDossiers();save()}},900)
 <style>.sales-tabs{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 14px}.sales-tabs .active{background:#08784f;color:#fff}.organic-cell{background:#12e533!important;font-weight:800}.conventional-cell{background:#fff4ad!important}.sales-comment-cell{background:#fff500!important}</style><script>
 let salesModuleTab='invoices';
 function salesRegisterRows(){let rows=[];salesInvoices().filter(f=>f.status==='Konfirmuar').forEach(f=>saleLinesOf(f).forEach((l,i)=>{let p=by('products',l.product),packsForLine=packs().filter(pk=>pk.order===f.order&&pk.product===l.product),organic=packsForLine.some(pk=>pk.organic==='Organik')?'O':(p?.organicStatus||'K'),sourceLots=[...new Set(packsForLine.flatMap(pk=>pk.sourceLots||[]))].map(id=>by('lots',id)).filter(Boolean),suppliers=[...new Set(sourceLots.map(lot=>by('suppliers',lot.supplier)?.code+' — '+by('suppliers',lot.supplier)?.name).filter(Boolean))],codes=[...new Set(packsForLine.flatMap(pk=>[pk.internalLot,pk.customerLot]).filter(Boolean))];if(!codes.length&&l.description)codes.push(l.description);rows.push({invoiceId:f.id,date:f.date,invoice:f.invoiceNumber||f.id,customer:by('customers',f.customer)?.name||'',productCode:p?.code||'',product:p?.name||'',status:organic,organicQty:organic==='O'?+l.net||0:0,conventionalQty:organic==='O'?0:+l.net||0,comments:suppliers.join('; '),codes:codes.join('; '),order:f.order,shipment:f.shipment})}));return rows}
-function salesInvoicesTable(){let a=salesInvoices();return tableCard(['Fatura','Data','Klienti','Porosia','Ngarkesa','Monedha','Kursi','Totali','Status','Veprime'],a.map(f=>[`<button class="link" onclick="saleInvoiceCard('${f.id}')">${f.invoiceNumber||f.id}</button>`,f.date,by('customers',f.customer)?.name||'—',`<button class="link" onclick="orderCard('${f.order}')">${f.order||'—'}</button>`,f.shipment?`<button class="link" onclick="shipmentCard('${f.shipment}')">${f.shipment}</button>`:'—',f.currency,fmt2(f.exchangeRate||1),fmt2(f.total),status(f.status),`<button class="btn small" onclick="saleInvoiceCard('${f.id}')">Hap</button> <button class="btn small primary" onclick="openAlbanianSaleInvoice('${f.id}')" title="Faturë Tatimore Zyrtare (DPT me Kuti & QR)">🏛 Faturë DPT</button> <button class="btn small" onclick="openGoodsTransportNote('${f.id}', 'sale')" title="Faturë Shoqëruese Malli">🚚 FSH</button>`]))}
+function salesInvoicesTable(){let a=salesInvoices();return tableCard(['Fatura','Data','Klienti','Porosia','Ngarkesa','Monedha','Kursi','Totali','Status','Veprime'],a.map(f=>[`<button class="link" onclick="saleInvoiceCard('${f.id}')">${f.invoiceNumber||f.id}</button>`,f.date,by('customers',f.customer)?.name||'—',`<button class="link" onclick="orderCard('${f.order}')">${f.order||'—'}</button>`,f.shipment?`<button class="link" onclick="shipmentCard('${f.shipment}')">${f.shipment}</button>`:'—',f.currency,fmt2(f.exchangeRate||1),fmt2(f.total),status(f.status),`<button class="btn small" onclick="saleInvoiceCard('${f.id}')" title="Fatura Tregtare e Eksportit">🌍 Eksport</button> <button class="btn small primary" style="background:#166534;color:#fff;font-weight:bold" onclick="openAlbanianSaleInvoice('${f.id}')" title="Faturë Tatimore Zyrtare (DPT me Kuti & QR)">🏛 Faturë DPT</button> <button class="btn small" onclick="openGoodsTransportNote('${f.id}', 'sale')" title="Faturë Shoqëruese Malli (WTN)">🚚 FSH</button> <button class="btn small" onclick="exportDptSaleInvoiceXlsx('${f.id}')" title="Shkarko Excel DPT">📊 Excel</button>`]))}
 function salesRegisterTable(){let rows=salesRegisterRows();return `<div class="activity-tools"><input id="salesRegisterSearch" placeholder="Kërko live: faturë, klient, produkt, kod, furnitor..." oninput="filterSalesRegister()"><input id="salesRegisterFrom" type="date" onchange="filterSalesRegister()"><input id="salesRegisterTo" type="date" onchange="filterSalesRegister()"><button class="btn" onclick="exportSalesRegisterXlsx()">Eksporto regjistrin XLSX</button><span id="salesRegisterCount" class="activity-count"></span></div>`+tableCard(['Data','Nr. Fature','Klienti','Kodi i produktit','Produkti','Statusi O/K','Sasia Organike (kg)','Sasia Konvenc. (kg)','Komente rreth furnitorëve','Kode / Lote','Lidhjet'],rows.map(r=>[r.date,`<button class="link" onclick="saleInvoiceCard('${r.invoiceId}')">${esc(r.invoice)}</button>`,r.customer,r.productCode,r.product,`<b>${r.status}</b>`,r.organicQty?`<span class="organic-cell">${fmt2(r.organicQty)}</span>`:'',r.conventionalQty?`<span class="conventional-cell">${fmt2(r.conventionalQty)}</span>`:'',`<span class="sales-comment-cell">${esc(r.comments)}</span>`,esc(r.codes),`<button class="link" onclick="orderCard('${r.order}')">${r.order}</button>${r.shipment?` · <button class="link" onclick="shipmentCard('${r.shipment}')">${r.shipment}</button>`:''}`]))}
-views.sales=function(){let content=salesModuleTab==='register'?salesRegisterTable():salesInvoicesTable();setTimeout(()=>{if(salesModuleTab==='register')filterSalesRegister()},30);return head('Shitjet','Faturat dhe regjistri automatik i shitjeve',`<button class="btn primary" onclick="saleInvoiceForm()">+ Faturë shitjeje</button>`)+`<div class="sales-tabs"><button class="btn ${salesModuleTab==='invoices'?'active':''}" onclick="salesModuleTab='invoices';render()">Faturat e shitjes</button><button class="btn ${salesModuleTab==='register'?'active':''}" onclick="salesModuleTab='register';render()">Regjistri i shitjeve</button></div>${content}`}
+views.sales=function(){let content=salesModuleTab==='register'?salesRegisterTable():salesInvoicesTable();setTimeout(()=>{if(salesModuleTab==='register')filterSalesRegister()},30);return head('Shitjet','Faturat dhe regjistri automatik i shitjeve',`<button class="btn" onclick="go('fiscalization')">⚡ Fiskalizimi (DPT)</button> <button class="btn primary" onclick="saleInvoiceForm()">+ Faturë shitjeje</button>`)+`<div class="sales-tabs"><button class="btn ${salesModuleTab==='invoices'?'active':''}" onclick="salesModuleTab='invoices';render()">Faturat e shitjes</button><button class="btn ${salesModuleTab==='register'?'active':''}" onclick="salesModuleTab='register';render()">Regjistri i shitjeve</button></div>${content}`}
 function filterSalesRegister(){let q=(document.getElementById('salesRegisterSearch')?.value||'').toLowerCase(),from=document.getElementById('salesRegisterFrom')?.value||'',to=document.getElementById('salesRegisterTo')?.value||'',shown=0;document.querySelectorAll('#main table tbody tr').forEach(r=>{if(r.querySelector('.empty'))return;let date=r.cells[0]?.textContent.trim()||'',ok=(!q||r.textContent.toLowerCase().includes(q))&&(!from||date>=from)&&(!to||date<=to);r.style.display=ok?'':'none';if(ok)shown++});if(window.salesRegisterCount)$text('salesRegisterCount',shown+' rezultate')}
 function exportSalesRegisterXlsx(){let rows=salesRegisterRows().filter(r=>{let q=(document.getElementById('salesRegisterSearch')?.value||'').toLowerCase(),from=document.getElementById('salesRegisterFrom')?.value||'',to=document.getElementById('salesRegisterTo')?.value||'',txt=Object.values(r).join(' ').toLowerCase();return(!q||txt.includes(q))&&(!from||r.date>=from)&&(!to||r.date<=to)}).map(r=>[r.date,r.invoice,r.customer,r.productCode,r.product,r.status,r.organicQty||'',r.conventionalQty||'',r.comments,r.codes,r.order,r.shipment||'']);makeXlsx('REGJISTRI-SHITJEVE-'+new Date().toISOString().slice(0,10)+'.xlsx',['Data','Nr. Fature','Klienti','Kodi i produktit','Produkti','Statusi O/K','Sasia Organike kg','Sasia Konvencionale kg','Komente rreth furnitorëve','Kode/Lote','Porosia','Ngarkesa'],rows);toast('Regjistri i filtruar u eksportua')}
 </script>
@@ -7435,7 +7379,7 @@ views.purchases=function(){
     ];
   });
   return head('Faturat e Blerjes','Pesha e faturueshme, çmimi dhe detyrimi ndaj furnitorit',
-      '<button class="btn" onclick="returnsCenter(\'supplier\')">↩ Kthim furnitori</button> <button class="btn" onclick="syncPurchaseDrafts();render()">↻ Merr peshimet</button> <button class="btn primary" onclick="purchaseInvoiceForm()">+ Faturë blerjeje</button>')
+      '<button class="btn" onclick="go(\'fiscalization\')">⚡ Fiskalizimi (DPT)</button> <button class="btn" onclick="returnsCenter(\'supplier\')">↩ Kthim furnitori</button> <button class="btn" onclick="syncPurchaseDrafts();render()">↻ Merr peshimet</button> <button class="btn primary" onclick="purchaseInvoiceForm()">+ Faturë blerjeje</button>')
     +'<div class="stepbar"><span class="step on">Peshim i konfirmuar</span><span class="step">Draft blerjeje</span><span class="step">Çmim &amp; TVSH</span><span class="step">Konfirmuar</span></div>'
     +'<div class="hint" style="margin:-4px 0 10px">Draft: <b>'+count('Draft')+'</b> · Konfirmuar: <b>'+count('Konfirmuar')+'</b> · Anuluar: <b>'+count('Anuluar')+'</b> — draft-et krijohen automatikisht nga peshimet e konfirmuara.</div>'
     +tableCard(['Fature','Data','Furnitori','Produkt','Peshimi','Neto','Cmimi','Totali','Monedha','Status','Veprime'],rows);
@@ -16172,22 +16116,8 @@ else setTimeout(function(){refresh();buildUserFilter()},30);
 <!-- ==========================================================================
      BIOBES FISCALIZATION SUITE (LIGJI NR. 87/2019 DPT / CIS) - HAPI B
      Sistemi Zyrtar i Fiskalizimit Shqiptar: NSLF, NIVF, QR DPT, TCR, API Tatimeve
+     Formatet Zyrtare Tatimore: Modeli DPT CIS Box Format & Dokumentet WTN
      ========================================================================== -->
-
-<!-- ==========================================================================
-     BIOBES FISCALIZATION SUITE (LIGJI NR. 87/2019 DPT / CIS) - HAPI B
-     Sistemi Zyrtar i Fiskalizimit Shqiptar: NSLF, NIVF, QR DPT, TCR, API Tatimeve
-     ========================================================================== -->
-
-<!-- ==========================================================================
-     BIOBES FISCALIZATION SUITE (LIGJI NR. 87/2019 DPT / CIS) - HAPI B
-     Sistemi Zyrtar i Fiskalizimit Shqiptar: NSLF, NIVF, QR DPT, TCR, API Tatimeve
-     ========================================================================== -->
-<!-- ==========================================================================
-     BIOBES FISCALIZATION SUITE (LIGJI NR. 87/2019 DPT / CIS) - HAPI B
-     Formatet Zyrtare Tatimore: Modeli 1 (easyPOS A4 1-fletë) & Modeli 2 (DPT CIS Box Format)
-     ========================================================================== -->
-
 <style id="biobes-fiscalization-styles">
 /* ==========================================================================
    BIOBES UNIFIED FISCAL & NON-FISCAL SUITE + FATURË SHOQËRUESE (WTN)
@@ -16444,7 +16374,8 @@ else setTimeout(function(){refresh();buildUserFilter()},30);
 // Auto-migrim dhe plotësim i të dhënave tatimore për Furnitorët dhe Klientët
 (function syncOfficialFiscalParties(){
   try {
-    if (!window.state) return;
+    let st = (typeof state !== 'undefined' && state) ? state : (window.state || null);
+    if (!st || !Array.isArray(st.suppliers)) return;
     let sups = state.suppliers || [];
     let defaultSups = {
       'S1': { nipt: 'K51204018A', address: 'Lagjja Çlirim, Berat', region: 'Berat' },
@@ -18219,7 +18150,8 @@ try {
 // Auto-inicializim
 window.autoInitFiscalInvoices = function() {
   try {
-    if (typeof state !== 'undefined' && state && Array.isArray(state.salesInvoices)) {
+    let st = (typeof state !== 'undefined' && state) ? state : (window.state || null);
+    if (st && Array.isArray(st.salesInvoices)) {
       state.salesInvoices.forEach(f => {
         if (f && f.isFiscal === undefined) f.isFiscal = true;
         if (f && f.isFiscal && typeof ensureFiscalized === 'function') ensureFiscalized(f);
