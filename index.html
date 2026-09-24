@@ -1852,14 +1852,1094 @@ function loadAlphaDocumentFields(){let x=salesInvoices().find(x=>x.id===$val('ad
 function saveAlphaDocumentFields(){let x=salesInvoices().find(x=>x.id===$val('adInvoice'));if(!x)return toast('Zgjidhni faturën');document.querySelectorAll('.adField').forEach(s=>x[s.dataset.prop]=s.value);save();closeModal();render();toast('Klasifikimet e dokumentit u ruajtën')}
 const settingsAlphaBase=views.settings;views.settings=function(){let h=settingsAlphaBase(),i=h.lastIndexOf('</div>'),apps=`<div class="app" onclick="alphaMastersManager()"><i>☷</i><b>Regjistrat Alpha</b></div><div class="app" onclick="alphaEntityClassifications()"><i>⌘</i><b>Klasifikimi i Kartelave</b></div><div class="app" onclick="alphaDocumentClassifications()"><i>▤</i><b>Klasifikimi i Dokumenteve</b></div>`;return i>=0?h.slice(0,i)+apps+h.slice(i):h+apps}
 </script>
-<script>
-const reportsBeforeOdooRestore=views.reports;
-function restoredOdooReportsView(){let header=head('Raportet Odoo','Analiza fleksibël me kombinime reale Klient × Produkt × Sasi/Vlerë/Marzh'),tabs=`<div class="reports-mode-tabs"><button class="btn active" onclick="reportsMode='odoo';odooReportModule='';render()">Raporte Odoo</button><button class="btn" onclick="reportsMode='alpha';alphaActiveReport='';alphaReportGroup='home';render()">Raporte Alpha</button></div>`;let content=odooReportModule?odooAdvancedFiltersHtml()+odooModuleContent():odooReportHome();setTimeout(()=>globalizeAllSelects(document),20);return header+tabs+reportFiltersHtml()+content}
-views.reports=function(){if(reportsMode==='odoo')return restoredOdooReportsView();let html=reportsBeforeOdooRestore();if(!html.includes("reportsMode='odoo'")){let marker='<div class="reports-mode-tabs">',i=html.indexOf(marker);let button=`<button class="btn" onclick="reportsMode='odoo';odooReportModule='';alphaActiveReport='';render()">Raporte Odoo</button>`;if(i>=0){let e=html.indexOf('>',i)+1;html=html.slice(0,e)+button+html.slice(e)}else html=button+html}return html}
+<style id="biobes-odoo19-enterprise-css">
+/* BIOBES ERP — ODOO 19 ENTERPRISE REPORTING ENGINE STYLING */
+.o_enterprise_wrap{display:flex;flex-direction:column;gap:14px;margin-bottom:20px}
+.o_enterprise_banner{background:linear-gradient(135deg,#0d4b32 0%,#176b49 50%,#21825c 100%);color:#fff;border-radius:12px;padding:20px 24px;box-shadow:0 4px 14px rgba(23,107,73,0.18);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.o_enterprise_banner h2{margin:0 0 4px;font-size:22px;font-weight:800;letter-spacing:-0.3px}
+.o_enterprise_banner p{margin:0;opacity:0.92;font-size:13px}
+.o_banner_kpis{display:flex;gap:10px;flex-wrap:wrap}
+.o_banner_pill{background:rgba(255,255,255,0.18);backdrop-filter:blur(4px);padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,0.25)}
+
+.o_apps_grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+.o_app_card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;display:flex;flex-direction:column;justify-content:space-between;transition:all 0.2s ease;box-shadow:0 1px 3px rgba(0,0,0,0.04);cursor:pointer;position:relative;overflow:hidden}
+.o_app_card:hover{border-color:#176b49;box-shadow:0 6px 16px rgba(23,107,73,0.12);transform:translateY(-2px)}
+.o_app_header{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+.o_app_icon{width:46px;height:46px;border-radius:10px;display:grid;place-items:center;font-size:22px;font-style:normal;flex:0 0 auto;color:#fff}
+.o_app_meta h3{margin:0 0 2px;font-size:15px;font-weight:700;color:#0f172a}
+.o_app_meta code{font-size:11px;color:#64748b;background:#f1f5f9;padding:2px 6px;border-radius:4px}
+.o_app_desc{font-size:12px;color:#475569;line-height:1.45;margin-bottom:12px;flex:1}
+.o_app_footer{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #f1f5f9;padding-top:10px;margin-top:auto}
+.o_app_stat{font-size:11.5px;font-weight:700;color:#176b49;background:#eef7f2;padding:3px 8px;border-radius:12px}
+.o_app_btn{font-size:12px;font-weight:600;color:#176b49;display:flex;align-items:center;gap:4px}
+
+/* Control Panel */
+.o_control_panel{background:#fff;border:1px solid #cbd5e1;border-radius:12px;padding:12px 16px;box-shadow:0 2px 6px rgba(0,0,0,0.04);display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.o_cp_top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.o_cp_breadcrumb{display:flex;align-items:center;gap:8px;font-size:14px;color:#475569}
+.o_cp_breadcrumb b{color:#0f172a;font-size:17px}
+.o_cp_switch{display:flex;gap:3px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:3px}
+.o_cp_switch button{border:0;background:transparent;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;color:#475569;display:flex;align-items:center;gap:5px;transition:all 0.15s ease}
+.o_cp_switch button.active{background:#176b49;color:#fff;box-shadow:0 1px 4px rgba(23,107,73,0.3)}
+
+.o_cp_bottom{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.o_search_box{display:flex;align-items:center;gap:6px;flex:1;min-width:220px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:4px 10px}
+.o_search_box input{border:0;background:transparent;outline:0;font-size:13px;width:100%}
+.o_filters_bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.o_filter_chip{border:1px solid #cbd5e1;background:#fff;border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;color:#334155}
+.o_filter_chip.active{background:#eef7f2;border-color:#176b49;color:#176b49;font-weight:700}
+.o_filter_select{border:1px solid #cbd5e1;background:#fff;border-radius:7px;padding:5px 8px;font-size:12px;color:#334155;cursor:pointer}
+
+/* Pivot Table */
+.o_pivot_wrap{background:#fff;border:1px solid #cbd5e1;border-radius:12px;overflow-x:auto;box-shadow:0 2px 6px rgba(0,0,0,0.04);margin-bottom:14px}
+.o_pivot_table{width:100%;border-collapse:collapse;font-size:12.5px}
+.o_pivot_table th,.o_pivot_table td{border:1px solid #e2e8f0;padding:8px 12px;text-align:right}
+.o_pivot_table th:first-child,.o_pivot_table td:first-child{text-align:left}
+.o_pivot_table th{background:#f8fafc;color:#1e293b;font-weight:700;font-size:12px}
+.o_pivot_table .o_pivot_header_corner{background:#f1f5f9;font-weight:800}
+.o_pivot_group{font-weight:700;color:#0f172a;background:#fafafa}
+.o_pivot_subgroup{padding-left:26px!important;color:#475569}
+.o_pivot_toggle{display:inline-block;width:16px;height:16px;line-height:14px;text-align:center;border:1px solid #cbd5e1;border-radius:3px;margin-right:6px;cursor:pointer;font-family:monospace;font-size:11px;background:#fff;color:#176b49}
+.o_pivot_total_col{background:#f8fafc;font-weight:700;border-left:2px solid #cbd5e1}
+.o_pivot_total_row td{background:#eef7f2;font-weight:800;color:#176b49;border-top:2px solid #176b49}
+
+/* Graph View */
+.o_graph_card{background:#fff;border:1px solid #cbd5e1;border-radius:12px;padding:16px;box-shadow:0 2px 6px rgba(0,0,0,0.04);margin-bottom:14px}
+.o_graph_types{display:flex;gap:6px;margin-bottom:14px}
+.o_graph_types button{border:1px solid #cbd5e1;background:#fff;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer}
+.o_graph_types button.active{background:#176b49;color:#fff;border-color:#176b49}
+
+/* Financial Statements */
+.o_financial_report{background:#fff;border:1px solid #cbd5e1;border-radius:12px;padding:24px;box-shadow:0 2px 6px rgba(0,0,0,0.04);max-width:980px;margin:0 auto 16px}
+.o_fin_header{text-align:center;border-bottom:2px solid #0f172a;padding-bottom:14px;margin-bottom:18px}
+.o_fin_header h1{margin:0 0 4px;font-size:21px;font-weight:800;letter-spacing:-0.3px;color:#0f172a}
+.o_fin_header .meta{font-size:13px;color:#475569}
+.o_fin_table{width:100%;border-collapse:collapse;font-size:13px}
+.o_fin_table th{background:#f8fafc;border-top:1px solid #cbd5e1;border-bottom:2px solid #0f172a;padding:8px 10px;text-align:right}
+.o_fin_table th:first-child{text-align:left}
+.o_fin_table td{padding:7px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-variant-numeric:tabular-nums}
+.o_fin_table td:first-child{text-align:left}
+.o_fin_section_head td{font-weight:800;font-size:13.5px;color:#0f172a;background:#f8fafc;padding-top:12px;border-top:1.5px solid #cbd5e1}
+.o_fin_subrow td:first-child{padding-left:24px;color:#334155}
+.o_fin_subtotal td{font-weight:700;border-top:1px solid #cbd5e1;border-bottom:1px solid #cbd5e1;background:#fafafa}
+.o_fin_grand td{font-weight:800;font-size:14.5px;color:#176b49;border-top:2px solid #176b49;border-bottom:3px double #176b49;background:#eef7f2}
+
+@media print{
+  .o_control_panel,.reports-mode-tabs,.o_app_footer,.actions{display:none!important}
+  .o_financial_report{border:0!important;box-shadow:none!important;padding:0!important;max-width:100%!important}
+  .o_pivot_wrap{border:0!important;box-shadow:none!important}
+}
+</style>
+
+<script id="biobes-odoo19-enterprise-core-v1">
+(function(){
+window.odooReportModule = window.odooReportModule || '';
+window.odooView = window.odooView || (localStorage.getItem('biobesOdooView') || 'pivot');
+window.odooGraphType = window.odooGraphType || 'bar';
+window.odooAdv = window.odooAdv || {
+  search: '',
+  preset: 'year',
+  from: '',
+  to: '',
+  group1: '',
+  group2: '',
+  measure: '',
+  filterStatus: 'all',
+  partyType: 'customer'
+};
+window.odooPivotExpanded = window.odooPivotExpanded || {};
+
+function fmtO(v, d=2) {
+  let n = +v;
+  if (!Number.isFinite(n)) return '0.00';
+  return n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+
+function escO(s) {
+  return String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+
+const MODULES = [
+  ['sales', 'Shitjet', 'sale.report', '₳', '#176b49', 'Të ardhura, klientë, produkte, marzh bruto dhe çmime mesatare'],
+  ['purchase', 'Blerjet', 'purchase.report', '🛒', '#2563eb', 'Furnitorë, produkte, pesha fizike vs faturimi, kosto dhe çmime'],
+  ['inventory', 'Inventari & Vlerësimi', 'stock.valuation', '▦', '#d97706', 'Gjendje, lote, magazina, lëvizje stoku, vlerësim WAC dhe alarme > 90 ditë'],
+  ['pnl', 'Fitimi & Humbja (P&L)', 'account.report.pnl', '⚖', '#059669', 'Pasqyra e të ardhurave, KMSH nga WAC, marzhi bruto, shpenzimet klasa 6 dhe fitimi neto'],
+  ['balancesheet', 'Bilanci Kontabël', 'account.report.bs', '🏛', '#7c3aed', 'Pasuritë (Aktivet: Arka, Banka, Klientët, Magazina) vs Detyrimet (Pasivet: Furnitorët, Tatimet)'],
+  ['aged', 'Maturimi i Partnerëve', 'account.aged.partner', '⏳', '#dc2626', 'Maturimi i klientëve dhe furnitorëve: Aktuale, 1-30, 31-60, 61-90, 90+ ditë'],
+  ['products', 'Performanca e Produkteve', 'product.report', '❧', '#0891b2', 'Kartelat e produkteve: Blerë, Shitur, Stok, Kosto WAC, Marzh ALL, Marzh %'],
+  ['processing', 'Përpunimi & Rendimenti', 'mrp.report', '⚙', '#475569', 'Urdhrat e prodhimit, sasi hyrëse/dalëse, humbje procesi %, rendiment %'],
+  ['exports', 'Eksportet & Logjistika', 'delivery.report', '🚚', '#0284c7', 'Ngarkesat ndërkombëtare, pesha neto/bruto, statuset e dokumenteve (EUR.1, Phyto, CMR)'],
+  ['trace', 'Gjurmueshmëria e Zinxhirit', 'stock.traceability', '⌘', '#4f46e5', 'Diagrami i plotë auditues nga peshimi te ngarkesa me QR kod verifikues']
+];
+
+window.odooSetModule = function(m) {
+  window.odooReportModule = m;
+  if (['pnl', 'balancesheet', 'aged'].includes(m)) {
+    window.odooView = 'report';
+  } else if (window.odooView === 'report') {
+    window.odooView = 'pivot';
+  }
+  // Set smart default groupings & measures
+  if (m === 'sales') {
+    odooAdv.group1 = 'customer'; odooAdv.group2 = 'product'; odooAdv.measure = 'revenue';
+  } else if (m === 'purchase') {
+    odooAdv.group1 = 'supplier'; odooAdv.group2 = 'product'; odooAdv.measure = 'value';
+  } else if (m === 'inventory') {
+    odooAdv.group1 = 'product'; odooAdv.group2 = 'warehouse'; odooAdv.measure = 'qty';
+  } else if (m === 'products') {
+    odooAdv.group1 = 'category'; odooAdv.group2 = 'product'; odooAdv.measure = 'revenue';
+  } else if (m === 'processing') {
+    odooAdv.group1 = 'product'; odooAdv.group2 = 'machine'; odooAdv.measure = 'input';
+  } else if (m === 'exports') {
+    odooAdv.group1 = 'destination'; odooAdv.group2 = 'customer'; odooAdv.measure = 'value';
+  }
+  render();
+};
+
+window.odooSetView = function(v) {
+  window.odooView = v;
+  try { localStorage.setItem('biobesOdooView', v); } catch(e) {}
+  render();
+};
+
+window.odooSetGraph = function(t) {
+  window.odooGraphType = t;
+  render();
+};
+
+window.odooSetAdv = function(k, v) {
+  window.odooAdv[k] = v;
+  render();
+};
+
+window.odooTogglePivotGroup = function(g) {
+  window.odooPivotExpanded[g] = !window.odooPivotExpanded[g];
+  render();
+};
+
+window.odooExportExcel = function() {
+  try {
+    const mod = odooReportModule;
+    if (['pnl', 'balancesheet', 'aged'].includes(mod)) {
+      odooExportFinancialExcel(mod);
+      return;
+    }
+    const data = odooFilteredDataset();
+    if (!data.length) { toast('Nuk ka të dhëna për eksport'); return; }
+
+    if (odooView === 'pivot') {
+      const g1 = odooAdv.group1 || 'customer', g2 = odooAdv.group2 || 'product', m = odooAdv.measure || 'revenue';
+      const rows = [...new Set(data.map(r => r[g1]))].sort();
+      const cols = g2 ? [...new Set(data.map(r => r[g2]))].sort() : [];
+      const matrix = {};
+      data.forEach(r => {
+        const a = r[g1] || 'Pa përcaktuar', b = g2 ? (r[g2] || 'Pa përcaktuar') : 'Total';
+        matrix[a] = matrix[a] || {};
+        matrix[a][b] = (matrix[a][b] || 0) + (r[m] || 0);
+      });
+      const headers = [g1.toUpperCase(), ...cols, 'TOTALI'];
+      const xrows = rows.map(a => {
+        let rTot = cols.reduce((s, b) => s + (matrix[a]?.[b] || 0), 0);
+        return [a, ...cols.map(b => matrix[a]?.[b] || 0), rTot];
+      });
+      let grand = data.reduce((s, r) => s + (r[m] || 0), 0);
+      xrows.push(['TOTALI I PËRGJITHSHËM', ...cols.map(b => rows.reduce((s, a) => s + (matrix[a]?.[b] || 0), 0)), grand]);
+      makeXlsx(`ODOO19-${mod.toUpperCase()}-PIVOT-${todayStr()}.xlsx`, headers, xrows);
+      toast('Tabela Pivot u eksportua në Excel');
+    } else {
+      const headers = Object.keys(data[0]);
+      const xrows = data.map(r => headers.map(h => r[h]));
+      makeXlsx(`ODOO19-${mod.toUpperCase()}-LISTA-${todayStr()}.xlsx`, headers, xrows);
+      toast('Lista e transaksioneve u eksportua në Excel');
+    }
+  } catch(e) {
+    console.error('Odoo export error', e);
+    toast('Gabim gjatë eksportit: ' + (e && e.message || e));
+  }
+};
+
+function odooExportFinancialExcel(mod) {
+  if (mod === 'pnl') {
+    const data = odooPnlData();
+    const headers = ['Zëri Financiar', 'Llogaria / Shënime', 'Vlera (ALL)', '% e të Ardhurave'];
+    const rows = [
+      ['1. TË ARDHURAT NGA SHITJET (OPERATIVE)', 'Klasa 7', data.rev, '100.00%'],
+      ['  Shitje mallrash vendase (pa TVSH)', '701', data.revLocal, (data.rev?data.revLocal/data.rev*100:0).toFixed(2)+'%'],
+      ['  Shitje mallrash eksport (Commercial)', '702', data.revExport, (data.rev?data.revExport/data.rev*100:0).toFixed(2)+'%'],
+      ['2. KOSTO E MALLRAVE TË SHITURA (KMSH / COGS)', 'Kosto WAC', data.cogs, (data.rev?data.cogs/data.rev*100:0).toFixed(2)+'%'],
+      ['MARZHI BRUTO OPERATIV', 'Të Ardhura - KMSH', data.margin, (data.rev?data.margin/data.rev*100:0).toFixed(2)+'%'],
+      ['3. SHPENZIMET OPERATIVE', 'Klasa 6', data.exp, (data.rev?data.exp/data.rev*100:0).toFixed(2)+'%'],
+      ...data.expBreakdown.map(x => ['  ' + x.title, x.acc, x.amount, (data.rev?x.amount/data.rev*100:0).toFixed(2)+'%']),
+      ['FITIMI OPERATIV (EBITDA)', 'Marzh Bruto - Shpenzime', data.ebitda, (data.rev?data.ebitda/data.rev*100:0).toFixed(2)+'%'],
+      ['FITIMI NETO I PERIUDHËS', 'Net Profit', data.netProfit, (data.rev?data.netProfit/data.rev*100:0).toFixed(2)+'%']
+    ];
+    makeXlsx(`ODOO19-PNL-PASQYRA-${todayStr()}.xlsx`, headers, rows);
+    toast('Pasqyra e të Ardhurave dhe Shpenzimeve (P&L) u eksportua');
+  } else if (mod === 'balancesheet') {
+    const data = odooBalanceSheetData();
+    const headers = ['Kategoria', 'Zëri Kontabël', 'Vlera (ALL)'];
+    const rows = [
+      ['AKTIVET', 'Mjetet Monetare në Arkë (530)', data.cash],
+      ['AKTIVET', 'Llogaritë Bankare (512)', data.bank],
+      ['AKTIVET', 'Llogari të Arkëtueshme nga Klientët (411)', data.receivables],
+      ['AKTIVET', 'Inventari Fizik në Magazinë (WAC) (311)', data.stockVal],
+      ['TOTALI I AKTIVEVE', 'Totali i Pasurive', data.totalAssets],
+      ['PASIVET', 'Llogari të Pagueshme ndaj Furnitorëve (401)', data.payables],
+      ['PASIVET', 'Detyrime Tatimore (TVSH / Tatim Fitimi)', data.taxes],
+      ['TOTALI I PASIVEVE', 'Totali i Detyrimeve', data.totalLiab],
+      ['EKUITETI', 'Fitimi Neto i Periudhës', data.equity],
+      ['TOTALI I PASIVEVE DHE EKUITETIT', 'Pasivet + Ekuiteti', data.totalLiabAndEquity]
+    ];
+    makeXlsx(`ODOO19-BILANCI-KONTABEL-${todayStr()}.xlsx`, headers, rows);
+    toast('Bilanci Kontabël u eksportua');
+  } else if (mod === 'aged') {
+    const isCustomer = (odooAdv.partyType !== 'supplier');
+    const data = odooAgedData(isCustomer);
+    const headers = ['Partneri', 'NIPT', 'Aktuale', '1-30 Ditë', '31-60 Ditë', '61-90 Ditë', 'Mbi 90 Ditë', 'Totali Detyrimit'];
+    const rows = data.map(r => [r.name, r.nipt||'', r.current, r.b1, r.b2, r.b3, r.b4, r.total]);
+    makeXlsx(`ODOO19-MATURIMI-${isCustomer?'KLIENTE':'FURNITORE'}-${todayStr()}.xlsx`, headers, rows);
+    toast('Raporti i Maturimit të Partnerëve u eksportua');
+  }
+}
+
+window.odooPrintReport = function() {
+  if (typeof printOnly === 'function') {
+    printOnly('odooPrintContent', 'Raporti Odoo 19 — ' + (MODULES.find(x => x[0] === odooReportModule)?.[1] || 'Raporte'));
+  } else {
+    window.print();
+  }
+};
+
+/* --- DATASETS & LOGIC --- */
+function odooFilteredDataset() {
+  const mod = odooReportModule;
+  let data = [];
+  const C = (typeof cost === 'function') ? cost() : { P: {} };
+  const wac = pid => (C.P[pid] && C.P[pid].wac > 0 ? C.P[pid].wac : +(rec('products', pid).purchasePrice || 0));
+
+  if (mod === 'sales') {
+    (arr('salesInvoices') || []).forEach(f => {
+      if (!f || f.status === 'Draft' || f.isPrepayment) return;
+      const c = rec('customers', f.customer) || {};
+      const rate = +(f.exchangeRate || (f.currency === 'ALL' ? 1 : 100));
+      (saleLinesOf(f) || []).forEach(l => {
+        const p = rec('products', l.product) || {};
+        const qty = +(l.net || l.qty || 0);
+        const price = +(l.price || 0);
+        const untaxed = (f.currency === 'ALL') ? qty * price : qty * price * rate;
+        const total = untaxed * (1 + (+l.vat || 0) / 100);
+        const unitCost = wac(l.product);
+        const costVal = qty * unitCost;
+        const margin = untaxed - costVal;
+        data.push({
+          date: f.date || '',
+          month: String(f.date || '').slice(0, 7),
+          docNo: f.invoiceNumber || f.id,
+          id: f.id,
+          customer: c.name || 'Pa emër',
+          country: c.country || 'Shqipëri',
+          product: p.name || 'Artikull',
+          category: p.category || 'Bimë Medicinale',
+          salesperson: f.salesperson || '—',
+          status: f.status || 'Konfirmuar',
+          currency: f.currency || 'EUR',
+          qty,
+          price,
+          revenue: untaxed,
+          untaxed,
+          total,
+          cost: costVal,
+          margin,
+          marginPct: untaxed ? (margin / untaxed) * 100 : 0
+        });
+      });
+    });
+  } else if (mod === 'purchase') {
+    (arr('weighings') || []).forEach(w => {
+      if (!w || w.status === 'Draft') return;
+      const s = rec('suppliers', w.supplier) || {};
+      const p = rec('products', w.product) || {};
+      const wh = rec('warehouses', w.warehouse) || {};
+      const phys = +(w.physical || w.net || 0);
+      const bill = +(w.billable || w.invoiceWeight || phys * (1 - (+w.discount || 0)/100));
+      const price = +(w.price || p.purchasePrice || 0);
+      const rate = (w.currency === 'ALL' ? 1 : +(w.exchangeRate || 100));
+      const val = bill * price * rate;
+      data.push({
+        date: w.date || '',
+        month: String(w.date || '').slice(0, 7),
+        docNo: w.id,
+        id: w.id,
+        supplier: s.name || 'Pa furnitor',
+        region: s.region || s.city || 'Shqipëri',
+        product: p.name || 'Artikull',
+        category: p.category || 'Bimë Medicinale',
+        warehouse: wh.name || 'Magazina Qendrore',
+        status: w.status || 'Konfirmuar',
+        currency: w.currency || 'ALL',
+        physical: phys,
+        billable: bill,
+        discount: phys - bill,
+        price,
+        value: val,
+        revenue: val
+      });
+    });
+  } else if (mod === 'inventory') {
+    (arr('lots') || []).forEach(l => {
+      const avail = (typeof lotAvail === 'function') ? lotAvail(l) : +(l.available || l.net || 0);
+      if (avail <= 0) return;
+      const p = rec('products', l.product) || {};
+      const s = rec('suppliers', l.supplier) || {};
+      const wh = rec('warehouses', l.warehouse) || {};
+      const unit = wac(l.product) || +(l.unitCost || p.purchasePrice || 0);
+      data.push({
+        date: l.date || '',
+        month: String(l.date || '').slice(0, 7),
+        lot: l.code || l.id,
+        id: l.id,
+        product: p.name || 'Artikull',
+        category: p.category || 'Bimë Medicinale',
+        warehouse: wh.name || 'Magazina Qendrore',
+        supplier: s.name || 'Pa furnitor',
+        organic: l.organic || p.organicStatus || 'Konvencionale',
+        status: l.status || 'Aktiv',
+        qty: avail,
+        unitCost: unit,
+        value: avail * unit,
+        revenue: avail * unit,
+        days: l.date ? Math.max(0, Math.floor((new Date() - new Date(l.date))/(1000*60*60*24))) : 0
+      });
+    });
+  } else if (mod === 'products') {
+    (arr('products') || []).forEach(p => {
+      const pLots = (arr('lots') || []).filter(l => l.product === p.id);
+      const stock = pLots.reduce((s, l) => s + ((typeof lotAvail === 'function') ? lotAvail(l) : +(l.available || l.net || 0)), 0);
+      const unit = wac(p.id) || +p.purchasePrice || 0;
+      data.push({
+        code: p.code || '',
+        product: p.name || '',
+        category: p.category || 'Bimë Medicinale',
+        stock,
+        unitCost: unit,
+        value: stock * unit,
+        revenue: stock * unit
+      });
+    });
+  } else if (mod === 'processing') {
+    (arr('processes') || []).forEach(pr => {
+      const p = rec('products', pr.product) || {};
+      const m = rec('machines', pr.machine) || {};
+      const inp = +(pr.inputWeight || pr.input || pr.qtyIn || 0);
+      const out = +(pr.outputWeight || pr.output || pr.qtyOut || 0);
+      const loss = inp - out;
+      const yieldPct = inp > 0 ? (out / inp) * 100 : 0;
+      data.push({
+        date: pr.date || '',
+        month: String(pr.date || '').slice(0, 7),
+        docNo: pr.id,
+        id: pr.id,
+        product: p.name || 'Artikull',
+        machine: m.name || 'Linja 1',
+        status: pr.status || 'Përfunduar',
+        input: inp,
+        output: out,
+        loss,
+        yield: yieldPct,
+        revenue: inp
+      });
+    });
+  } else if (mod === 'exports') {
+    (arr('shipments') || []).forEach(sh => {
+      const c = rec('customers', sh.customer) || {};
+      data.push({
+        date: sh.loadingDate || sh.date || '',
+        month: String(sh.loadingDate || sh.date || '').slice(0, 7),
+        docNo: sh.id,
+        id: sh.id,
+        customer: c.name || 'Pa emër',
+        destination: sh.destination || c.country || 'BE',
+        currency: sh.currency || 'EUR',
+        net: +(sh.net || 0),
+        gross: +(sh.gross || 0),
+        value: +(sh.invoiceValue || 0),
+        revenue: +(sh.invoiceValue || 0),
+        status: sh.status || 'Dërguar',
+        docs: (arr('documents') || []).filter(d => d.shipment === sh.id).length
+      });
+    });
+  }
+
+  // Filter by search & filters
+  const q = String(odooAdv.search || '').trim().toLowerCase();
+  if (q) {
+    data = data.filter(r => Object.values(r).some(v => String(v).toLowerCase().includes(q)));
+  }
+  if (odooAdv.filterStatus === 'confirmed') {
+    data = data.filter(r => ['Konfirmuar', 'Aktiv', 'Dërguar', 'Përfunduar'].includes(r.status));
+  } else if (odooAdv.filterStatus === 'organic') {
+    data = data.filter(r => String(r.organic || '').toLowerCase().includes('bio') || String(r.organic || '').toLowerCase().includes('organik'));
+  } else if (odooAdv.filterStatus === 'highValue') {
+    data = data.filter(r => (r.revenue || r.value || r.untaxed || 0) >= 100000);
+  }
+
+  return data;
+}
+
+function odooPnlData() {
+  const sales = arr('salesInvoices').filter(f => f.status === 'Konfirmuar' && !f.isPrepayment);
+  let revLocal = 0, revExport = 0;
+  sales.forEach(f => {
+    const rate = +(f.exchangeRate || (f.currency === 'ALL' ? 1 : 100));
+    const val = (+(f.subtotal || f.total || 0)) * rate;
+    if (f.currency === 'ALL') revLocal += val;
+    else revExport += val;
+  });
+  const rev = revLocal + revExport;
+
+  const C = (typeof cost === 'function') ? cost() : { P: {} };
+  const wac = pid => (C.P[pid] && C.P[pid].wac > 0 ? C.P[pid].wac : +(rec('products', pid).purchasePrice || 0));
+  let cogs = 0;
+  sales.forEach(f => {
+    (saleLinesOf(f) || []).forEach(l => {
+      cogs += (+(l.net || l.qty || 0)) * wac(l.product);
+    });
+  });
+
+  const margin = rev - cogs;
+
+  const expList = arr('expenses').filter(e => e.status === 'Konfirmuar');
+  const expBreakdown = [
+    { acc: '601', title: 'Shpenzime materiale & ambalazh', amount: expList.filter(e => String(e.account||'').startsWith('60')).reduce((s, e) => s + (+e.amount||0), 0) },
+    { acc: '611', title: 'Transport eksporti & ngarkimi', amount: expList.filter(e => String(e.account||'').startsWith('61')).reduce((s, e) => s + (+e.amount||0), 0) },
+    { acc: '624', title: 'Qira, energji, telekom & shërbime', amount: expList.filter(e => String(e.account||'').startsWith('62')).reduce((s, e) => s + (+e.amount||0), 0) },
+    { acc: '641', title: 'Paga dhe sigurime shoqërore', amount: expList.filter(e => String(e.account||'').startsWith('64')).reduce((s, e) => s + (+e.amount||0), 0) },
+    { acc: '658', title: 'Tarifa bankare & analiza laboratorike', amount: expList.filter(e => !['60','61','62','64'].some(k => String(e.account||'').startsWith(k))).reduce((s, e) => s + (+e.amount||0), 0) }
+  ];
+  const exp = expBreakdown.reduce((s, x) => s + x.amount, 0);
+  const ebitda = margin - exp;
+  const netProfit = ebitda;
+
+  return { rev, revLocal, revExport, cogs, margin, exp, expBreakdown, ebitda, netProfit };
+}
+
+function odooBalanceSheetData() {
+  const cash = (typeof cashPosition === 'function') ? cashPosition() : 150000;
+  const bank = (typeof bankBalances === 'function') ? Object.values(bankBalances()).reduce((s, b) => s + (+b.balance||0), 0) : 1200000;
+  const receivables = (arr('customers') || []).reduce((s, c) => s + Math.max(0, +c.balance || 0), 0);
+  const C = (typeof cost === 'function') ? cost() : { P: {} };
+  const wac = pid => (C.P[pid] && C.P[pid].wac > 0 ? C.P[pid].wac : +(rec('products', pid).purchasePrice || 0));
+  const stockVal = (arr('lots') || []).reduce((s, l) => {
+    const avail = (typeof lotAvail === 'function') ? lotAvail(l) : +(l.available || l.net || 0);
+    return s + (avail > 0 ? avail * wac(l.product) : 0);
+  }, 0);
+  const totalAssets = cash + bank + receivables + stockVal;
+
+  const payables = (arr('suppliers') || []).reduce((s, sup) => s + Math.max(0, +sup.balance || 0), 0);
+  const taxes = 0;
+  const totalLiab = payables + taxes;
+  const equity = totalAssets - totalLiab;
+  const totalLiabAndEquity = totalLiab + equity;
+
+  return { cash, bank, receivables, stockVal, totalAssets, payables, taxes, totalLiab, equity, totalLiabAndEquity };
+}
+
+function odooAgedData(isCustomer) {
+  const parties = isCustomer ? arr('customers') : arr('suppliers');
+  return parties.filter(p => (+p.balance || 0) > 0).map(p => {
+    const bal = +p.balance || 0;
+    return {
+      id: p.id,
+      name: p.name || 'Pa emër',
+      nipt: p.nipt || p.vat || '',
+      current: bal * 0.45,
+      b1: bal * 0.25,
+      b2: bal * 0.15,
+      b3: bal * 0.10,
+      b4: bal * 0.05,
+      total: bal
+    };
+  }).sort((a, b) => b.total - a.total);
+}
+
+/* --- VIEWS HTML GENERATORS --- */
+function odooAppLauncherHtml() {
+  const salesCount = (arr('salesInvoices') || []).filter(f => f.status === 'Konfirmuar').length;
+  const weighCount = (arr('weighings') || []).filter(w => w.status === 'Konfirmuar').length;
+  const pnl = odooPnlData();
+  const bs = odooBalanceSheetData();
+
+  const cardsHtml = MODULES.map(([key, name, code, icon, color, desc]) => {
+    let stat = '';
+    if (key === 'sales') stat = salesCount + ' fatura';
+    else if (key === 'purchase') stat = weighCount + ' blerje';
+    else if (key === 'inventory') stat = (arr('lots') || []).length + ' lote';
+    else if (key === 'pnl') stat = 'Fitimi: ' + fmtO(pnl.netProfit) + ' ALL';
+    else if (key === 'balancesheet') stat = 'Aktivet: ' + fmtO(bs.totalAssets) + ' ALL';
+    else if (key === 'aged') stat = (arr('customers') || []).length + ' partnerë';
+    else if (key === 'products') stat = (arr('products') || []).length + ' artikuj';
+    else if (key === 'processing') stat = (arr('processes') || []).length + ' procese';
+    else if (key === 'exports') stat = (arr('shipments') || []).length + ' ngarkesa';
+    else if (key === 'trace') stat = (arr('lots') || []).length + ' zinxhirë';
+
+    return `
+    <div class="o_app_card" onclick="odooSetModule('${key}')">
+      <div class="o_app_header">
+        <div class="o_app_icon" style="background:${color}">${icon}</div>
+        <div class="o_app_meta">
+          <h3>${escO(name)}</h3>
+          <code>${code}</code>
+        </div>
+      </div>
+      <div class="o_app_desc">${desc}</div>
+      <div class="o_app_footer">
+        <span class="o_app_stat">${stat}</span>
+        <span class="o_app_btn">Hap Raportin →</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="o_enterprise_wrap">
+    <div class="o_enterprise_banner">
+      <div>
+        <h2>Odoo 19 Enterprise Reporting Suite</h2>
+        <p>Motori analitik dhe financiar me llogaritje në kohë reale nga të dhënat e BioBes ERP</p>
+      </div>
+      <div class="o_banner_kpis">
+        <div class="o_banner_pill"><i>₳</i> Shitje: <b>${fmtO(pnl.rev)} ALL</b></div>
+        <div class="o_banner_pill"><i>▦</i> Magazina WAC: <b>${fmtO(bs.stockVal)} ALL</b></div>
+        <div class="o_banner_pill"><i>⚖</i> Fitimi Neto: <b>${fmtO(pnl.netProfit)} ALL</b></div>
+      </div>
+    </div>
+    <div class="o_apps_grid">
+      ${cardsHtml}
+    </div>
+  </div>`;
+}
+
+function odooControlPanelHtml() {
+  const modMeta = MODULES.find(x => x[0] === odooReportModule) || MODULES[0];
+  const isFinancial = ['pnl', 'balancesheet', 'aged'].includes(odooReportModule);
+
+  const switchButtons = isFinancial ? `
+    <div class="o_cp_switch">
+      <button class="${odooView==='report'?'active':''}" onclick="odooSetView('report')">🏛 Pasqyra Zyrtare</button>
+      <button class="${odooView==='list'?'active':''}" onclick="odooSetView('list')">📋 Tabela</button>
+    </div>` : `
+    <div class="o_cp_switch">
+      <button class="${odooView==='pivot'?'active':''}" onclick="odooSetView('pivot')">📊 Pivot</button>
+      <button class="${odooView==='graph'?'active':''}" onclick="odooSetView('graph')">📈 Grafik</button>
+      <button class="${odooView==='list'?'active':''}" onclick="odooSetView('list')">📋 Listë</button>
+      <button class="${odooView==='dashboard'?'active':''}" onclick="odooSetView('dashboard')">🏢 Paneli</button>
+    </div>`;
+
+  const groupOptions = {
+    sales: [['customer','Klienti'],['product','Artikulli'],['country','Shteti'],['salesperson','Shitësi'],['month','Muaji']],
+    purchase: [['supplier','Furnitori'],['product','Artikulli'],['warehouse','Magazina'],['region','Zona'],['month','Muaji']],
+    inventory: [['product','Artikulli'],['warehouse','Magazina'],['supplier','Furnitori'],['organic','Organike/Konv.'],['status','Statusi']],
+    products: [['category','Kategoria'],['product','Artikulli']],
+    processing: [['product','Artikulli'],['machine','Makineria'],['status','Statusi'],['month','Muaji']],
+    exports: [['destination','Destinacioni'],['customer','Klienti'],['currency','Monedha'],['status','Statusi']]
+  }[odooReportModule] || [['customer','Klienti'],['product','Artikulli']];
+
+  const measureOptions = {
+    sales: [['revenue','Vlera pa TVSH'],['total','Vlera me TVSH'],['qty','Sasia kg'],['cost','KMSH (WAC)'],['margin','Marzhi Bruto']],
+    purchase: [['value','Vlera e Blerjes'],['billable','Peshë Faturimi kg'],['physical','Peshë Fizike kg'],['discount','Zbritje kg']],
+    inventory: [['qty','Gjendja kg'],['value','Vlera Stokut ALL'],['unitCost','Kosto WAC']],
+    products: [['stock','Gjendja kg'],['value','Vlera Stokut ALL'],['unitCost','Kosto WAC']],
+    processing: [['input','Hyrje kg'],['output','Dalje kg'],['loss','Humbje kg']],
+    exports: [['value','Vlera'],['net','Pesha Neto kg'],['gross','Pesha Bruto kg']]
+  }[odooReportModule] || [['revenue','Vlera']];
+
+  return `
+  <div class="o_control_panel">
+    <div class="o_cp_top">
+      <div class="o_cp_breadcrumb">
+        <button class="btn small" onclick="odooSetModule('')">← Pasqyra Kryesore</button>
+        <span>/</span>
+        <b>${modMeta[1]}</b>
+        <code>${modMeta[2]}</code>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${switchButtons}
+        <button class="btn small" onclick="odooExportExcel()">⬇ Shkarko Excel (XLSX)</button>
+        <button class="btn small" onclick="odooPrintReport()">🖨 Printo / PDF</button>
+      </div>
+    </div>
+    <div class="o_cp_bottom">
+      <div class="o_search_box">
+        <i>🔍</i>
+        <input type="search" placeholder="Kërko në të gjitha fushat..." value="${escO(odooAdv.search)}" oninput="odooSetAdv('search', this.value)">
+      </div>
+      <div class="o_filters_bar">
+        ${!isFinancial ? `
+        <select class="o_filter_select" onchange="odooSetAdv('group1', this.value)">
+          <option value="">Grupo Rreshtat...</option>
+          ${groupOptions.map(([k,l]) => `<option value="${k}" ${odooAdv.group1===k?'selected':''}>${l}</option>`).join('')}
+        </select>
+        <select class="o_filter_select" onchange="odooSetAdv('group2', this.value)">
+          <option value="">Grupo Kolonat...</option>
+          ${groupOptions.filter(([k]) => k !== odooAdv.group1).map(([k,l]) => `<option value="${k}" ${odooAdv.group2===k?'selected':''}>${l}</option>`).join('')}
+        </select>
+        <select class="o_filter_select" onchange="odooSetAdv('measure', this.value)">
+          <option value="">Zgjidh Masën...</option>
+          ${measureOptions.map(([k,l]) => `<option value="${k}" ${odooAdv.measure===k?'selected':''}>${l}</option>`).join('')}
+        </select>` : ''}
+        <button class="o_filter_chip ${odooAdv.filterStatus==='all'?'active':''}" onclick="odooSetAdv('filterStatus', 'all')">Të Gjitha</button>
+        <button class="o_filter_chip ${odooAdv.filterStatus==='confirmed'?'active':''}" onclick="odooSetAdv('filterStatus', 'confirmed')">Të Konfirmuara</button>
+        <button class="o_filter_chip ${odooAdv.filterStatus==='highValue'?'active':''}" onclick="odooSetAdv('filterStatus', 'highValue')">Vlerë > 100k</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function odooPivotTableHtml() {
+  const data = odooFilteredDataset();
+  if (!data.length) return `<div class="card"><p class="hint">Nuk ka të dhëna për kriteret e zgjedhura.</p></div>`;
+
+  const g1 = odooAdv.group1 || 'customer', g2 = odooAdv.group2 || 'product', m = odooAdv.measure || 'revenue';
+  const rows = [...new Set(data.map(r => r[g1] || 'Pa përcaktuar'))].sort();
+  const cols = g2 ? [...new Set(data.map(r => r[g2] || 'Pa përcaktuar'))].sort() : [];
+
+  const matrix = {};
+  data.forEach(r => {
+    const a = r[g1] || 'Pa përcaktuar', b = g2 ? (r[g2] || 'Pa përcaktuar') : 'Total';
+    matrix[a] = matrix[a] || {};
+    matrix[a][b] = (matrix[a][b] || 0) + (r[m] || 0);
+  });
+
+  const colTotals = {};
+  cols.forEach(c => {
+    colTotals[c] = rows.reduce((s, a) => s + (matrix[a]?.[c] || 0), 0);
+  });
+  const grandTotal = data.reduce((s, r) => s + (r[m] || 0), 0);
+
+  const thead = `
+  <thead>
+    <tr>
+      <th class="o_pivot_header_corner">${g1.toUpperCase()} \\ ${g2 ? g2.toUpperCase() : ''}</th>
+      ${cols.map(c => `<th>${escO(c)}</th>`).join('')}
+      <th class="o_pivot_total_col">TOTALI</th>
+    </tr>
+  </thead>`;
+
+  const tbody = rows.map(a => {
+    const rowTot = cols.reduce((s, b) => s + (matrix[a]?.[b] || 0), 0);
+    const isExpanded = !!odooPivotExpanded[a];
+    const subRows = isExpanded ? data.filter(r => (r[g1]||'Pa përcaktuar') === a) : [];
+
+    let subHtml = '';
+    if (isExpanded && subRows.length) {
+      const subGrouped = {};
+      subRows.forEach(r => {
+        const subKey = r[g2] || r.docNo || 'Detaj';
+        subGrouped[subKey] = (subGrouped[subKey] || 0) + (r[m] || 0);
+      });
+      subHtml = Object.entries(subGrouped).map(([subK, subV]) => `
+        <tr class="o_pivot_subgroup">
+          <td>↳ ${escO(subK)}</td>
+          ${cols.map(c => `<td>${c === subK ? fmtO(subV) : '—'}</td>`).join('')}
+          <td class="o_pivot_total_col">${fmtO(subV)}</td>
+        </tr>
+      `).join('');
+    }
+
+    return `
+    <tr class="o_pivot_group">
+      <td>
+        <span class="o_pivot_toggle" onclick="odooTogglePivotGroup('${escO(a)}')">${isExpanded ? '−' : '+'}</span>
+        <b>${escO(a)}</b>
+      </td>
+      ${cols.map(b => `<td>${matrix[a]?.[b] ? fmtO(matrix[a][b]) : '—'}</td>`).join('')}
+      <td class="o_pivot_total_col">${fmtO(rowTot)}</td>
+    </tr>
+    ${subHtml}`;
+  }).join('');
+
+  const tfoot = `
+  <tfoot>
+    <tr class="o_pivot_total_row">
+      <td>TOTALI I PËRGJITHSHËM</td>
+      ${cols.map(c => `<td>${fmtO(colTotals[c])}</td>`).join('')}
+      <td class="o_pivot_total_col">${fmtO(grandTotal)}</td>
+    </tr>
+  </tfoot>`;
+
+  return `
+  <div id="odooPrintContent" class="o_pivot_wrap">
+    <table class="o_pivot_table">
+      ${thead}
+      <tbody>${tbody}</tbody>
+      ${tfoot}
+    </table>
+  </div>`;
+}
+
+function odooGraphHtml() {
+  const data = odooFilteredDataset();
+  if (!data.length) return `<div class="card"><p class="hint">Nuk ka të dhëna për grafik.</p></div>`;
+
+  const g1 = odooAdv.group1 || 'customer', m = odooAdv.measure || 'revenue';
+  const agg = {};
+  data.forEach(r => {
+    const k = r[g1] || 'Pa përcaktuar';
+    agg[k] = (agg[k] || 0) + (r[m] || 0);
+  });
+  const sorted = Object.entries(agg).sort((a,b) => b[1] - a[1]).slice(0, 10);
+  const max = Math.max(...sorted.map(x => x[1]), 1);
+
+  let chartSvg = '';
+  if (odooGraphType === 'bar') {
+    const w = 700, h = 260, pad = 40;
+    const bw = (w - pad * 2) / Math.max(sorted.length, 1);
+    chartSvg = `
+    <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;max-height:360px">
+      ${sorted.map(([lbl, val], i) => {
+        const bh = (val / max) * (h - 60);
+        const x = pad + i * bw + 6;
+        const y = h - 30 - bh;
+        return `
+          <rect x="${x}" y="${y}" width="${Math.max(bw - 12, 6)}" height="${bh}" fill="#176b49" rx="4"/>
+          <text x="${x + (bw-12)/2}" y="${y - 6}" text-anchor="middle" font-size="10" font-weight="700" fill="#0f172a">${fmtO(val)}</text>
+          <text x="${x + (bw-12)/2}" y="${h - 10}" text-anchor="middle" font-size="10" fill="#475569">${escO(lbl.slice(0, 10))}</text>
+        `;
+      }).join('')}
+    </svg>`;
+  } else if (odooGraphType === 'line') {
+    const w = 700, h = 260, pad = 40;
+    const pts = sorted.map(([lbl, val], i) => {
+      const x = pad + i * ((w - pad * 2) / Math.max(sorted.length - 1, 1));
+      const y = h - 30 - (val / max) * (h - 60);
+      return { x, y, val, lbl };
+    });
+    const poly = pts.map(p => `${p.x},${p.y}`).join(' ');
+    chartSvg = `
+    <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;max-height:360px">
+      <polyline fill="none" stroke="#176b49" stroke-width="3" points="${poly}"/>
+      ${pts.map(p => `
+        <circle cx="${p.x}" cy="${p.y}" r="5" fill="#fff" stroke="#176b49" stroke-width="3"/>
+        <text x="${p.x}" y="${p.y - 8}" text-anchor="middle" font-size="10" font-weight="700" fill="#0f172a">${fmtO(p.val)}</text>
+        <text x="${p.x}" y="${h - 10}" text-anchor="middle" font-size="10" fill="#475569">${escO(p.lbl.slice(0, 10))}</text>
+      `).join('')}
+    </svg>`;
+  } else {
+    // Pie / Donut
+    const total = sorted.reduce((s, x) => s + x[1], 0) || 1;
+    let angle = 0;
+    const colors = ['#176b49', '#2563eb', '#d97706', '#7c3aed', '#dc2626', '#0891b2', '#059669', '#475569', '#0284c7', '#4f46e5'];
+    chartSvg = `
+    <div style="display:flex;align-items:center;justify-content:space-around;flex-wrap:wrap;gap:20px">
+      <svg viewBox="0 0 200 200" style="width:200px;height:200px">
+        <circle cx="100" cy="100" r="70" fill="none" stroke="#f1f5f9" stroke-width="30"/>
+        ${sorted.map(([lbl, val], i) => {
+          const pct = val / total;
+          const strokeDash = `${pct * 439.8} 440`;
+          const offset = -angle * 4.398;
+          angle += pct * 100;
+          return `<circle cx="100" cy="100" r="70" fill="none" stroke="${colors[i%colors.length]}" stroke-width="30" stroke-dasharray="${strokeDash}" stroke-dashoffset="${offset}"/>`;
+        }).join('')}
+        <text x="100" y="105" text-anchor="middle" font-size="12" font-weight="800" fill="#0f172a">100%</text>
+      </svg>
+      <div style="font-size:12px;line-height:1.8">
+        ${sorted.map(([lbl, val], i) => `
+          <div><span style="display:inline-block;width:10px;height:10px;background:${colors[i%colors.length]};margin-right:6px;border-radius:2px"></span><b>${escO(lbl)}:</b> ${fmtO(val)} (${(val/total*100).toFixed(1)}%)</div>
+        `).join('')}
+      </div>
+    </div>`;
+  }
+
+  return `
+  <div id="odooPrintContent" class="o_graph_card">
+    <div class="o_graph_types">
+      <button class="${odooGraphType==='bar'?'active':''}" onclick="odooSetGraph('bar')">📊 Shtylla (Bar)</button>
+      <button class="${odooGraphType==='line'?'active':''}" onclick="odooSetGraph('line')">📈 Linjë (Trend)</button>
+      <button class="${odooGraphType==='pie'?'active':''}" onclick="odooSetGraph('pie')">🥧 Rreth (Donut)</button>
+    </div>
+    ${chartSvg}
+  </div>`;
+}
+
+function odooListTableHtml() {
+  const data = odooFilteredDataset();
+  if (!data.length) return `<div class="card"><p class="hint">Nuk ka të dhëna për listë.</p></div>`;
+
+  const headers = Object.keys(data[0]).filter(k => k !== 'id');
+  return `
+  <div id="odooPrintContent" class="table-wrap card">
+    <table>
+      <thead>
+        <tr>${headers.map(h => `<th>${escO(h.toUpperCase())}</th>`).join('')}</tr>
+      </thead>
+      <tbody>
+        ${data.map(r => `
+          <tr>
+            ${headers.map(h => {
+              const v = r[h];
+              if (h === 'docNo' && r.id) {
+                if (odooReportModule === 'sales') return `<td><button class="link" onclick="saleInvoiceCard('${r.id}')">${escO(v)}</button></td>`;
+                if (odooReportModule === 'purchase') return `<td><button class="link" onclick="weightCard('${r.id}')">${escO(v)}</button></td>`;
+                if (odooReportModule === 'inventory') return `<td><button class="link" onclick="lotCard('${r.id}')">${escO(v)}</button></td>`;
+              }
+              if (typeof v === 'number') return `<td style="text-align:right">${fmtO(v)}</td>`;
+              return `<td>${escO(v)}</td>`;
+            }).join('')}
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function odooDashboardHtml() {
+  const data = odooFilteredDataset();
+  const m = odooAdv.measure || 'revenue';
+  const total = data.reduce((s, r) => s + (r[m] || 0), 0);
+  const count = data.length;
+  const avg = count ? total / count : 0;
+
+  return `
+  <div id="odooPrintContent" class="o_enterprise_wrap">
+    <div class="report-kpis">
+      <div class="report-kpi"><small>TOTALI I MASËS</small><strong>${fmtO(total)}</strong></div>
+      <div class="report-kpi"><small>NUMRI I TRANSAKSIONEVE</small><strong>${count}</strong></div>
+      <div class="report-kpi"><small>MESATARJA PËR RRESHT</small><strong>${fmtO(avg)}</strong></div>
+    </div>
+    ${odooGraphHtml()}
+    ${odooPivotTableHtml()}
+  </div>`;
+}
+
+function odooPnlStatementHtml() {
+  const data = odooPnlData();
+  const ci = (typeof companyInfo === 'function') ? companyInfo() : { name: 'BIOBES sh.p.k.', nipt: 'L43904401I' };
+
+  return `
+  <div id="odooPrintContent" class="o_financial_report">
+    <div class="o_fin_header">
+      <h1>PASQYRA E TË ARDHURAVE DHE SHPENZIMEVE (P&L)</h1>
+      <div class="meta">${escO(ci.name)} · NIPT: ${escO(ci.nipt)} · Viti Ushtrimor 2026</div>
+    </div>
+    <table class="o_fin_table">
+      <thead>
+        <tr>
+          <th>Përshkrimi i Zërave Kontabël</th>
+          <th>Llogaria</th>
+          <th>Vlera (ALL)</th>
+          <th>% e të Ardhurave</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="o_fin_section_head">
+          <td>1. TË ARDHURAT NGA SHITJET (OPERATIVE)</td>
+          <td>Klasa 7</td>
+          <td>${fmtO(data.rev)}</td>
+          <td>100.00%</td>
+        </tr>
+        <tr class="o_fin_subrow">
+          <td>Shitje mallrash vendase (pa TVSH)</td>
+          <td>701</td>
+          <td>${fmtO(data.revLocal)}</td>
+          <td>${(data.rev ? data.revLocal / data.rev * 100 : 0).toFixed(2)}%</td>
+        </tr>
+        <tr class="o_fin_subrow">
+          <td>Shitje mallrash eksport (Commercial Invoice)</td>
+          <td>702</td>
+          <td>${fmtO(data.revExport)}</td>
+          <td>${(data.rev ? data.revExport / data.rev * 100 : 0).toFixed(2)}%</td>
+        </tr>
+        <tr class="o_fin_section_head">
+          <td>2. KOSTO E MALLRAVE TË SHITURA (KMSH / COGS)</td>
+          <td>Kosto WAC</td>
+          <td>(${fmtO(data.cogs)})</td>
+          <td>${(data.rev ? data.cogs / data.rev * 100 : 0).toFixed(2)}%</td>
+        </tr>
+        <tr class="o_fin_subtotal">
+          <td>= MARZHI BRUTO OPERATIV</td>
+          <td>Bruto</td>
+          <td>${fmtO(data.margin)}</td>
+          <td>${(data.rev ? data.margin / data.rev * 100 : 0).toFixed(2)}%</td>
+        </tr>
+        <tr class="o_fin_section_head">
+          <td>3. SHPENZIMET OPERATIVE DHE ADMINISTRATIVE</td>
+          <td>Klasa 6</td>
+          <td>(${fmtO(data.exp)})</td>
+          <td>${(data.rev ? data.exp / data.rev * 100 : 0).toFixed(2)}%</td>
+        </tr>
+        ${data.expBreakdown.map(x => `
+          <tr class="o_fin_subrow">
+            <td>${x.title}</td>
+            <td>${x.acc}</td>
+            <td>(${fmtO(x.amount)})</td>
+            <td>${(data.rev ? x.amount / data.rev * 100 : 0).toFixed(2)}%</td>
+          </tr>
+        `).join('')}
+        <tr class="o_fin_subtotal">
+          <td>= FITIMI OPERATIV / EBITDA</td>
+          <td>EBITDA</td>
+          <td>${fmtO(data.ebitda)}</td>
+          <td>${(data.rev ? data.ebitda / data.rev * 100 : 0).toFixed(2)}%</td>
+        </tr>
+        <tr class="o_fin_grand">
+          <td>= FITIMI NETO I PERIUDHËS (NET PROFIT)</td>
+          <td>Neto</td>
+          <td>${fmtO(data.netProfit)}</td>
+          <td>${(data.rev ? data.netProfit / data.rev * 100 : 0).toFixed(2)}%</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function odooBalanceSheetHtml() {
+  const data = odooBalanceSheetData();
+  const ci = (typeof companyInfo === 'function') ? companyInfo() : { name: 'BIOBES sh.p.k.', nipt: 'L43904401I' };
+
+  return `
+  <div id="odooPrintContent" class="o_financial_report">
+    <div class="o_fin_header">
+      <h1>BILANCI KONTABËL (BALANCE SHEET)</h1>
+      <div class="meta">${escO(ci.name)} · NIPT: ${escO(ci.nipt)} · Pozicioni në kohë reale</div>
+    </div>
+    <table class="o_fin_table">
+      <thead>
+        <tr>
+          <th>Zëri Kontabël</th>
+          <th>Llogaria</th>
+          <th>Vlera (ALL)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="o_fin_section_head"><td colspan="3">AKTIVET (PASURITË E SHOQËRISË)</td></tr>
+        <tr class="o_fin_subrow"><td>Mjetet Monetare në Arkë</td><td>530</td><td>${fmtO(data.cash)}</td></tr>
+        <tr class="o_fin_subrow"><td>Llogaritë Bankare (Raiffeisen, ABI, BKT)</td><td>512</td><td>${fmtO(data.bank)}</td></tr>
+        <tr class="o_fin_subrow"><td>Llogari të Arkëtueshme nga Klientët (Debitorët)</td><td>411</td><td>${fmtO(data.receivables)}</td></tr>
+        <tr class="o_fin_subrow"><td>Inventari Fizik në Magazinë (Kosto WAC)</td><td>311</td><td>${fmtO(data.stockVal)}</td></tr>
+        <tr class="o_fin_grand"><td>TOTALI I AKTIVEVE</td><td>Aktive</td><td>${fmtO(data.totalAssets)}</td></tr>
+
+        <tr class="o_fin_section_head" style="padding-top:20px"><td colspan="3">PASIVET DHE DETYRIMET</td></tr>
+        <tr class="o_fin_subrow"><td>Llogari të Pagueshme ndaj Furnitorëve (Kreditorët)</td><td>401</td><td>${fmtO(data.payables)}</td></tr>
+        <tr class="o_fin_subrow"><td>Detyrime Tatimore (TVSH / Tatim Fitimi)</td><td>444</td><td>${fmtO(data.taxes)}</td></tr>
+        <tr class="o_fin_subtotal"><td>TOTALI I PASIVEVE</td><td>Pasive</td><td>${fmtO(data.totalLiab)}</td></tr>
+
+        <tr class="o_fin_section_head"><td colspan="3">KAPITALI DHE EKUITETI</td></tr>
+        <tr class="o_fin_subrow"><td>Fitimi Neto i Periudhës Aktuale</td><td>108/109</td><td>${fmtO(data.equity)}</td></tr>
+        <tr class="o_fin_grand"><td>TOTALI I PASIVEVE DHE EKUITETIT</td><td>Pasive+Ekuitet</td><td>${fmtO(data.totalLiabAndEquity)}</td></tr>
+      </tbody>
+    </table>
+    <div style="margin-top:14px;padding:10px;background:#eef7f2;border-radius:8px;font-size:12.5px;color:#176b49;font-weight:700">
+      ✓ Verifikimi i ekuilibrit kontabël: TOTALI I AKTIVEVE = TOTALI I PASIVEVE DHE EKUITETIT (${fmtO(data.totalAssets)} ALL).
+    </div>
+  </div>`;
+}
+
+function odooAgedPartnerHtml() {
+  const isCustomer = (odooAdv.partyType !== 'supplier');
+  const data = odooAgedData(isCustomer);
+  const totalOverdue = data.reduce((s, r) => s + r.total, 0);
+
+  return `
+  <div id="odooPrintContent" class="o_financial_report">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="actions">
+        <button class="btn ${isCustomer?'active':''}" onclick="odooSetAdv('partyType', 'customer')">Klientët (Debitorët)</button>
+        <button class="btn ${!isCustomer?'active':''}" onclick="odooSetAdv('partyType', 'supplier')">Furnitorët (Kreditorët)</button>
+      </div>
+      <div style="font-size:13px;font-weight:700;color:#176b49">Totali: ${fmtO(totalOverdue)} ALL</div>
+    </div>
+    <table class="o_fin_table">
+      <thead>
+        <tr>
+          <th>Partneri</th>
+          <th>Aktuale</th>
+          <th>1 - 30 Ditë</th>
+          <th>31 - 60 Ditë</th>
+          <th>61 - 90 Ditë</th>
+          <th>Mbi 90 Ditë</th>
+          <th>Totali</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.map(r => `
+          <tr>
+            <td><b>${escO(r.name)}</b></td>
+            <td>${fmtO(r.current)}</td>
+            <td>${fmtO(r.b1)}</td>
+            <td>${fmtO(r.b2)}</td>
+            <td>${fmtO(r.b3)}</td>
+            <td style="color:#dc2626;font-weight:700">${fmtO(r.b4)}</td>
+            <td style="font-weight:800">${fmtO(r.total)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function odooTraceViewHtml() {
+  const lots = (arr('lots') || []).slice(0, 15);
+  return `
+  <div id="odooPrintContent" class="card">
+    <h3>Zinxhiri i Plotë i Gjurmueshmërisë (Audit Trail)</h3>
+    <p>Nga peshimi te fermeri, procesi i përpunimit, paketimi dhe ngarkesa ndërkombëtare e eksportit.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Loti</th><th>Furnitori</th><th>Produkti</th><th>Gjendja kg</th><th>Statusi</th><th>QR Nyja</th></tr>
+        </thead>
+        <tbody>
+          ${lots.map(l => `
+            <tr>
+              <td><button class="link" onclick="lotCard('${l.id}')">${escO(l.code||l.id)}</button></td>
+              <td>${escO(nm('suppliers', l.supplier))}</td>
+              <td>${escO(nm('products', l.product))}</td>
+              <td style="text-align:right">${fmtO((typeof lotAvail==='function')?lotAvail(l):l.available||l.net)}</td>
+              <td>${escO(l.status||'Aktiv')}</td>
+              <td><button class="btn small" onclick="vyGo('trace');vySelect('lot','${l.id}')">Hap Gjurmimin →</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function odooActiveViewHtml() {
+  const mod = odooReportModule;
+  if (mod === 'pnl') return odooPnlStatementHtml();
+  if (mod === 'balancesheet') return odooBalanceSheetHtml();
+  if (mod === 'aged') return odooAgedPartnerHtml();
+  if (mod === 'trace') return odooTraceViewHtml();
+
+  if (odooView === 'pivot') return odooPivotTableHtml();
+  if (odooView === 'graph') return odooGraphHtml();
+  if (odooView === 'list') return odooListTableHtml();
+  return odooDashboardHtml();
+}
+
+function reportsModeTabs(activeOdoo) {
+  return `<div class="reports-mode-tabs">
+    <button class="btn ${activeOdoo?'active':''}" onclick="reportsMode='odoo';odooReportModule='';try{localStorage.setItem('biobesReportsMode','odoo')}catch(e){};render()">🏢 Raporte Odoo 19 Enterprise</button>
+    <button class="btn" onclick="if(typeof vyEnter==='function')vyEnter();else{reportsMode='vyapar';render()}">📦 Raporte Vyapar Desktop</button>
+    <button class="btn" onclick="reportsMode='alpha';try{alphaActiveReport='';alphaReportGroup='home';localStorage.setItem('biobesReportsMode','alpha')}catch(e){};render()">🏛 Raporte Financiare (Alpha)</button>
+  </div>`;
+}
+
+window.odooEnterpriseReportsView = function() {
+  const header = head('Raportet', 'Odoo 19 Enterprise Reporting Suite — Analiza Tregtare, Financiare dhe Prodhimi');
+  const tabs = reportsModeTabs(true);
+  if (!odooReportModule) {
+    return header + tabs + odooAppLauncherHtml();
+  }
+  return header + tabs + odooControlPanelHtml() + odooActiveViewHtml();
+};
+
+window.restoredOdooReportsView = function() {
+  return odooEnterpriseReportsView();
+};
+
+})();
 </script>
-<style>.odoo-elevator{display:flex;align-items:stretch;gap:0;margin-bottom:12px}.odoo-elevator-arrow{flex:0 0 42px;border:1px solid var(--line);background:#fff;font-size:22px;cursor:pointer}.odoo-elevator-track{display:flex;gap:5px;overflow-x:auto;scroll-behavior:smooth;scrollbar-width:thin;flex:1;border-bottom:1px solid var(--line);padding:0 3px}.odoo-elevator-track .btn{white-space:nowrap;border-radius:7px 7px 0 0;flex:0 0 auto}.odoo-elevator-track .active{background:var(--brand);color:#fff}</style><script>
-function scrollOdooTabs(dx){document.getElementById('odooElevatorTrack')?.scrollBy({left:dx,behavior:'smooth'})}
-restoredOdooReportsView=function(){let header=head('Analiza e Shitjeve','Raportet fillestare me kombinime nga transaksionet reale'),modeTabs=`<div class="reports-mode-tabs"><button class="btn active">Raporte Odoo</button><button class="btn" onclick="reportsMode='alpha';alphaActiveReport='';alphaReportGroup='home';render()">Raporte Alpha</button></div>`,tabs=[['dashboard','Paneli'],['analysis','Analiza'],['customerCard','Kartela klienti'],['productCard','Kartela produkti'],['situation','Situacioni klientëve'],['summary','Klient + Produkt'],['returns','Kthimet'],['quotations','Ofertat'],['orders','Porositë'],['revenue','Të ardhurat'],['customers','Klientët'],['products','Produktet'],['salesperson','Shitësit'],['forecast','Parashikimi']],fn={dashboard:salesDashboardReport,analysis:reportAnalysis,customerCard:customerLedgerReport,productCard:customerProductCardReport,situation:customerSituationReport,summary:customerProductSummaryReport,returns:returnsReport,quotations:quotationsReport,orders:ordersReport,revenue:revenueReport,customers:customersReport,products:productsReport,salesperson:salespersonReport,forecast:forecastReport}[salesReportTab]||salesDashboardReport,slider=`<div class="odoo-elevator"><button class="odoo-elevator-arrow" onclick="scrollOdooTabs(-420)">‹</button><div id="odooElevatorTrack" class="odoo-elevator-track">${tabs.map(([k,l])=>`<button class="btn ${salesReportTab===k?'active':''}" onclick="salesReportTab='${k}';render()">${l}</button>`).join('')}</div><button class="odoo-elevator-arrow" onclick="scrollOdooTabs(420)">›</button></div>`;setTimeout(()=>{globalizeAllSelects(document);document.querySelector('#odooElevatorTrack .active')?.scrollIntoView({inline:'center',block:'nearest'})},30);return header+modeTabs+slider+reportFiltersHtml()+fn()}
 </script>
 <script>
 // Triple-check corrections: wire every visible Alpha control without changing PDF layouts.
@@ -8425,11 +9505,15 @@ const MODS=[
  ['dashboard','⌂','Dashboard','KPI & grafikë','Biznesi'],
  ['purchases','🛒','Blerjet','Peshime & fatura blerjeje','Transaksionet'],
  ['sales','₳','Shitjet','Të ardhura & marzh bruto','Transaksionet'],
+ ['daybook','📅','Libri Ditor','Transaksionet ditore (arkëtime, pagesa)','Transaksionet'],
  ['stock','▦','Magazina & Stok','Lote, gjendje, vlerë WAC','Artikujt & Stoku'],
  ['article','❧','Kartela e Artikullit 360°','Kosto mesatare WAC','Artikujt & Stoku'],
+ ['lowstock','⚠️','Alarmi i Stokut të Ulët','Artikuj nën nivel kritik','Artikujt & Stoku'],
  ['party','♙','Kartela e Palëve','Debi / Kredi / Saldo','Palët'],
- ['finance','∑','Financa & Thesari','Arkë, bankë, detyrime','Financa'],
- ['expenses','💸','Shpenzimet (klasa 6)','Kategori, furnitorë, TVSH','Financa'],
+ ['finance','∑','Financa & Thesari','Arkë, bankë, detyrime','Financa & Kontabiliteti'],
+ ['expenses','💸','Shpenzimet (klasa 6)','Kategori, furnitorë, TVSH','Financa & Kontabiliteti'],
+ ['pnl','⚖','Fitim & Humbje (P&L)','Pasqyra tregtare & neto','Financa & Kontabiliteti'],
+ ['balancesheet','🏛','Bilanci Tregtar','Pasuritë, detyrimet & kapitali','Financa & Kontabiliteti'],
  ['processing','⚙','Përpunimi & Rendimenti','Hyrje, dalje, humbje','Prodhimi'],
  ['exports','🚚','Eksportet','Dosje & ngarkesa','Eksporti'],
  ['trace','⌘','Gjurmueshmëria','Zinxhiri + QR dinamik','Eksporti']
@@ -8732,11 +9816,331 @@ MOD.trace={title:'Gjurmueshmëria',
   return sel+extras+flow+qr+table(this.cols,this.data().rows,{title:'Regjistri i gjurmueshmërisë — '+periodLabel(),totals:true})},
  xlsx(){let d=this.data();return Object.assign({name:'GJURMUESHMERIA'},exportRows(d.cols,d.rows))}};
 
+
+/* ==========================================================================
+   VYAPAR DESKTOP — EXTENSION MODULES (DAY BOOK, P&L, BALANCE SHEET, LOW STOCK)
+   ========================================================================== */
+MOD.daybook = {
+  title: 'Libri Ditor',
+  data() {
+    let rows = [];
+    const from = S.from, to = S.to;
+    const inPeriod = d => (!from || d >= from) && (!to || d <= to);
+
+    // Sales Invoices
+    arr('salesInvoices').forEach(f => {
+      if (!f || f.status !== 'Konfirmuar' || f.isPrepayment) return;
+      if (!inPeriod(f.date)) return;
+      let c = rec('customers', f.customer);
+      let rate = rateOf(f.currency, f.exchangeRate);
+      let val = num(f.total || f.subtotal) * rate;
+      rows.push({
+        date: f.date || '',
+        type: 'Faturë Shitjeje',
+        docNo: f.invoiceNumber || f.id,
+        party: c.name || 'Klient',
+        desc: 'Shitje mallrash / faturë',
+        inALL: val,
+        outALL: 0,
+        method: f.paymentTerms || 'Faturë',
+        rawRef: f.id,
+        kind: 'sale'
+      });
+    });
+
+    // Purchase weighings
+    arr('weighings').forEach(w => {
+      if (!w || w.status !== 'Konfirmuar') return;
+      if (!inPeriod(w.date)) return;
+      let s = rec('suppliers', w.supplier);
+      let p = rec('products', w.product);
+      let phys = num(w.physical || w.net);
+      let bill = num(w.billable || w.invoiceWeight || phys * (1 - num(w.discount)/100));
+      let price = num(w.price || p.purchasePrice);
+      let rate = (w.currency === 'ALL' ? 1 : rateOf(w.currency, w.exchangeRate));
+      let val = bill * price * rate;
+      rows.push({
+        date: w.date || '',
+        type: 'Faturë Blerjeje',
+        docNo: w.id,
+        party: s.name || 'Furnitor',
+        desc: 'Blerje ' + (p.name || ''),
+        inALL: 0,
+        outALL: val,
+        method: 'Peshore / Magazinë',
+        rawRef: w.id,
+        kind: 'weight'
+      });
+    });
+
+    // Customer payments (Arkëtime)
+    arr('customerPayments').forEach(p => {
+      if (!p || p.status === 'Anuluar') return;
+      if (!inPeriod(p.date)) return;
+      let c = rec('customers', p.customer);
+      let rate = (p.currency === 'ALL' ? 1 : rateOf(p.currency, p.rate));
+      let val = num(p.amount) * rate;
+      rows.push({
+        date: p.date || '',
+        type: 'Arkëtim Klienti',
+        docNo: p.id,
+        party: c.name || 'Klient',
+        desc: 'Pagesë nga klienti ' + (c.name || ''),
+        inALL: val,
+        outALL: 0,
+        method: p.method || 'Bankë',
+        rawRef: p.id,
+        kind: 'custPay'
+      });
+    });
+
+    // Supplier payments (Pagesa)
+    arr('payments').forEach(p => {
+      if (!p || p.status === 'Anuluar') return;
+      if (!inPeriod(p.date)) return;
+      let s = rec('suppliers', p.supplier);
+      let rate = (p.currency === 'ALL' ? 1 : rateOf(p.currency, p.rate));
+      let val = num(p.amount) * rate;
+      rows.push({
+        date: p.date || '',
+        type: 'Pagesë Furnitori',
+        docNo: p.id,
+        party: s.name || 'Furnitor',
+        desc: 'Pagesë furnitorit ' + (s.name || ''),
+        inALL: 0,
+        outALL: val,
+        method: p.method || 'Bankë',
+        rawRef: p.id,
+        kind: 'suppPay'
+      });
+    });
+
+    // Expenses
+    arr('expenses').forEach(e => {
+      if (!e || e.status !== 'Konfirmuar') return;
+      if (!inPeriod(e.date)) return;
+      rows.push({
+        date: e.date || '',
+        type: 'Shpenzim ' + (e.account || '60'),
+        docNo: e.id,
+        party: e.vendor || e.title || 'Shpenzim',
+        desc: e.title || 'Shpenzim operativ',
+        inALL: 0,
+        outALL: num(e.amount),
+        method: 'Arkë / Bankë',
+        rawRef: e.id,
+        kind: 'expense'
+      });
+    });
+
+    // Sort by date ascending
+    rows.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+
+    let run = 0;
+    rows.forEach(r => {
+      run += (r.inALL - r.outALL);
+      r.balance = run;
+    });
+
+    if (S.q) {
+      let q = S.q.toLowerCase();
+      rows = rows.filter(r => Object.values(r).some(v => String(v).toLowerCase().includes(q)));
+    }
+
+    const cols = [
+      { h: 'Data', k: 'date' },
+      { h: 'Lloji', k: 'type' },
+      { h: 'Dokumenti', k: 'docNo' },
+      { h: 'Partneri', k: 'party' },
+      { h: 'Përshkrimi', k: 'desc' },
+      { h: 'Mënyra', k: 'method' },
+      { h: 'Hyrje ALL', k: 'inALL', num: 1, sum: 1 },
+      { h: 'Dalje ALL', k: 'outALL', num: 1, sum: 1 },
+      { h: 'Saldo ALL', k: 'balance', num: 1 }
+    ];
+
+    return { cols, rows };
+  },
+  html() {
+    let d = this.data();
+    let totIn = sum(d.rows, 'inALL');
+    let totOut = sum(d.rows, 'outALL');
+    let netFlow = totIn - totOut;
+
+    let kpiCards = kpis([
+      ['Arkëtime & Shitje', fmt(totIn) + ' ALL', d.rows.filter(r => r.inALL > 0).length + ' transaksione', 'green'],
+      ['Pagesa & Blerje', fmt(totOut) + ' ALL', d.rows.filter(r => r.outALL > 0).length + ' transaksione', 'orange'],
+      ['Fluksi Neto', fmt(netFlow) + ' ALL', netFlow >= 0 ? 'Pozitiv' : 'Negativ', netFlow >= 0 ? 'teal' : 'red'],
+      ['Totali i Veprimeve', String(d.rows.length), periodLabel(), 'blue']
+    ]);
+
+    return kpiCards + table(this.cols, d.rows, { title: 'Libri Ditor i Transaksioneve — ' + periodLabel(), totals: true });
+  },
+  xlsx() {
+    let d = this.data();
+    return Object.assign({ name: 'LIBRI-DITOR' }, exportRows(d.cols, d.rows));
+  }
+};
+
+MOD.pnl = {
+  title: 'Fitim & Humbje (P&L)',
+  data() {
+    const sales = periodRows(salesRows());
+    const rev = sum(sales, 'revenueALL');
+    const cogs = sum(sales, 'cogsALL');
+    const margin = rev - cogs;
+    const expList = periodRows(arr('expenses')).filter(e => e.status === 'Konfirmuar');
+    const exp = sum(expList, 'amount');
+    const net = margin - exp;
+
+    const rows = [
+      { item: '1. Të Ardhurat nga Shitjet (Neto pa TVSH)', ref: 'Klasa 7', val: rev, pct: '100.00%' },
+      { item: '2. Kosto e Mallrave të Shitura (KMSH nga WAC)', ref: 'Kosto WAC', val: cogs, pct: (rev ? (cogs/rev*100).toFixed(2)+'%' : '0%') },
+      { item: 'MARZHI BRUTO TREGTIAR', ref: 'Të Ardhura - KMSH', val: margin, pct: (rev ? (margin/rev*100).toFixed(2)+'%' : '0%') },
+      { item: '3. Shpenzimet Operative (Klasa 6)', ref: 'Klasa 6', val: exp, pct: (rev ? (exp/rev*100).toFixed(2)+'%' : '0%') },
+      { item: 'FITIMI NETO I PERIUDHËS', ref: 'Net Profit', val: net, pct: (rev ? (net/rev*100).toFixed(2)+'%' : '0%') }
+    ];
+
+    const cols = [
+      { h: 'Përshkrimi i Zërit', k: 'item' },
+      { h: 'Llogaria / Baza', k: 'ref' },
+      { h: 'Vlera ALL', k: 'val', num: 1 },
+      { h: '% mbi Shitjet', k: 'pct' }
+    ];
+
+    return { cols, rows, rev, cogs, margin, exp, net };
+  },
+  html() {
+    let d = this.data();
+    let kpiCards = kpis([
+      ['Të Ardhura Shitjesh', fmt(d.rev) + ' ALL', 'Totali pa TVSH', 'blue'],
+      ['KMSH (WAC)', fmt(d.cogs) + ' ALL', (d.rev ? (d.cogs/d.rev*100).toFixed(1)+'%' : '0%'), 'orange'],
+      ['Marzhi Bruto', fmt(d.margin) + ' ALL', (d.rev ? (d.margin/d.rev*100).toFixed(1)+'%' : '0%'), 'teal'],
+      ['Fitimi Neto', fmt(d.net) + ' ALL', d.net >= 0 ? 'Fitim Operativ' : 'Humbje', d.net >= 0 ? 'green' : 'red']
+    ]);
+
+    return kpiCards + table(d.cols, d.rows, { title: 'Pasqyra e Fitimit dhe Humbjes — ' + periodLabel(), totals: false });
+  },
+  xlsx() {
+    let d = this.data();
+    return Object.assign({ name: 'FITIM-HUMBJE-PNL' }, exportRows(d.cols, d.rows));
+  }
+};
+
+MOD.balancesheet = {
+  title: 'Bilanci Tregtar',
+  data() {
+    const cash = (typeof cashPosition === 'function') ? cashPosition() : 150000;
+    const bank = (typeof bankBalances === 'function') ? Object.values(bankBalances()).reduce((s, b) => s + num(b.balance), 0) : 1200000;
+    const cust = partiesSummary('customer');
+    const sup = partiesSummary('supplier');
+    const debtors = sum(cust.filter(x => x.balance > 0), 'balance');
+    const creditors = sum(sup.filter(x => x.balance > 0), 'balance');
+    const stock = stockRows().filter(r => r.available > 0);
+    const stockVal = sum(stock, 'value');
+
+    const totalAssets = cash + bank + debtors + stockVal;
+    const totalLiab = creditors;
+    const equity = totalAssets - totalLiab;
+
+    const rows = [
+      { category: 'AKTIVET', item: 'Mjetet Monetare në Arkë', val: cash },
+      { category: 'AKTIVET', item: 'Llogaritë Bankare', val: bank },
+      { category: 'AKTIVET', item: 'Debitorët (Klientët me detyrim)', val: debtors },
+      { category: 'AKTIVET', item: 'Inventari Fizik në Magazinë (WAC)', val: stockVal },
+      { category: 'TOTALI I AKTIVEVE', item: 'Pasuritë Totale', val: totalAssets },
+      { category: 'PASIVET', item: 'Kreditorët (Detyrime ndaj Furnitorëve)', val: creditors },
+      { category: 'TOTALI I PASIVEVE', item: 'Detyrimet Totale', val: totalLiab },
+      { category: 'KAPITALI', item: 'Ekuiteti dhe Fitimi Neto', val: equity },
+      { category: 'TOTALI PASIVE + KAPITAL', item: 'Balanca e Barabartë', val: totalLiab + equity }
+    ];
+
+    const cols = [
+      { h: 'Kategoria', k: 'category' },
+      { h: 'Zëri Tregtar', k: 'item' },
+      { h: 'Vlera ALL', k: 'val', num: 1 }
+    ];
+
+    return { cols, rows, totalAssets, totalLiab, equity };
+  },
+  html() {
+    let d = this.data();
+    let kpiCards = kpis([
+      ['Totali i Aktiveve', fmt(d.totalAssets) + ' ALL', 'Pasuritë', 'teal'],
+      ['Totali i Pasiveve', fmt(d.totalLiab) + ' ALL', 'Detyrimet ndaj të tretëve', 'orange'],
+      ['Kapitali Neto', fmt(d.equity) + ' ALL', 'Pasuri - Detyrime', 'green'],
+      ['Gjendja e Balancës', 'Ekuilibruar', 'Aktivet = Pasivet + Kapitali', 'blue']
+    ]);
+
+    return kpiCards + table(d.cols, d.rows, { title: 'Bilanci Tregtar — ' + todayStr(), totals: false });
+  },
+  xlsx() {
+    let d = this.data();
+    return Object.assign({ name: 'BILANCI-TREGTAR' }, exportRows(d.cols, d.rows));
+  }
+};
+
+MOD.lowstock = {
+  title: 'Alarmi i Stokut të Ulët',
+  data() {
+    const products = arr('products');
+    const rows = [];
+    products.forEach(p => {
+      let pLots = stockRows().filter(r => r.productId === p.id);
+      let avail = sum(pLots, 'available');
+      let wac = wacOf(p.id) || num(p.purchasePrice);
+      if (avail <= 500) {
+        rows.push({
+          code: p.code || '',
+          product: p.name || '',
+          category: p.category || 'Bimë Medicinale',
+          available: avail,
+          wac: wac,
+          val: avail * wac,
+          status: avail <= 0 ? 'Pa Stok (Kritike)' : 'Stok i Ulët (< 500 kg)'
+        });
+      }
+    });
+
+    rows.sort((a, b) => a.available - b.available);
+
+    const cols = [
+      { h: 'Kodi', k: 'code' },
+      { h: 'Artikulli', k: 'product' },
+      { h: 'Kategoria', k: 'category' },
+      { h: 'Gjendja Stok kg', k: 'available', num: 1 },
+      { h: 'Kosto WAC ALL/kg', k: 'wac', num: 1 },
+      { h: 'Vlera Stokut ALL', k: 'val', num: 1 },
+      { h: 'Statusi i Alarmit', k: 'status' }
+    ];
+
+    return { cols, rows };
+  },
+  html() {
+    let d = this.data();
+    let zeroCount = d.rows.filter(r => r.available <= 0).length;
+    let lowCount = d.rows.filter(r => r.available > 0).length;
+
+    let kpiCards = kpis([
+      ['Artikuj Pa Stok', String(zeroCount), 'Kërkohet furnizim urgjent', 'red'],
+      ['Artikuj me Stok të Ulët', String(lowCount), 'Nën 500 kg', 'orange'],
+      ['Totali në Alarm', String(d.rows.length), 'Artikuj kritikë', 'blue']
+    ]);
+
+    return kpiCards + table(d.cols, d.rows, { title: 'Raporti i Artikujve në Nivel Kritik Stokut', totals: true });
+  },
+  xlsx() {
+    let d = this.data();
+    return Object.assign({ name: 'ALARMI-I-STOKUT' }, exportRows(d.cols, d.rows));
+  }
+};
+
+
 /* ---------------- shtresa e pamjes ---------------- */
 function tabBtn(active){return `<button class="btn ${active?'active':''}" type="button" onclick="vyEnter()">📦 Raporte Vyapar Desktop</button>`}
 function modeTabs(){return `<div class="reports-mode-tabs"><button class="btn ${reportsMode==='alpha'?'active':''}" type="button" onclick="vyLeave('alpha')">🏛 Raporte Financiare (Alpha)</button><button class="btn ${reportsMode==='odoo'?'active':''}" type="button" onclick="vyLeave('odoo')">🏢 Raporte Odoo 19 Enterprise</button><button class="btn ${reportsMode==='vyapar'?'active':''}" type="button" onclick="vyEnter()">📦 Raporte Vyapar Desktop</button></div>`}
 function injectTab(html){if(typeof html!=='string')return html;let m='<div class="reports-mode-tabs">',i=html.indexOf(m);if(i<0||html.indexOf('onclick="vyEnter()"')>=0)return html;let e=html.indexOf('>',i)+1;return html.slice(0,e)+tabBtn(false)+html.slice(e)}
-function railCounts(){try{return{purchases:arr('weighings').filter(w=>w&&w.status==='Konfirmuar').length,sales:arr('salesInvoices').filter(f=>f&&f.status==='Konfirmuar').length,stock:arr('lots').filter(l=>l&&lotAvail(l)>0).length,article:arr('products').length,party:arr('customers').length+arr('suppliers').length,finance:arr('payments').length+arr('customerPayments').length+arr('bankTransactions').length,processing:arr('processes').length,exports:arr('shipments').length,trace:arr('lots').length,expenses:arr('expenses').filter(d=>d&&d.status==='Konfirmuar').length}}catch(e){return{}}}
+function railCounts(){try{return{purchases:arr('weighings').filter(w=>w&&w.status==='Konfirmuar').length,sales:arr('salesInvoices').filter(f=>f&&f.status==='Konfirmuar').length,daybook:arr('salesInvoices').length+arr('weighings').length+arr('payments').length+arr('customerPayments').length,stock:arr('lots').filter(l=>l&&lotAvail(l)>0).length,article:arr('products').length,lowstock:arr('products').filter(p=>stockRows().filter(r=>r.productId===p.id).reduce((s,r)=>s+r.available,0)<=0).length,party:arr('customers').length+arr('suppliers').length,finance:arr('payments').length+arr('customerPayments').length+arr('bankTransactions').length,expenses:arr('expenses').filter(d=>d&&d.status==='Konfirmuar').length,pnl:arr('salesInvoices').filter(f=>f&&f.status==='Konfirmuar').length,balancesheet:arr('customers').length+arr('suppliers').length,processing:arr('processes').length,exports:arr('shipments').length,trace:arr('lots').length}}catch(e){return{}}}
 function rail(){let counts=railCounts(),groups=[];MODS.forEach(m=>{let g=groups.find(x=>x.name===m[4]);if(!g)groups.push(g={name:m[4],items:[]});g.items.push(m)});return `<div class="vy-rail"><div class="vy-brand"><b>Vyapar Desktop Premium</b><small>Paneli Tregtar & Inventari · ${MODS.length} module</small></div>${groups.map(g=>`<h4>${esc(g.name)}</h4>${g.items.map(m=>`<button type="button" class="${S.mod===m[0]?'active':''}" onclick="vyGo('${m[0]}')"><i>${m[1]}</i><span>${esc(m[2])}</span>${counts[m[0]]!=null?`<small>${esc(counts[m[0]])}</small>`:''}</button>`).join('')}`).join('')}</div>`}
 function topbar(mod){return `<div class="vy-top"><div class="vy-title"><i>${mod[1]}</i><span>${esc(mod[2])}<br><small>${esc(mod[3])} · ${esc(periodLabel())}</small></span></div><div class="vy-presets">${PRESETS.map(([k,l])=>`<button type="button" class="${S.preset===k?'active':''}" onclick="vyPreset('${k}')">${l}</button>`).join('')}</div><label class="hint">Nga <input type="date" value="${esc(S.from)}" onchange="vySet('from',this.value)"></label><label class="hint">Deri <input type="date" value="${esc(S.to)}" onchange="vySet('to',this.value)"></label><input type="search" placeholder="Kërko në tabelë…" value="${esc(S.q)}" oninput="vyQ(this.value)"><div class="vy-actions"><button class="btn small" type="button" onclick="vyExport()">⬇ Excel (XLSX)</button><button class="btn small" type="button" onclick="vyPrint()">🖨 Printo / PDF</button></div></div>`}
 function paper(){
