@@ -12781,6 +12781,12 @@ printOnly = function(elementId, title) {
     const frame = document.getElementById('biobesPrintFrame');
     if (frame) {
       frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:1200px;height:900px;border:0';
+      try {
+        if (frame.contentWindow) {
+          // Handled reliably by main window print root to avoid conflicting dual print dialogs
+          frame.contentWindow.print = function() {};
+        }
+      } catch(_sp) {}
     }
 
     const doc = frame ? frame.contentDocument : null;
@@ -12797,6 +12803,7 @@ printOnly = function(elementId, title) {
 
     if (contentHtml) {
       root.innerHTML = contentHtml;
+      canvasToImages(root);
       document.body.appendChild(root);
 
       if (isIOS() && frame) {
@@ -12807,7 +12814,10 @@ printOnly = function(elementId, title) {
       let oldTitle = document.title;
       if (title) document.title = title;
 
+      let isDone = false;
       const done = () => {
+        if (isDone) return;
+        isDone = true;
         try {
           document.body.classList.remove('biobes-print-active');
           root.remove();
@@ -12824,7 +12834,7 @@ printOnly = function(elementId, title) {
           console.warn('window.print error:', e);
           try { frame?.contentWindow?.focus(); frame?.contentWindow?.print(); } catch(_e) {}
         }
-        setTimeout(done, 2500);
+        setTimeout(done, 60000);
       }, 100);
     }
   } catch(e) {
@@ -16593,14 +16603,58 @@ window.ensureFiscalized = function(f, cfg) {
     f.fiscalOperator = f.fiscalOperator || cfg.operatorCode || 'op912kd334';
     f.fiscalSoftCode = f.fiscalSoftCode || cfg.softCode || 'so812xy993';
     f.nslf = generateFiscalNSLF(f, cfg);
+    f.fiscalIIC = f.nslf;
     f.nivf = f.nivf || generateFiscalNIVF();
+    f.fiscalFIC = f.nivf;
     f.fiscalQrUrl = buildFiscalQrUrl(f, cfg);
     f.fiscalStatus = f.fiscalStatus || 'FISCALIZED';
   } else {
+    f.fiscalIIC = f.fiscalIIC || f.nslf;
+    f.fiscalFIC = f.fiscalFIC || f.nivf;
+    if (!f.fiscalQrUrl) f.fiscalQrUrl = buildFiscalQrUrl(f, cfg);
     f.fiscalStatus = f.fiscalStatus || 'FISCALIZED';
   }
   return f;
 };
+
+// Gjeneruesi zyrtar i Kodit QR të DPT me konvertim në imazh për printim të sigurt
+window.renderUnifiedQr = function(doc, containerOrId) {
+  try {
+    let box = (typeof containerOrId === 'string') ? document.getElementById(containerOrId) : containerOrId;
+    if (!box) return;
+    box.innerHTML = '';
+    let cfg = (typeof fiscalConfig === 'function') ? fiscalConfig() : {};
+    let qrUrl = (doc && doc.fiscalQrUrl) || (typeof buildFiscalQrUrl === 'function' ? buildFiscalQrUrl(doc, cfg) : '');
+    if (!qrUrl) return;
+    box.title = qrUrl;
+    if (typeof QRCode === 'function') {
+      new QRCode(box, {
+        text: qrUrl,
+        width: 100,
+        height: 100,
+        correctLevel: QRCode.CorrectLevel.M
+      });
+      setTimeout(() => {
+        try {
+          let c = box.querySelector('canvas');
+          if (c && !box.querySelector('img.qr-rendered-img')) {
+            let img = document.createElement('img');
+            img.className = 'qr-rendered-img';
+            img.src = c.toDataURL('image/png');
+            img.style.cssText = 'width:100px;height:100px;display:block;margin:auto;';
+            c.parentNode.insertBefore(img, c.nextSibling);
+            c.style.display = 'none';
+          }
+        } catch(e) {}
+      }, 30);
+    } else {
+      box.innerHTML = '<div style="font-size:9px;color:#666;text-align:center;padding:10px;border:1px dashed #ccc">QR DPT</div>';
+    }
+  } catch(err) {
+    console.warn('renderUnifiedQr error:', err);
+  }
+};
+var renderUnifiedQr = window.renderUnifiedQr;
 
 // ==========================================================================
 // 7. FORMATI ZYRTAR I TATIMEVE (DPT CIS Box Format) - IDENTIK ME FOTON 2
@@ -17099,7 +17153,9 @@ window.openAlbanianSaleInvoice = function(id) {
      <button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="printUnifiedInvoice('${f.id}')">🖨 Printo / Ruaj PDF</button>`
   );
 
-  if (f.isFiscal) setTimeout(() => renderUnifiedQr(f, 'unifiedQrBox_' + f.id), 50);
+  if (f.isFiscal && typeof renderUnifiedQr === 'function') {
+    setTimeout(() => renderUnifiedQr(f, 'unifiedQrBox_' + f.id), 50);
+  }
 };
 
 window.printPurchase = function(id) {
@@ -17146,17 +17202,31 @@ window.printPurchase = function(id) {
      <button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="printUnifiedInvoice('${f.id}')">🖨 Printo / Ruaj PDF</button>`
   );
 
-  if (f.isFiscal) setTimeout(() => renderUnifiedQr(f, 'unifiedQrBox_' + f.id), 50);
+  if (f.isFiscal && typeof renderUnifiedQr === 'function') {
+    setTimeout(() => renderUnifiedQr(f, 'unifiedQrBox_' + f.id), 50);
+  }
 };
 
 window.printUnifiedInvoice = function(id) {
-  let f = salesInvoices().find(x => x.id === id) || purchaseInvoices().find(x => x.id === id);
-  if (!f) return;
-  let cfg = fiscalConfig();
-  if (f.isFiscal) renderUnifiedQr(f, 'unifiedQrBox_' + f.id);
-  setTimeout(() => {
-    printOnly('printUnifiedDpt_' + f.id, 'Fatura ' + (f.isFiscal ? formatFiscalInvoiceNumber(f, cfg) : (f.invoiceNumber || f.id)));
-  }, 90);
+  try {
+    let f = (typeof salesInvoices === 'function' ? salesInvoices().find(x => x.id === id) : null)
+         || (typeof purchaseInvoices === 'function' ? purchaseInvoices().find(x => x.id === id) : null);
+    if (!f) return toast('Fatura nuk u gjet');
+    let cfg = (typeof fiscalConfig === 'function') ? fiscalConfig() : {};
+    if (f.isFiscal !== false && typeof ensureFiscalized === 'function') {
+      ensureFiscalized(f, cfg);
+    }
+    if (f.isFiscal !== false && typeof renderUnifiedQr === 'function') {
+      try { renderUnifiedQr(f, 'unifiedQrBox_' + f.id); } catch(e) {}
+    }
+    let title = 'Fatura ' + (f.isFiscal ? formatFiscalInvoiceNumber(f, cfg) : (f.invoiceNumber || f.id));
+    setTimeout(() => {
+      printOnly('printUnifiedDpt_' + f.id, title);
+    }, 60);
+  } catch(err) {
+    console.error('printUnifiedInvoice error:', err);
+    toast('Gabim gjatë printimit: ' + err.message);
+  }
 };
 
 // ==========================================================================
@@ -17210,7 +17280,9 @@ window.openGoodsTransportNote = function(id, sourceKind) {
      <button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="printWtn('${doc.id}')">🖨 Printo / Ruaj PDF</button>`
   );
 
-  if (isFiscalWtn) setTimeout(() => renderUnifiedQr(doc, 'wtnQrBox_' + doc.id), 50);
+  if (isFiscalWtn && typeof renderUnifiedQr === 'function') {
+    setTimeout(() => renderUnifiedQr(doc, 'wtnQrBox_' + doc.id), 50);
+  }
 };
 
 window.toggleWtnFiscalMode = function(id, sourceKind, isChecked) {
@@ -17227,7 +17299,7 @@ window.toggleWtnFiscalMode = function(id, sourceKind, isChecked) {
   let container = document.getElementById('wtnContainer_' + id);
   if (container) {
     container.innerHTML = renderGoodsTransportNoteHtml(doc, sourceKind, doc.isFiscalWtn);
-    if (doc.isFiscalWtn) {
+    if (doc.isFiscalWtn && typeof renderUnifiedQr === 'function') {
       setTimeout(() => renderUnifiedQr(doc, 'wtnQrBox_' + doc.id), 40);
     }
   }
@@ -17242,12 +17314,26 @@ window.toggleWtnFiscalMode = function(id, sourceKind, isChecked) {
 };
 
 window.printWtn = function(id) {
-  let doc = salesInvoices().find(x => x.id === id) || purchaseInvoices().find(x => x.id === id) || by('shipments', id);
-  if (!doc) return;
-  if (doc.isFiscalWtn) renderUnifiedQr(doc, 'wtnQrBox_' + doc.id);
-  setTimeout(() => {
-    printOnly('printWtn_' + doc.id, 'Fatura Shoqeruese Malli ' + doc.id);
-  }, 90);
+  try {
+    let doc = (typeof salesInvoices === 'function' ? salesInvoices().find(x => x.id === id) : null)
+           || (typeof purchaseInvoices === 'function' ? purchaseInvoices().find(x => x.id === id) : null)
+           || (typeof by === 'function' ? by('shipments', id) : null);
+    if (!doc) return toast('Dokumenti nuk u gjet');
+    let cfg = (typeof fiscalConfig === 'function') ? fiscalConfig() : {};
+    if (doc.isFiscalWtn !== false && typeof ensureFiscalized === 'function') {
+      ensureFiscalized(doc, cfg);
+    }
+    if (doc.isFiscalWtn !== false && typeof renderUnifiedQr === 'function') {
+      try { renderUnifiedQr(doc, 'wtnQrBox_' + doc.id); } catch(e) {}
+    }
+    let title = 'Fatura Shoqeruese Malli ' + (doc.invoiceNumber || doc.id);
+    setTimeout(() => {
+      printOnly('printWtn_' + doc.id, title);
+    }, 60);
+  } catch(err) {
+    console.error('printWtn error:', err);
+    toast('Gabim gjatë printimit: ' + err.message);
+  }
 };
 
 // ==========================================================================
