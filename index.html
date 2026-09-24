@@ -16548,8 +16548,12 @@ function sha256Sync(ascii) {
 
 // 2. Konfigurimi Bazë Fiskal
 window.fiscalConfig = function() {
-  if (!state.fiscalConfig) {
-    state.fiscalConfig = {
+  if (typeof state === 'undefined' || !state) {
+    if (typeof window !== 'undefined') window.state = window.state || {};
+  }
+  let s = (typeof state !== 'undefined' && state) ? state : (window.state = window.state || {});
+  if (!s.fiscalConfig) {
+    s.fiscalConfig = {
       tin: 'L43904401I',
       businessUnitCode: 'bb934al551',
       tcrCode: 'tc771bb882',
@@ -16562,7 +16566,7 @@ window.fiscalConfig = function() {
       lastPing: { ok: true, latencyMs: 88, time: new Date().toISOString() }
     };
   }
-  return state.fiscalConfig;
+  return s.fiscalConfig;
 };
 
 // 3. Formatuesi i Numrit të Faturës: {nr}/{vit}/{tcr}
