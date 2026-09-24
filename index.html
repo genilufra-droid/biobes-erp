@@ -203,7 +203,7 @@ function saveCustomerForm(id){try{let code=$val('cfCode').trim(),name=$val('cfNa
  save();closeModal();render();toast(id?'Klienti u ndryshua':'Klienti u shtua')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
 function customerInUse(id){try{return (state.orders||[]).some(x=>x.customer===id)||salesInvoices().some(x=>x.customer===id)||customerPayments().some(x=>x.customer===id)||(state.shipments||[]).some(x=>x.customer===id)||exportDossiers().some(x=>x.customer===id)||customerReturns().some(x=>x.customer===id)}catch(e){return true}}
 function deleteCustomer(id){let c=by('customers',id);if(!c?.id)return;if(customerInUse(id))return toast('Nuk fshihet: klienti ka porosi, fatura, arkëtime ose dosje të lidhura — çaktivizojeni');if(!confirm('Të fshihet klienti "'+(c.name||'')+'"?'))return;state.customers=state.customers.filter(x=>x.id!==id);try{audit('Fshirje klienti',id)}catch(e){}save();render();toast('Klienti u fshi')}
-function exportCustomersXls(){downloadBlob('BioBes-kliente.xls',xlsHtml(['Kodi','Emri','Shteti','Qyteti','NIPT/VAT','Kontakti','Telefon','Email','Monedha','Statusi'],(state.customers||[]).map(x=>[x.code,x.name,x.country,x.city,x.vat,x.contact,x.phone,x.email,x.currency,x.active===false?'Joaktiv':'Aktiv'])),'application/vnd.ms-excel')}
+function exportCustomersXls(){makeXlsx('BioBes-kliente.xlsx',['Kodi','Emri','Shteti','Qyteti','NIPT/VAT','Kontakti','Telefon','Email','Monedha','Statusi'],(state.customers||[]).map(x=>[x.code,x.name,x.country,x.city,x.vat,x.contact,x.phone,x.email,x.currency,x.active===false?'Joaktiv':'Aktiv']))}
 views.customers=function(){let rows=(state.customers||[]).map(x=>{let inv=salesInvoices().filter(f=>f.customer===x.id&&(f.status||'Konfirmuar')==='Konfirmuar'),pay=customerPayments().filter(f=>f.customer===x.id&&(f.status||'Konfirmuar')==='Konfirmuar'),billed=inv.filter(f=>!f.isPrepayment).reduce((a,f)=>a+toALL(f.total,f.currency,f.exchangeRate),0),prepy=inv.filter(f=>f.isPrepayment).reduce((a,f)=>a+toALL(f.total,f.currency,f.exchangeRate),0),paid=prepy+pay.reduce((a,f)=>a+toALL(f.amount,f.currency,f.rate),0);
  return[esc(x.code||''),`<a class="link" onclick="customerCard('${x.id}')">${esc(x.name||'')}</a>`,esc([x.city,x.country].filter(Boolean).join(', ')),esc(x.vat||''),esc(x.contact||x.phone||x.email||''),n(billed-paid,0)+' ALL',x.active===false?'<span class="pill red">Joaktiv</span>':'<span class="pill green">Aktiv</span>',`<span class="row-actions"><button class="btn small" onclick="customerCard('${x.id}')">Hap</button><button class="btn small" onclick="customerForm('${x.id}')">Ndrysho</button><button class="btn small danger" onclick="deleteCustomer('${x.id}')">Fshi</button></span>`]});
  return head('Klientët','Kartela, porositë, faturat dhe gjendja e hapur',`<button class="btn" onclick="exportCustomersXls()">Eksporto Excel</button><button class="btn primary" onclick="customerForm()">+ Shto klient</button>`)+`<div class="toolbar"><input placeholder="Kërko live..." oninput="liveFilter(this)"></div><div class="liveTable">${rows.length?tableCard(['Kodi','Emri','Vendi','NIPT/VAT','Kontakti','Gjendja e hapur','Statusi','Veprime'],rows):'<div class="card"><p class="hint">Ende s\u2019ka klientë. Shtoni klientin e parë me <b>+ Shto klient</b> — përdoret te porositë, faturat e shitjes, arkëtimet dhe dosjet e eksportit.</p></div>'}</div>`};
@@ -233,8 +233,8 @@ function xlsHtml(headers,rows){return `<html><head><meta charset="UTF-8"></head>
 
 
 <\/body></html>`}
-function exportProductsXls(){downloadBlob('BioBes-produkte.xls',xlsHtml(['Kodi','Shqip','Botanik','Anglisht','Kategoria'],state.products.map(x=>[x.code,x.name,x.botanical,x.english,x.category])),'application/vnd.ms-excel')}
-function exportSuppliersXls(){downloadBlob('BioBes-furnitore.xls',xlsHtml(['Kodi','Emri','Zona','Telefon','Gjendja'],state.suppliers.map(x=>[x.code,x.name,x.region,x.phone,x.balance])),'application/vnd.ms-excel')}
+function exportProductsXls(){makeXlsx('BioBes-produkte.xlsx',['Kodi','Shqip','Botanik','Anglisht','Kategoria'],state.products.map(x=>[x.code,x.name,x.botanical,x.english,x.category]))}
+function exportSuppliersXls(){makeXlsx('BioBes-furnitore.xlsx',['Kodi','Emri','Zona','Telefon','Gjendja'],state.suppliers.map(x=>[x.code,x.name,x.region,x.phone,typeof supplierBalance==='function'?supplierBalance(x.id):x.balance]))}
 function downloadBlob(name,data,type){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)}
 function readAsData(file,cb){if(file.size>8*1024*1024)return toast('Në prototip skedari duhet të jetë nën 8 MB');let r=new FileReader();r.onload=()=>cb(r.result);r.readAsDataURL(file)}
 function uploadDocument(id){let d=by('documents',id);modal('Ngarko — '+d.type,`<div class="form-grid"><div class="field"><label>Numri i dokumentit</label><input id="duNumber" value="${esc(d.number||'')}"></div><div class="field"><label>Data</label><input id="duDate" type="date" value="${d.date||''}"></div><div class="field full"><label>Foto ose PDF</label><div class="file-drop"><input id="duFile" type="file" accept="image/*,.pdf,application/pdf"></div></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="saveDocumentUpload('${id}')">Ruaj dokumentin</button>`)}
@@ -256,7 +256,7 @@ const oldSaveWeigh=saveWeigh;saveWeigh=function(confirmIt){try{let file=$file('w
 function saveWeighV2(confirmIt,file,data){try{let g=nums('wGross'),t=nums('wTare');if(g.length>42)return toast('Maksimumi është 42 peshime');let G=g.reduce((a,x)=>a+x,0),T=t.reduce((a,x)=>a+x,0),N=G-T,d=$num('wDiscount',0);if(!$val('wSupplier')||!$val('wProduct')||!g.length)return toast('Plotësoni furnitorin, produktin dhe peshimet');let id=nextSeqId('PS',(state.weighings||[]),1,new Date().getFullYear()),x={id,date:$val('wDate',new Date().toISOString().slice(0,10)),supplier:$val('wSupplier'),product:$val('wProduct'),receiver:$val('wReceiver',(activeUser()||{}).name||''),bags:$num('wBags',0),weights:g,tares:t,gross:G,tare:T,net:N,discount:d,billable:N*(1-d/100),attachment:file?.name||'',attachmentType:file?.type||'',attachmentUrl:data?.attachmentUrl||'',attachmentData:'',status:confirmIt?'Konfirmuar':'Draft'};state.weighings.push(x);if(confirmIt){let p=by('products',x.product),s=by('suppliers',x.supplier),code=`B1${s.code}-${p.code}-${String(new Date(x.date).getFullYear()).slice(-2)}`,lid=uid('L');state.lots.push({id:lid,code,supplier:x.supplier,product:x.product,gross:G,tare:T,net:N,warehouse:(document.getElementById('wWarehouse')?.value||defaultWarehouseId()),rack:((state.racks||[]).find(r=>r.warehouse===(document.getElementById('wWarehouse')?.value||defaultWarehouseId()))?.id||defaultRackId(document.getElementById('wWarehouse')?.value||defaultWarehouseId())),status:'Në magazinim',date:x.date,weighing:id});state.events.push({user:evUser(),date:new Date().toLocaleString('sq-AL'),type:'Peshim & Lot',ref:lid,text:`${id} u konfirmua dhe u krijua loti ${code}`})}save();closeModal();render();toast(confirmIt?'Peshimi u konfirmua dhe loti u krijua':'Drafti u ruajt')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
 function weightRows(x){let m=Math.max(x.weights?.length||0,x.tares?.length||0),rows=[];for(let i=0;i<m;i++){let gross=+x.weights[i]||0,tare=+x.tares[i]||0;rows.push(`<tr><td>${i===0?(x.bags||''):''}</td><td>${n(gross)}</td><td>${n(tare)}</td><td>${n(gross-tare)}</td></tr>`)}return rows.join('')}
 function weightSheet(x){let s=by('suppliers',x.supplier),p=by('products',x.product);return `<div id="printWeight" class="doc-sheet"><div class="weight-paper"><div class="wp-top"><div class="wp-brand">Bio<em>Bes</em></div><div class="wp-title">PESHAT A</div></div><div class="wp-resp">Person përgjegjës: <b>${esc(x.receiver||'')}</b></div><div class="wp-meta"><div><b>DATA:</b> ${esc(x.date)}</div><div><b>FR:</b> ${esc(s.name)}</div><div style="background:#fff900"><b>PROD:</b> ${esc(p.name)}</div><div><b>ADR:</b> ${esc(s.region||'')}</div></div><table><thead><tr><th>NR<br>THASËVE</th><th>KG</th><th>PESHORJA</th><th>SHUMA</th></tr></thead><tbody>${weightRows(x)}</tbody><tfoot><tr><td>${x.bags||0}</td><td>${n(x.gross)}</td><td>${n(x.tare)}</td><td>${n(x.net)}</td></tr></tfoot></table><div class="wp-sign"><div>Personi përgjegjës<br><br>__________________</div><div>Furnitori<br><br>__________________</div></div></div></div>`}
-function weightCard(id){let x=state.weighings.find(y=>y.id===id);modal(x.id,weightSheet(x)+`<div class="card"><b>Dokumenti i printerit:</b> ${x.attachmentData?`<a class="link" onclick="openStoredFileByWeight('${id}')">${esc(x.attachment)}</a>`:'Nuk është ngarkuar'} &nbsp; <b>Pesha faturueshme:</b> ${n(x.billable)} kg</div>`,`<button class="btn" onclick="closeModal()">Mbyll</button><button class="btn primary" onclick="doPrintWeight()">Printo / PDF</button>`)}
+function weightCard(id){let x=state.weighings.find(y=>y.id===id);modal(x.id,weightSheet(x)+`<div class="card"><b>Dokumenti i printerit:</b> ${x.attachmentData?`<a class="link" onclick="openStoredFileByWeight('${id}')">${esc(x.attachment)}</a>`:'Nuk është ngarkuar'} &nbsp; <b>Pesha faturueshme:</b> ${n(x.billable)} kg</div>`,`<button class="btn" onclick="closeModal()">Mbyll</button><button class="btn" onclick="exportWeightDocumentXlsx('${id}')">📊 Shkarko Excel</button><button class="btn primary" onclick="doPrintWeight()">Printo / PDF</button>`)}
 function printWeight(id){weightCard(id)}function doPrintWeight(){document.body.classList.add('print-weight');window.print();setTimeout(()=>document.body.classList.remove('print-weight'),300)}
 views.trace=function(){return head('Gjurmueshmëria','Diagram dokumentar me lidhje të klikueshme')+`<div class="card"><div class="toolbar"><input id="traceQ" placeholder="Lot, peshim, porosi ose ngarkesë"><button class="btn primary" onclick="traceSearchV2()">Gjurmo</button></div><div id="traceResult"><div class="empty">Vendosni kodin për të hapur rrjedhën.</div></div></div>`}
 function traceSearchV2(){let tq=document.getElementById('traceQ'),tr=document.getElementById('traceResult');let q=(tq?.value||'').trim().toLowerCase(),lot=state.lots.find(x=>((x.code||'').toLowerCase()).includes(q)||x.id.toLowerCase()===q),w=state.weighings.find(x=>x.id.toLowerCase()===q);if(w&&!lot)lot=state.lots.find(x=>x.weighing===w.id);if(!lot){if(tr)tr.innerHTML='<div class="empty">Nuk u gjet rezultat.</div>';return}w=state.weighings.find(x=>x.id===lot.weighing);let sm=state.samples.find(x=>x.lot===lot.id),pr=state.processes.find(x=>(x.lots||[]).includes(lot.id)),ord=pr?by('orders',pr.orders?.[0]):(sm?state.orders.find(x=>x.sample===sm.id):null),sh=ord?state.shipments.find(x=>x.order===ord.id):null;let nodes=[[`Furnitori<br><b>${by('suppliers',lot.supplier).code}</b>`,()=>supplierCard(lot.supplier)],w?[`Peshimi<br><b>${w.id}</b>`,()=>weightCard(w.id)]:null,[`Loti hyrës<br><b>${lot.code}</b>`,()=>lotCard(lot.id)],sm?[`Mostra<br><b>${sm.id}</b>`,()=>go('samples')]:null,ord?[`Porosia<br><b>${ord.id}</b>`,()=>orderCard(ord.id)]:null,pr?[`Procesi<br><b>${pr.id}</b>`,()=>go('processing')]:null,sh?[`Ngarkesa<br><b>${sh.id}</b>`,()=>shipmentCard(sh.id)]:null].filter(Boolean);if(tr)tr.innerHTML=`<div class="trace-row">${nodes.map((x,i)=>`${i?'<span class="trace-arrow">→</span>':''}<div class="doc-node" id="tn${i}">${x[0]}</div>`).join('')}</div><div class="card"><h3>Historia kronologjike</h3><div class="timeline">${state.events.filter(e=>e.ref===lot.id||e.ref===w?.id||e.ref===pr?.id).map(e=>`<div class="event"><b>${esc(e.type)}</b><div>${esc(e.text)}</div><small>${esc(e.date)}</small></div>`).join('')||'<div class="event">Loti është aktiv në magazinë.</div>'}</div></div>`;nodes.forEach((x,i)=>{let el=document.getElementById('tn'+i);if(el)el.onclick=x[1]})}
@@ -293,7 +293,7 @@ function supplierLedgerData(id){let rows=[];state.weighings.filter(x=>x.supplier
 function ledgerHtml(id){let s=by('suppliers',id),rows=supplierLedgerData(id),run=+(s.openingBalance||0),body=rows.map((r,i)=>{run+=r.debit-r.credit;let desc='';if(r.ref?.startsWith('FB-')||r.open==='purchase'){desc=`<a class="link" onclick="purchaseCard('${r.ref}')"><b>${esc(r.desc)}</b> — <span style="font-size:11px">${r.ref}</span></a>`}else if(r.ref?.startsWith('MP-')||r.open==='payment'){desc=`<a class="link" style="color:#167044" onclick="paymentCard('${r.ref}')">${esc(r.desc)} — <b>${r.ref}</b></a>`}else if(r.ref?.startsWith('PB-')||r.ref?.startsWith('PS-')||r.open==='weight'){desc=`<a class="link" onclick="weightCard('${r.ref}')">${esc(r.desc)} — <b>${r.ref}</b></a>`}else if(r.open){desc=`<a class="link" onclick="weightCard('${r.ref}')">${esc(r.desc)} — <b>${r.ref}</b></a>`}else{desc=esc(r.desc)}return `<tr><td>${i+1}</td><td>${esc(r.date)}</td><td>${desc}</td><td>${r.qty?fmt2(r.qty):''}</td><td>${r.price?fmt2(r.price):''}</td><td>${r.discount||0}</td><td>${r.vat||0}</td><td>${r.debit?fmt2(r.debit):''}</td><td>${r.credit?fmt2(r.credit):''}</td><td><b>${fmt2(run)}</b></td></tr>`}).join('');let deb=rows.reduce((a,r)=>a+r.debit,0),cred=rows.reduce((a,r)=>a+r.credit,0);return `<div id="printLedger"><div class="ledger-head"><div><div class="ledger-title">KARTELA E FURNITORIT</div><p><b>Furnitori:</b> ${esc(s.name)}</p><p><b>Adresa:</b> ${esc(s.address||s.region||'—')}</p></div><div><p><b>NIPT:</b> ${esc(s.nipt||'—')}</p><p><b>Telefon:</b> ${esc(s.phone||'—')}</p><p><b>Kodi:</b> ${esc(s.code)}</p></div></div><div class="table-wrap"><table><thead><tr><th>Nr.</th><th>Data</th><th>Përshkrimi / Dokumenti</th><th>Sasia kg</th><th>Çmimi njësi</th><th>Zbritje %</th><th>TVSH %</th><th>Debi / Blerje</th><th>Kredi / Pagesë</th><th>Gjendja</th></tr></thead><tbody>${body||'<tr><td colspan="10" class="empty">Nuk ka veprime</td></tr>'}</tbody><tfoot><tr><th colspan="7">TOTALI</th><th>${n(deb)}</th><th>${n(cred)}</th><th>${n(run)}</th></tr></tfoot></table></div><div class="ledger-balance"><span>Totali blerjeve: <strong>${n(deb)} ALL</strong></span><span>Totali pagesave: <strong>${n(cred)} ALL</strong></span><span>Gjendja: <strong>${n(run)} ALL</strong></span></div></div>`}
 supplierCard=function(id){let s=by('suppliers',id);modal('Kartela — '+s.name,ledgerHtml(id),`<button class="btn" onclick="closeModal()">Mbyll</button><button class="btn" onclick="exportLedgerXls('${id}')">Eksporto Excel</button><button class="btn primary" onclick="printLedger()">Printo / PDF</button>`)}
 function printLedger(){document.body.classList.add('print-ledger');window.print();setTimeout(()=>document.body.classList.remove('print-ledger'),300)}
-function exportLedgerXls(id){let s=by('suppliers',id),rows=supplierLedgerData(id),run=+(s.openingBalance||0),data=rows.map((r,i)=>{run+=r.debit-r.credit;return [i+1,r.date,r.desc,r.qty,r.price,r.discount,r.vat,r.debit,r.credit,run]});downloadBlob('Kartela-'+s.code+'.xls',xlsHtml(['Nr','Data','Përshkrimi','Sasia kg','Çmimi','Zbritje %','TVSH %','Debi','Kredi','Gjendja'],data),'application/vnd.ms-excel')}
+function exportLedgerXls(id){exportLedgerXlsx(id)}
 </script>
 
 <style>
@@ -11883,14 +11883,18 @@ window.MB_SHOTS={
   window.receiptFormForCustomer=function(id){receiptForm();setTimeout(()=>{try{$set('rCustomer',id);loadReceiptInvoices()}catch(e){}},60)};
   window.exportCustomerLedgerXlsx=function(id){
     const c=by('customers',id)||{};
-    const rows=ccHistory(id);
-    const html='<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table border="1">'
-      +'<tr><th colspan="6">Kartela e klientit — '+esc(c.name||id)+'</th></tr>'
-      +'<tr><th>Data</th><th>Veprimi</th><th>Përshkrimi</th><th>Debi (ALL)</th><th>Kredi (ALL)</th><th>Status</th></tr>'
-      +rows.map(r=>'<tr><td>'+esc(r.date||'')+'</td><td>'+esc(r.veprimi)+'</td><td>'+esc((r.desc||'').replace(/<[^>]+>/g,''))+'</td><td>'+(r.debit||'')+'</td><td>'+(r.credit||'')+'</td><td>'+esc(r.status||'')+'</td></tr>').join('')
-      +'</table></body></html>';
-    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'application/vnd.ms-excel'}));a.download=(c.code||id)+'-kartela.xls';a.click();
-    toast('XLSX u shkarkua');
+    const rows=typeof ccHistory==='function'?ccHistory(id):[];
+    const headers=['Data','Veprimi','Përshkrimi','Debi (ALL)','Kredi (ALL)','Status'];
+    const data=rows.map(r=>[
+      r.date||'',
+      r.veprimi||'',
+      (r.desc||'').replace(/<[^>]+>/g,''),
+      Number(r.debit||0),
+      Number(r.credit||0),
+      r.status||''
+    ]);
+    makeXlsx((c.code||id)+'-kartela-klientit.xlsx',headers,data);
+    toast('Kartela XLSX e klientit u shkarkua');
   };
 
   /* ---------- 5) Kartela e faturës së shërbimit/parapagimit + print ---------- */
@@ -12802,6 +12806,47 @@ printOnly = function(elementId, title) {
     }
 
     if (contentHtml) {
+      let isLandscape = (elementId === 'printTraceDossier' || (arguments[2] && (arguments[2].landscape || arguments[2].orientation === 'landscape')));
+      let isLabel = (elementId === 'printWarehouseLabel' || elementId === 'printLabel' || elementId === 'vyQrLabel' || elementId === 'printFinalLabel');
+      let isA4 = !!(arguments[2] && arguments[2].paper === 'A4');
+      let pageSize = 'A4 portrait';
+      let pageMargin = '8mm 10mm 8mm 10mm';
+
+      if (isLabel && !isA4) {
+        pageSize = (elementId === 'vyQrLabel' ? '84mm 50mm' : '80mm 60mm');
+        pageMargin = '0';
+      } else if (isLandscape) {
+        pageSize = 'A4 landscape';
+        pageMargin = '8mm 8mm 8mm 8mm';
+      }
+
+      st.textContent = `
+#biobesPrintRoot { position: fixed; left: -10000px; top: 0; width: 1200px; background: #fff; z-index: -1; }
+@media screen { #biobesPrintRoot { visibility: hidden; } }
+@media print {
+  body.biobes-print-active > *:not(#biobesPrintRoot) { display: none !important; }
+  body.biobes-print-active #biobesPrintRoot {
+    position: static !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    visibility: visible !important;
+    display: block !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+  body.biobes-print-active #biobesPrintRoot * {
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  @page {
+    size: ${pageSize};
+    margin: ${pageMargin};
+  }
+}
+`;
+
       root.innerHTML = contentHtml;
       canvasToImages(root);
       document.body.appendChild(root);
