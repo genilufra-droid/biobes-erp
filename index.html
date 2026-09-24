@@ -526,7 +526,7 @@ function calcPurchaseFields(){let qty=+document.getElementById('fiQty')?.value||
 function purchaseDiscountChanged(){let phys=+document.getElementById('fiPhysical')?.value||0,dEl=document.getElementById('fiDiscount'),qEl=document.getElementById('fiQty'),d=+dEl?.value||0;if(d<0){d=0;if(dEl)dEl.value=0}if(d>100){d=100;if(dEl)dEl.value=100}if(qEl)qEl.value=+(phys*(1-d/100)).toFixed(3);calcPurchaseFields()}
 function purchaseQtyChanged(){let phys=+document.getElementById('fiPhysical')?.value||0,dEl=document.getElementById('fiDiscount'),qEl=document.getElementById('fiQty'),q=+qEl?.value||0;if(q<0){q=0;if(qEl)qEl.value=0}if(dEl)dEl.value=+Math.max(0,Math.min(100,phys>0?(1-q/phys)*100:0)).toFixed(2);calcPurchaseFields()}
 function purchaseAutoValues(){let dEl=document.getElementById('fiDiscount'),qEl=document.getElementById('fiQty');if(dEl)dEl.value=+document.getElementById('fiWeighDiscount')?.value||0;if(qEl)qEl.value=+document.getElementById('fiWeighBillable')?.value||0;calcPurchaseFields();toast('U rivendosën vlerat automatike nga peshimi')}
-function purchaseCard(id){let f=purchaseInvoices().find(x=>x.id===id||x.weighing===id);if(!f){if((state.weighings||[]).some(w=>w.id===id))return weightCard(id);return toast('Fatura nuk u gjet')}let w=state.weighings.find(x=>x.id===f.weighing),locked=f.status==='Konfirmuar';modal('Faturë blerjeje — '+f.id,`<div class="actions" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn primary" onclick="printPurchase('${f.id}')">🖨 Faturë DPT (Printo/PDF)</button><button type="button" class="btn" onclick="openGoodsTransportNote('${f.id}', 'purchase')">🚚 Faturë Shoqëruese (WTN)</button><button type="button" class="btn" onclick="exportPurchaseDocumentXlsx('${f.id}')">📊 Shkarko Excel</button>${f.weighing?`<button class="btn" onclick="weightCard('${f.weighing}')">Peshimi ${f.weighing}</button>`:''}<button class="btn" onclick="supplierCard('${f.supplier}')">Furnitori ${by('suppliers',f.supplier).code}</button>${state.lots.find(l=>l.weighing===f.weighing)?`<button class="btn" onclick="lotCard('${state.lots.find(l=>l.weighing===f.weighing).id}')">Hap lotin</button>`:''}</div><div class="form-grid"><div class="field"><label>Numri i faturës së furnitorit</label><input id="fiSupplierNo" value="${esc(f.supplierInvoiceNo)}" ${locked?'disabled':''}></div><div class="field"><label>Data e faturës</label><input id="fiDate" type="date" value="${f.invoiceDate}" ${locked?'disabled':''}></div><div class="field"><label>Pesha fizike në magazinë</label><input value="${f.physical}" disabled></div><div class="field"><label>Zbritja % ${(!locked&&f.weighing)?'<button type="button" class="btn small" onclick="purchaseAutoValues()" title="Rikthe vlerat automatike nga peshimi" style="margin-left:6px">↻ Auto</button>':''}</label><input id="fiDiscount" type="number" step="0.01" min="0" max="100" value="${f.discount}" oninput="purchaseDiscountChanged()" ${locked?'disabled':''}><span class="hint">Automatike nga peshimi (${(w||{}).discount||0}%) — e editueshme</span></div><div class="field"><label>Pesha e faturueshme kg</label><input id="fiQty" type="number" step="0.001" value="${f.billable}" oninput="purchaseQtyChanged()" ${locked?'disabled':''}><input type="hidden" id="fiPhysical" value="${f.physical}"><input type="hidden" id="fiWeighDiscount" value="${(w||{}).discount||0}"><input type="hidden" id="fiWeighBillable" value="${(w||{}).billable||0}"><span class="hint">Nga peshimi: ${n((w||{}).billable||0,3)} kg · <span id="fiQtyDiff"></span></span></div><div class="field"><label>Çmimi për kg</label><input id="fiPrice" type="number" step="0.0001" value="${f.price}" oninput="calcPurchaseFields()" ${locked?'disabled':''}></div><div class="field"><label>Monedha</label><select id="fiCurrency" ${locked?'disabled':''}><option ${f.currency==='ALL'?'selected':''}>ALL</option><option ${f.currency==='EUR'?'selected':''}>EUR</option><option ${f.currency==='USD'?'selected':''}>USD</option></select></div><div class="field"><label>Kursi në ALL</label><input id="fiRate" type="number" step="0.0001" value="${f.exchangeRate||1}" ${locked?'disabled':''}></div><div class="field"><label>TVSH %</label><input id="fiVat" type="number" step="0.01" value="${f.vat}" oninput="calcPurchaseFields()" ${locked?'disabled':''}></div><div class="field"><label>Arsyeja e rrumbullakimit/korrigjimit</label><input id="fiAdjustmentReason" value="${esc(f.adjustmentReason||'Rrumbullakim i peshës faturuese')}" ${locked?'disabled':''}></div><div class="field"><label>Foto/PDF e faturës</label><input id="fiFile" type="file" accept="image/*,.pdf" ${locked?'disabled':''}>${f.attachmentData?`<a class="link" onclick="openPurchaseAttachment('${f.id}')">${esc(f.attachment)}</a>`:'<span class="hint">Nuk është ngarkuar</span>'}</div></div><div class="invoice-summary" style="margin-top:14px"><div><small>Nëntotali</small><b id="fiSub">${n(f.subtotal)}</b></div><div><small>TVSH</small><b id="fiVatAmount">${n(f.vatAmount)}</b></div><div><small>Totali</small><b id="fiTotal">${n(f.total)}</b></div><div><small>Statusi</small>${status(f.status)}</div></div>`,`<button class="btn" onclick="closeModal()">Mbyll</button><button class="btn primary" onclick="printPurchase('${f.id}')">🖨 Faturë DPT (Printo/PDF)</button><button class="btn" onclick="openGoodsTransportNote('${f.id}', 'purchase')">🚚 FSH</button><button class="btn" onclick="exportPurchaseDocumentXlsx('${f.id}')">📊 Excel</button>${!locked?`<button class="btn" onclick="savePurchase('${f.id}',false)">Ruaj draft</button><button class="btn primary" onclick="savePurchase('${f.id}',true)">Konfirmo faturën</button>`:`<button class="btn" onclick="unlockPurchaseInvoiceEdit('${f.id}')">✎ Korrigjo / Modifiko</button>`}`);setTimeout(calcPurchaseFields,0)}
+function purchaseCard(id){let f=purchaseInvoices().find(x=>x.id===id||x.weighing===id);if(!f){if((state.weighings||[]).some(w=>w.id===id))return weightCard(id);return toast('Fatura nuk u gjet')}let w=state.weighings.find(x=>x.id===f.weighing),locked=f.status==='Konfirmuar';let isF=!!f.isFiscal;modal('Faturë blerjeje — '+f.id,`<div class="actions" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn ${isF?'primary':''}" onclick="printPurchase('${f.id}')">${isF?'🖨 Faturë DPT (Printo/PDF)':'🖨 Faturë Blerje (Printo/PDF)'}</button><button type="button" class="btn" onclick="openGoodsTransportNote('${f.id}', 'purchase')">🚚 Faturë Shoqëruese (WTN)</button><button type="button" class="btn" onclick="exportPurchaseDocumentXlsx('${f.id}')">📊 Shkarko Excel</button>${f.weighing?`<button class="btn" onclick="weightCard('${f.weighing}')">Peshimi ${f.weighing}</button>`:''}<button class="btn" onclick="supplierCard('${f.supplier}')">Furnitori ${by('suppliers',f.supplier).code}</button>${state.lots.find(l=>l.weighing===f.weighing)?`<button class="btn" onclick="lotCard('${state.lots.find(l=>l.weighing===f.weighing).id}')">Hap lotin</button>`:''}</div><div class="form-grid"><div class="field"><label>Numri i faturës së furnitorit</label><input id="fiSupplierNo" value="${esc(f.supplierInvoiceNo)}" ${locked?'disabled':''}></div><div class="field"><label>Data e faturës</label><input id="fiDate" type="date" value="${f.invoiceDate}" ${locked?'disabled':''}></div><div class="field"><label>Pesha fizike në magazinë</label><input value="${f.physical}" disabled></div><div class="field"><label>Zbritja % ${(!locked&&f.weighing)?'<button type="button" class="btn small" onclick="purchaseAutoValues()" title="Rikthe vlerat automatike nga peshimi" style="margin-left:6px">↻ Auto</button>':''}</label><input id="fiDiscount" type="number" step="0.01" min="0" max="100" value="${f.discount}" oninput="purchaseDiscountChanged()" ${locked?'disabled':''}><span class="hint">Automatike nga peshimi (${(w||{}).discount||0}%) — e editueshme</span></div><div class="field"><label>Pesha e faturueshme kg</label><input id="fiQty" type="number" step="0.001" value="${f.billable}" oninput="purchaseQtyChanged()" ${locked?'disabled':''}><input type="hidden" id="fiPhysical" value="${f.physical}"><input type="hidden" id="fiWeighDiscount" value="${(w||{}).discount||0}"><input type="hidden" id="fiWeighBillable" value="${(w||{}).billable||0}"><span class="hint">Nga peshimi: ${n((w||{}).billable||0,3)} kg · <span id="fiQtyDiff"></span></span></div><div class="field"><label>Çmimi për kg</label><input id="fiPrice" type="number" step="0.0001" value="${f.price}" oninput="calcPurchaseFields()" ${locked?'disabled':''}></div><div class="field"><label>Monedha</label><select id="fiCurrency" ${locked?'disabled':''}><option ${f.currency==='ALL'?'selected':''}>ALL</option><option ${f.currency==='EUR'?'selected':''}>EUR</option><option ${f.currency==='USD'?'selected':''}>USD</option></select></div><div class="field"><label>Kursi në ALL</label><input id="fiRate" type="number" step="0.0001" value="${f.exchangeRate||1}" ${locked?'disabled':''}></div><div class="field"><label>TVSH %</label><input id="fiVat" type="number" step="0.01" value="${f.vat}" oninput="calcPurchaseFields()" ${locked?'disabled':''}></div><div class="field"><label>Arsyeja e rrumbullakimit/korrigjimit</label><input id="fiAdjustmentReason" value="${esc(f.adjustmentReason||'Rrumbullakim i peshës faturuese')}" ${locked?'disabled':''}></div><div class="field"><label>Foto/PDF e faturës</label><input id="fiFile" type="file" accept="image/*,.pdf" ${locked?'disabled':''}>${f.attachmentData?`<a class="link" onclick="openPurchaseAttachment('${f.id}')">${esc(f.attachment)}</a>`:'<span class="hint">Nuk është ngarkuar</span>'}</div></div><div class="invoice-summary" style="margin-top:14px"><div><small>Nëntotali</small><b id="fiSub">${n(f.subtotal)}</b></div><div><small>TVSH</small><b id="fiVatAmount">${n(f.vatAmount)}</b></div><div><small>Totali</small><b id="fiTotal">${n(f.total)}</b></div><div><small>Statusi</small>${status(f.status)}</div></div>`,`<button class="btn" onclick="closeModal()">Mbyll</button><button class="btn ${isF?'primary':''}" onclick="printPurchase('${f.id}')">${isF?'🖨 Faturë DPT (Printo/PDF)':'🖨 Faturë Blerje (Printo/PDF)'}</button><button class="btn" onclick="openGoodsTransportNote('${f.id}', 'purchase')">🚚 FSH</button><button class="btn" onclick="exportPurchaseDocumentXlsx('${f.id}')">📊 Excel</button>${!locked?`<button class="btn" onclick="savePurchase('${f.id}',false)">Ruaj draft</button><button class="btn primary" onclick="savePurchase('${f.id}',true)">Konfirmo faturën</button>`:`<button class="btn" onclick="unlockPurchaseInvoiceEdit('${f.id}')">✎ Korrigjo / Modifiko</button>`}`);setTimeout(calcPurchaseFields,0)}
 function savePurchase(id,confirmIt){try{let f=purchaseInvoices().find(x=>x.id===id),file=$file('fiFile'),finish=(data,type,name)=>{let qty=$num('fiQty',0),price=$num('fiPrice',0),vat=$num('fiVat',0),d=$num('fiDiscount',0),phys=+(document.getElementById('fiPhysical')?.value||0);if(!(d>=0&&d<=100))return toast('Zbritja duhet të jetë midis 0 dhe 100%');if(qty<0)return toast('Sasia faturuese nuk mund të jetë negative');if(phys>0&&qty>phys+0.0005)return toast('Sasia faturuese nuk mund të kalojë peshën fizike ('+n(phys,3)+' kg)');let sub=qty*price,v=sub*vat/100;Object.assign(f,{supplierInvoiceNo:$val('fiSupplierNo'),invoiceDate:$val('fiDate'),discount:+d.toFixed(2),billable:+qty.toFixed(3),adjustmentReason:$val('fiAdjustmentReason'),price,currency:$val('fiCurrency','ALL'),exchangeRate:$num('fiRate',1),vat,subtotal:sub,vatAmount:v,total:sub+v,status:confirmIt?'Konfirmuar':'Draft'});if(data)Object.assign(f,{attachment:name,attachmentType:type,attachmentData:data});state.events.push({user:evUser(),date:new Date().toLocaleString('sq-AL'),type:confirmIt?'Konfirmim fature blerjeje':'Ruajtje draft blerjeje',ref:f.id,text:`${f.id} — ${n(f.total)} ${f.currency}`});save();closeModal();render();toast(confirmIt?'Fatura u konfirmua në kartelën e furnitorit':'Drafti u ruajt')};if(file)readAsData(file,d=>finish(d,file.type,file.name));else finish()}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
 
 function unlockPurchaseInvoiceEdit(id){let f=purchaseInvoices().find(x=>x.id===id);if(!f)return toast('Fatura nuk u gjet');if(!confirm('Dëshironi të zhbllokoni faturën '+id+' për të korrigjuar të dhënat?'))return;f.status='Draft';state.events.push({user:evUser(),date:new Date().toLocaleString('sq-AL'),type:'Korrigjim fature blerjeje',ref:id,text:'Fatura u hap për korrigjim'});save();closeModal();setTimeout(()=>purchaseCard(id),80);toast('Fatura u hap për modifikim; bëni ndryshimet dhe klikoni Konfirmo')}
@@ -542,7 +542,7 @@ purchase-doc-legacy { display:none }
 <script>
 function purchaseDocumentHtml(f){
   if (typeof renderUnifiedDptInvoiceHtml === 'function') {
-    return renderUnifiedDptInvoiceHtml(f, true, f.isFiscal !== false);
+    return renderUnifiedDptInvoiceHtml(f, true, !!f.isFiscal);
   }
   return '';
 }
@@ -7371,7 +7371,7 @@ views.purchases=function(){
       ff(f.total),
       esc(f.currency||'ALL'),
       st(f.status),
-      '<button class="btn small primary" onclick="printPurchase(\''+q(f.id)+'\')" title="Hap dhe Printo Faturën Tatimore DPT">🖨 Faturë DPT</button> '
+      '<button class="btn small '+(f.isFiscal?'primary':'')+'" onclick="printPurchase(\''+q(f.id)+'\')" title="'+(f.isFiscal?'Hap dhe Printo Faturën Tatimore DPT':'Hap Faturën e Brendshme të Blerjes')+'">'+(f.isFiscal?'🏛 Faturë DPT':'📄 Faturë Blerje')+'</button> '
         +'<button class="btn small" onclick="openGoodsTransportNote(\''+q(f.id)+'\', \'purchase\')" title="Faturë Shoqëruese Malli (WTN)">🚚 FSH</button> '
         +'<button class="btn small" onclick="exportPurchaseDocumentXlsx(\''+q(f.id)+'\')" title="Shkarko Excel DPT">📊 Excel</button> '
         +'<button class="btn small" onclick="purchaseCard(\''+q(f.id)+'\')" title="Ndrysho të dhënat e faturës">Ndrysho</button> '
@@ -12733,11 +12733,12 @@ printOnly = function(elementId, title) {
     if (f) {
       let isPurch = (typeof purchaseInvoices === 'function') && purchaseInvoices().some(x => x.id === invId);
       let cfg = (typeof fiscalConfig === 'function') ? fiscalConfig() : {};
-      if (f.isFiscal !== false && typeof ensureFiscalized === 'function') ensureFiscalized(f, cfg);
+      let isF = (f.isFiscal === true);
+      if (isF && typeof ensureFiscalized === 'function') ensureFiscalized(f, cfg);
       let tmp = document.createElement('div');
-      tmp.innerHTML = renderUnifiedDptInvoiceHtml(f, isPurch, f.isFiscal !== false);
+      tmp.innerHTML = renderUnifiedDptInvoiceHtml(f, isPurch, isF);
       el = tmp.firstElementChild;
-      if (f.isFiscal !== false) {
+      if (isF) {
         let qBox = el.querySelector('#unifiedQrBox_' + f.id);
         if (qBox && typeof renderUnifiedQr === 'function') renderUnifiedQr(f, qBox);
       }
@@ -16716,7 +16717,7 @@ window.renderUnifiedDptInvoiceHtml = function(f, isPurchase, isFiscal) {
   let cur = f.currency || 'ALL';
   let curLabel = (cur === 'ALL' || cur === 'LEK') ? 'LEK' : cur;
   let rate = f.exchangeRate || 1;
-  let invFiscalNum = isFiscal ? formatFiscalInvoiceNumber(f, cfg) : (f.invoiceNumber || f.id || '2752');
+  let invFiscalNum = isFiscal ? formatFiscalInvoiceNumber(f, cfg) : (f.invoiceNumber || f.id || 'FB-001');
   let dtFull = formatFiscalDate(f.fiscalDateTime || f.date, true);
 
   let dObj = f.fiscalDateTime ? new Date(f.fiscalDateTime) : (f.date ? new Date(f.date) : new Date());
@@ -16791,11 +16792,11 @@ window.renderUnifiedDptInvoiceHtml = function(f, isPurchase, isFiscal) {
 
   let titleDoc = isFiscal
     ? 'FATURË'
-    : (isPurchase ? 'FATURË BLERJEJE (E BRENDSHME / VETËFATURIM)' : 'FATURË SHITJEJE (E BRENDSHME / JO-FISKALE)');
+    : (isPurchase ? 'FATURË BLERJEJE (DOKUMENT I BRENDSHËM / VETËFATURIM)' : 'FATURË SHITJEJE (DOKUMENT I BRENDSHËM)');
 
   return `<div id="printUnifiedDpt_${esc(f.id)}" class="dpt-invoice-wrap" style="width: 100%; max-width: 100%; margin: 0; padding: 0; background: #fff; color: #000; font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; line-height: 1.4; box-sizing: border-box;">
   
-  ${isFiscal ? '<div style="text-align: center; font-family: Arial, sans-serif; font-size: 9pt; font-weight: bold; color: #166534; margin-bottom: 6pt; letter-spacing: 0.5px;">E FISKALIZUAR NË DREJTORINË E PËRGJITHSHME TË TATIMEVE (DPT)</div>' : ''}
+  ${isFiscal ? '<div style="text-align: center; font-family: Arial, sans-serif; font-size: 9pt; font-weight: bold; color: #166534; margin-bottom: 6pt; letter-spacing: 0.5px;">E FISKALIZUAR NË DREJTORINË E PËRGJITHSHME TË TATIMEVE (DPT)</div>' : '<div style="text-align: center; font-family: Arial, sans-serif; font-size: 8.5pt; font-weight: bold; color: #475569; margin-bottom: 6pt; letter-spacing: 0.5px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 4px;">DOKUMENT I BRENDSHËM KONTABËL (JO-FISKALE)</div>'}
   <div style="text-align: center; font-size: 18pt; font-weight: bold; margin: 0 0 10pt 0; font-family: Arial, Helvetica, sans-serif; letter-spacing: 0.5px;">
     ${titleDoc}
   </div>
@@ -16827,17 +16828,18 @@ window.renderUnifiedDptInvoiceHtml = function(f, isPurchase, isFiscal) {
         <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Numri i Faturës:</td>
         <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(invFiscalNum)}</td>
       </tr>
+      ${isFiscal ? `
       <tr style="border: none;">
         <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Operatori:</td>
-        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(f.fiscalOperator || cfg.operatorCode || 'vn732ox383')}</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(f.fiscalOperator || cfg.operatorCode || 'op912kd334')}</td>
       </tr>
       <tr style="border: none;">
         <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Kodin e vendit të ushtrimit të veprimtarisë:</td>
         <td style="border: none; padding: 1pt 0; vertical-align: top;">${esc(f.fiscalBusinessUnit || cfg.businessUnitCode || 'bb934al551')}</td>
-      </tr>
+      </tr>` : ''}
       <tr style="border: none;">
         <td style="width: 220pt; border: none; padding: 1pt 0; vertical-align: top;">Lloji i Faturës:</td>
-        <td style="border: none; padding: 1pt 0; vertical-align: top;">${f.paymentMethod === 'Cash' ? 'Faturë me para në dorë' : 'Faturë pa para'}</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top;">${isFiscal ? (f.paymentMethod === 'Cash' ? 'Faturë me para në dorë' : 'Faturë pa para') : (isPurchase ? 'Vetëfaturim Blerjeje (I Brendshëm)' : 'Faturë e Brendshme Shitjeje')}</td>
       </tr>
     </table>
   </div>
@@ -16919,14 +16921,15 @@ window.renderUnifiedDptInvoiceHtml = function(f, isPurchase, isFiscal) {
         <td style="width: 320pt; border: none; padding: 1pt 0; vertical-align: top;">Data dhe ora e kryerjes së pagesës:</td>
         <td style="border: none; padding: 1pt 0; vertical-align: top;">${dtPay}</td>
       </tr>
+      ${isFiscal ? `
       <tr style="border: none;">
         <td style="width: 320pt; border: none; padding: 1pt 0; vertical-align: top;">Numri i sigurisë së lëshuesit të faturës (NSLF / IIC):</td>
-        <td style="border: none; padding: 1pt 0; vertical-align: top; word-break: break-all;">${isFiscal ? (f.fiscalIIC || f.nslf || '—') : '— (Dokument i brendshëm)'}</td>
+        <td style="border: none; padding: 1pt 0; vertical-align: top; word-break: break-all;">${esc(f.fiscalIIC || f.nslf || '—')}</td>
       </tr>
       <tr style="border: none;">
         <td style="width: 320pt; border: none; padding: 1pt 0; vertical-align: top;">Numri identifikues të veçantë të faturës (NIVF / FIC):</td>
-        <td style="border: none; padding: 1pt 0; vertical-align: top; word-break: break-all;">${isFiscal ? (f.fiscalFIC || f.nivf || '—') : '— (Dokument i brendshëm)'}</td>
-      </tr>
+        <td style="border: none; padding: 1pt 0; vertical-align: top; word-break: break-all;">${esc(f.fiscalFIC || f.nivf || '—')}</td>
+      </tr>` : ''}
     </table>
   </div>
 
@@ -16949,8 +16952,15 @@ window.renderUnifiedDptInvoiceHtml = function(f, isPurchase, isFiscal) {
       </table>
     </div>
     <div style="width: 48%; display: flex; flex-direction: column; align-items: flex-end;">
+      ${isFiscal ? `
       <div id="unifiedQrBox_${esc(f.id)}" class="ep-qr-box" style="width: 110px; height: 110px; display: flex; align-items: center; justify-content: center;"></div>
       <div style="font-size: 6.5pt; color: #444; margin-top: 2pt; text-align: center; width: 100%;">KODI QR ZYRTAR I DREJTORISË SË PËRGJITHSHME TË TATIMEVE</div>
+      ` : `
+      <div style="border: 1px dashed #475569; padding: 12pt 16pt; text-align: center; border-radius: 4px; background: #f8fafc; width: 190pt; box-sizing: border-box; margin-top: 4pt;">
+        <div style="font-size: 8.5pt; font-weight: bold; color: #1e293b; margin-bottom: 24pt;">DOKUMENT I BRENDSHËM (JO-FISKALE)</div>
+        <div style="font-size: 8pt; color: #475569; border-top: 1px solid #94a3b8; padding-top: 4pt;">Përpunoi &amp; Miratoi (Nënshkrimi / Vula)</div>
+      </div>
+      `}
       <div style="font-size: 8pt; color: #333; margin-top: 3pt; text-align: right; width: 100%;">1/1</div>
     </div>
   </div>
@@ -17155,37 +17165,88 @@ window.renderGoodsTransportNoteHtml = function(doc, sourceKind, isFiscal) {
 
 </div>`;
 };
+window.toggleInvoiceFiscalMode = function(id, kind, enabled) {
+  let isPurch = (kind === 'purchase');
+  let f = isPurch
+    ? (typeof purchaseInvoices === 'function' ? purchaseInvoices().find(x => x.id === id) : null)
+    : (typeof salesInvoices === 'function' ? salesInvoices().find(x => x.id === id) : null);
+  if (!f) return toast('Fatura nuk u gjet');
+
+  f.isFiscal = !!enabled;
+  let cfg = (typeof fiscalConfig === 'function') ? fiscalConfig() : {};
+
+  if (f.isFiscal) {
+    if (typeof ensureFiscalized === 'function') ensureFiscalized(f, cfg);
+    f.fiscalStatus = 'FISCALIZED';
+  } else {
+    f.fiscalStatus = 'NON_FISCAL';
+  }
+  if (typeof save === 'function') save();
+
+  if (typeof document !== 'undefined') {
+    // Slider style
+    let sw = document.getElementById('fiscalModeSwitch_' + id);
+    if (sw && sw.nextElementSibling) {
+      sw.nextElementSibling.style.backgroundColor = f.isFiscal ? '#16a34a' : '#cbd5e1';
+    }
+
+    // Badge text and styling
+    let badge = document.getElementById('fiscalToggleStatus_' + id);
+    if (badge) {
+      badge.style.color = f.isFiscal ? '#166534' : '#475569';
+      badge.style.background = f.isFiscal ? '#dcfce7' : '#f1f5f9';
+      badge.style.borderColor = f.isFiscal ? '#86efac' : '#cbd5e1';
+      badge.innerHTML = f.isFiscal
+        ? (isPurch ? '🟢 FISKALE: ON (Vetëfaturim DPT · Me QR)' : '🟢 FISKALE: ON (Zyrtare DPT · Me QR &amp; NIVF)')
+        : (isPurch ? '⚪ FISKALE: OFF (Vetëfaturim i Brendshëm · Pa Tatime)' : '⚪ FISKALE: OFF (Dokument i Brendshëm · Pa Tatime)');
+    }
+
+    // Re-render invoice sheet
+    let container = document.getElementById('unifiedInvoiceContainer_' + id);
+    if (container && typeof renderUnifiedDptInvoiceHtml === 'function') {
+      container.innerHTML = renderUnifiedDptInvoiceHtml(f, isPurch, f.isFiscal);
+      if (f.isFiscal && typeof renderUnifiedQr === 'function') {
+        setTimeout(() => renderUnifiedQr(f, 'unifiedQrBox_' + f.id), 40);
+      }
+    }
+  }
+
+  toast(f.isFiscal
+    ? '✓ Fatura u kalua në FISKALE: ON (Zyrtare DPT me QR dhe NIVF)'
+    : '✓ Fatura u kalua në FISKALE: OFF (Dokument i pastër i brendshëm pa tatime)');
+};
+
 window.openAlbanianSaleInvoice = function(id) {
   let f = salesInvoices().find(x => x.id === id);
   if (!f) return toast('Fatura nuk u gjet');
   let cfg = fiscalConfig();
-  if (f.isFiscal === undefined) f.isFiscal = true; // default aktiv
+  if (f.isFiscal === undefined) f.isFiscal = true; // default aktiv për shitjet
   if (f.isFiscal) ensureFiscalized(f, cfg);
 
   let bannerHtml = `
   <div class="fiscal-action-bar" style="margin-bottom:12px;display:flex;gap:8px;justify-content:space-between;align-items:center;background:#f0fdf4;border:1px solid #bbf7d0;padding:10px 14px;border-radius:8px">
-    <span style="font-weight:bold;color:#166534;font-size:13px">⚡ Faturë Tatimore Zyrtare (DPT)</span>
+    <span style="font-weight:bold;color:#166534;font-size:13px">⚡ Faturë Tatimore Zyrtare (DPT) &amp; E Brendshme</span>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="printUnifiedInvoice('${f.id}')">🖨 Printo / Ruaj PDF</button>
       <button class="btn" onclick="exportDptSaleInvoiceXlsx('${f.id}')">📊 Shkarko Excel (XLSX)</button>
       <button class="btn" onclick="openGoodsTransportNote('${f.id}', 'sale')">🚚 Faturë Shoqëruese (WTN)</button>
-      <button class="btn" onclick="verifyInvoiceOnDPT('${f.id}')">🔍 Verifiko DPT</button>
+      ${f.isFiscal ? `<button class="btn" onclick="verifyInvoiceOnDPT('${f.id}')">🔍 Verifiko DPT</button>` : ''}
     </div>
   </div>
-  <div class="fiscal-toggle-banner">
-    <div class="fiscal-toggle-wrap">
-      <span class="switch-label">⚡ Fiskalizimi Tatimor:</span>
-      <label class="toggle-switch">
-        <input type="checkbox" ${f.isFiscal ? 'checked' : ''} onchange="toggleInvoiceFiscalMode('${f.id}', 'sale', this.checked)">
-        <span class="toggle-slider"></span>
+  <div class="fiscal-toggle-banner" style="background:#f8fafc;border:1px solid #cbd5e1;padding:10px 14px;border-radius:8px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+    <div class="fiscal-toggle-wrap" style="display:flex;align-items:center;gap:10px">
+      <span class="switch-label" style="font-weight:bold;color:#0f172a;font-size:13.5px">⚡ Regjimi i Faturës:</span>
+      <label class="toggle-switch" style="position:relative;display:inline-block;width:52px;height:26px;margin:0">
+        <input type="checkbox" id="fiscalModeSwitch_${f.id}" ${f.isFiscal ? 'checked' : ''} onchange="toggleInvoiceFiscalMode('${f.id}', 'sale', this.checked)">
+        <span class="toggle-slider" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:${f.isFiscal ? '#16a34a' : '#cbd5e1'};transition:.25s;border-radius:26px"></span>
       </label>
-      <span id="fiscalToggleStatus_${f.id}" class="${f.isFiscal ? 'toggle-badge-on' : 'toggle-badge-off'}">
-        ${f.isFiscal ? '🟢 FISKALE (Zyrtare DPT · Me QR & NIVF)' : '⚪ JO-FISKALE (E Brendshme · Pa Tatime)'}
+      <span id="fiscalToggleStatus_${f.id}" style="font-size:13px;font-weight:700;color:${f.isFiscal ? '#166534' : '#475569'};background:${f.isFiscal ? '#dcfce7' : '#f1f5f9'};border:1px solid ${f.isFiscal ? '#86efac' : '#cbd5e1'};padding:3px 8px;border-radius:6px">
+        ${f.isFiscal ? '🟢 FISKALE: ON (Zyrtare DPT · Me QR &amp; NIVF)' : '⚪ FISKALE: OFF (Dokument i Brendshëm · Pa Tatime)'}
       </span>
     </div>
-    <div class="toggle-banner-actions">
-      <button class="btn small" onclick="saleInvoiceCard('${f.id}')" title="Kthehu te Fatura Origjinale e Eksportit">🌍 Fatura e Eksportit (Commercial)</button>
-      <button class="btn small primary" onclick="openGoodsTransportNote('${f.id}', 'sale')">🚚 Faturë Shoqëruese Malli</button>
+    <div class="toggle-banner-actions" style="display:flex;gap:8px">
+      <button type="button" class="btn small" onclick="saleInvoiceCard('${f.id}')" title="Kthehu te Fatura Origjinale e Eksportit">🌍 Fatura e Eksportit (Commercial)</button>
+      <button type="button" class="btn small primary" onclick="openGoodsTransportNote('${f.id}', 'sale')">🚚 Faturë Shoqëruese Malli</button>
     </div>
   </div>
   <div id="unifiedInvoiceContainer_${f.id}">
@@ -17197,7 +17258,7 @@ window.openAlbanianSaleInvoice = function(id) {
      <button class="btn" onclick="saleInvoiceCard('${f.id}')">🌍 Fatura e Eksportit</button>
      <button class="btn" onclick="openGoodsTransportNote('${f.id}', 'sale')">🚚 Faturë Shoqëruese</button>
      <button class="btn" onclick="exportDptSaleInvoiceXlsx('${f.id}')">📊 Shkarko Excel (DPT)</button>
-     <button class="btn" onclick="verifyInvoiceOnDPT('${f.id}')">🔍 Verifiko DPT</button>
+     ${f.isFiscal ? `<button class="btn" onclick="verifyInvoiceOnDPT('${f.id}')">🔍 Verifiko DPT</button>` : ''}
      <button class="btn" onclick="openFiscalXmlModal('${f.id}')">XML DPT</button>
      <button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="printUnifiedInvoice('${f.id}')">🖨 Printo / Ruaj PDF</button>`
   );
@@ -17211,32 +17272,35 @@ window.printPurchase = function(id) {
   let f = purchaseInvoices().find(x => x.id === id);
   if (!f) return toast('Fatura nuk u gjet');
   let cfg = fiscalConfig();
-  if (f.isFiscal === undefined) f.isFiscal = true;
+  if (f.isFiscal === undefined) {
+    let sup = by('suppliers', f.supplier);
+    f.isFiscal = (sup && sup.nipt && sup.nipt.trim() && sup.nipt !== '—') ? true : false;
+  }
   if (f.isFiscal) ensureFiscalized(f, cfg);
 
   let bannerHtml = `
   <div class="fiscal-action-bar" style="margin-bottom:12px;display:flex;gap:8px;justify-content:space-between;align-items:center;background:#f0fdf4;border:1px solid #bbf7d0;padding:10px 14px;border-radius:8px">
-    <span style="font-weight:bold;color:#166534;font-size:13px">⚡ Faturë Blerjeje / Vetëfaturim (DPT)</span>
+    <span style="font-weight:bold;color:#166534;font-size:13px">⚡ Faturë Blerjeje / Vetëfaturim (DPT &amp; E Brendshme)</span>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="printUnifiedInvoice('${f.id}')">🖨 Printo / Ruaj PDF</button>
       <button class="btn" onclick="exportPurchaseDocumentXlsx('${f.id}')">📊 Shkarko Excel (XLSX)</button>
       <button class="btn" onclick="openGoodsTransportNote('${f.id}', 'purchase')">🚚 Faturë Shoqëruese (WTN)</button>
-      <button class="btn" onclick="verifyInvoiceOnDPT('${f.id}')">🔍 Verifiko DPT</button>
+      ${f.isFiscal ? `<button class="btn" onclick="verifyInvoiceOnDPT('${f.id}')">🔍 Verifiko DPT</button>` : ''}
     </div>
   </div>
-  <div class="fiscal-toggle-banner">
-    <div class="fiscal-toggle-wrap">
-      <span class="switch-label">⚡ Fiskalizimi Tatimor (Blerje):</span>
-      <label class="toggle-switch">
-        <input type="checkbox" ${f.isFiscal ? 'checked' : ''} onchange="toggleInvoiceFiscalMode('${f.id}', 'purchase', this.checked)">
-        <span class="toggle-slider"></span>
+  <div class="fiscal-toggle-banner" style="background:#f8fafc;border:1px solid #cbd5e1;padding:10px 14px;border-radius:8px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:gap;gap:10px">
+    <div class="fiscal-toggle-wrap" style="display:flex;align-items:center;gap:10px">
+      <span class="switch-label" style="font-weight:bold;color:#0f172a;font-size:13.5px">⚡ Regjimi i Faturës:</span>
+      <label class="toggle-switch" style="position:relative;display:inline-block;width:52px;height:26px;margin:0">
+        <input type="checkbox" id="fiscalModeSwitch_${f.id}" ${f.isFiscal ? 'checked' : ''} onchange="toggleInvoiceFiscalMode('${f.id}', 'purchase', this.checked)">
+        <span class="toggle-slider" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:${f.isFiscal ? '#16a34a' : '#cbd5e1'};transition:.25s;border-radius:26px"></span>
       </label>
-      <span id="fiscalToggleStatus_${f.id}" class="${f.isFiscal ? 'toggle-badge-on' : 'toggle-badge-off'}">
-        ${f.isFiscal ? '🟢 FISKALE (Vetëfaturim DPT · Me QR)' : '⚪ JO-FISKALE (Vetëfaturim i Brendshëm)'}
+      <span id="fiscalToggleStatus_${f.id}" style="font-size:13px;font-weight:700;color:${f.isFiscal ? '#166534' : '#475569'};background:${f.isFiscal ? '#dcfce7' : '#f1f5f9'};border:1px solid ${f.isFiscal ? '#86efac' : '#cbd5e1'};padding:3px 8px;border-radius:6px">
+        ${f.isFiscal ? '🟢 FISKALE: ON (Vetëfaturim DPT · Me QR)' : '⚪ FISKALE: OFF (Vetëfaturim i Brendshëm · Pa Tatime)'}
       </span>
     </div>
     <div class="toggle-banner-actions">
-      <button class="btn small primary" onclick="openGoodsTransportNote('${f.id}', 'purchase')">🚚 Faturë Shoqëruese Malli</button>
+      <button type="button" class="btn small primary" onclick="openGoodsTransportNote('${f.id}', 'purchase')">🚚 Faturë Shoqëruese Malli</button>
     </div>
   </div>
   <div id="unifiedInvoiceContainer_${f.id}">
@@ -17246,8 +17310,8 @@ window.printPurchase = function(id) {
   modal('Faturë blerjeje — ' + f.id, bannerHtml,
     `<button class="btn" onclick="closeModal()">Mbyll</button>
      <button class="btn" onclick="openGoodsTransportNote('${f.id}', 'purchase')">🚚 Faturë Shoqëruese</button>
-     <button class="btn" onclick="exportPurchaseDocumentXlsx('${f.id}')">📊 Shkarko Excel (DPT)</button>
-     <button class="btn" onclick="verifyInvoiceOnDPT('${f.id}')">🔍 Verifiko DPT</button>
+     <button class="btn" onclick="exportPurchaseDocumentXlsx('${f.id}')">📊 Shkarko Excel (XLSX)</button>
+     ${f.isFiscal ? `<button class="btn" onclick="verifyInvoiceOnDPT('${f.id}')">🔍 Verifiko DPT</button>` : ''}
      <button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="printUnifiedInvoice('${f.id}')">🖨 Printo / Ruaj PDF</button>`
   );
 
@@ -17262,13 +17326,27 @@ window.printUnifiedInvoice = function(id) {
          || (typeof purchaseInvoices === 'function' ? purchaseInvoices().find(x => x.id === id) : null);
     if (!f) return toast('Fatura nuk u gjet');
     let cfg = (typeof fiscalConfig === 'function') ? fiscalConfig() : {};
-    if (f.isFiscal !== false && typeof ensureFiscalized === 'function') {
-      ensureFiscalized(f, cfg);
+
+    let isPurch = (typeof purchaseInvoices === 'function') && purchaseInvoices().some(x => x.id === id);
+    let isF = (f.isFiscal === true);
+
+    if (isF) {
+      if (typeof ensureFiscalized === 'function') ensureFiscalized(f, cfg);
     }
-    if (f.isFiscal !== false && typeof renderUnifiedQr === 'function') {
-      try { renderUnifiedQr(f, 'unifiedQrBox_' + f.id); } catch(e) {}
+
+    // Refresh DOM container to match current isFiscal state
+    let c = document.getElementById('unifiedInvoiceContainer_' + f.id);
+    if (c && typeof renderUnifiedDptInvoiceHtml === 'function') {
+      c.innerHTML = renderUnifiedDptInvoiceHtml(f, isPurch, isF);
+      if (isF && typeof renderUnifiedQr === 'function') {
+        try { renderUnifiedQr(f, 'unifiedQrBox_' + f.id); } catch(e) {}
+      }
     }
-    let title = 'Fatura ' + (f.isFiscal ? formatFiscalInvoiceNumber(f, cfg) : (f.invoiceNumber || f.id));
+
+    let title = isF
+      ? ('Fatura ' + formatFiscalInvoiceNumber(f, cfg))
+      : ('Fatura e Brendshme ' + (f.invoiceNumber || f.id));
+
     setTimeout(() => {
       printOnly('printUnifiedDpt_' + f.id, title);
     }, 60);
@@ -17640,7 +17718,7 @@ window.quickPrintInvoice = function(id, kind) {
     : (typeof salesInvoices === 'function' ? salesInvoices().find(x => x.id === id) : null);
   if (!f) return toast('Fatura nuk u gjet');
   let cfg = (typeof fiscalConfig === 'function') ? fiscalConfig() : {};
-  if (f.isFiscal !== false && typeof ensureFiscalized === 'function') ensureFiscalized(f, cfg);
+  if (f.isFiscal && typeof ensureFiscalized === 'function') ensureFiscalized(f, cfg);
 
   if (isPurch) {
     printPurchase(f.id);
@@ -17658,11 +17736,12 @@ window.exportUnifiedDptInvoiceXlsx = function(id, isPurchase) {
     : ((typeof salesInvoices === 'function' ? salesInvoices().find(x => x.id === id) : null) || (typeof purchaseInvoices === 'function' ? purchaseInvoices().find(x => x.id === id) : null));
   if (!f) return toast('Fatura nuk u gjet');
   let cfg = (typeof fiscalConfig === 'function') ? fiscalConfig() : {};
-  if (f.isFiscal !== false && typeof ensureFiscalized === 'function') ensureFiscalized(f, cfg);
+  let isF = (f.isFiscal === true);
+  if (isF && typeof ensureFiscalized === 'function') ensureFiscalized(f, cfg);
 
   let cur = f.currency || 'ALL';
   let curLabel = (cur === 'ALL' || cur === 'LEK') ? 'ALL' : cur;
-  let invFiscalNum = (f.isFiscal !== false) ? formatFiscalInvoiceNumber(f, cfg) : (f.invoiceNumber || f.id);
+  let invFiscalNum = isF ? formatFiscalInvoiceNumber(f, cfg) : (f.invoiceNumber || f.id);
   let dtFull = formatFiscalDate(f.fiscalDateTime || f.date, true);
 
   let ci = (typeof companyInfo === 'function') ? companyInfo() : { name: 'BIOBES sh.p.k.', nipt: 'L43904401I', address: 'Lagjja Kadri Qystri, rruga Llazar Prifti, nr.53, Fier, Albania' };
@@ -17706,20 +17785,26 @@ window.exportUnifiedDptInvoiceXlsx = function(id, isPurchase) {
   let total = (+f.total || (beforeVat + vatAmt));
 
   let rows = [], r = 1;
-  let titleMain = isPurchase ? 'FATURË BLERJEJE (VETËFATURIM DPT)' : 'FATURË TATIMORE SHITJEJE';
-  if (f.isFiscal === false) titleMain += ' — DOKUMENT I BRENDSHËM';
+  let titleMain = isPurchase
+    ? (isF ? 'FATURË BLERJEJE (VETËFATURIM DPT)' : 'FATURË BLERJEJE (DOKUMENT I BRENDSHËM / VETËFATURIM)')
+    : (isF ? 'FATURË TATIMORE SHITJEJE' : 'FATURË SHITJEJE (DOKUMENT I BRENDSHËM)');
 
-  rows.push(xr(r++, xc('A1', 'DREJTORIA E PËRGJITHSHME E TATIMEVE (DPT)', 4) + xc('E1', 'SISTEMI I FISKALIZIMIT', 3), 32));
-  rows.push(xr(r++, xc('A2', titleMain, 3) + xc('H2', 'Nr: ' + invFiscalNum, 2), 26));
+  if (isF) {
+    rows.push(xr(r++, xc('A1', 'DREJTORIA E PËRGJITHSHME E TATIMEVE (DPT)', 4) + xc('E1', 'SISTEMI I FISKALIZIMIT', 3), 32));
+    rows.push(xr(r++, xc('A2', titleMain, 3) + xc('H2', 'Nr: ' + invFiscalNum, 2), 26));
+  } else {
+    rows.push(xr(r++, xc('A1', titleMain, 5) + xc('H1', 'Nr: ' + (f.invoiceNumber || f.id), 2), 30));
+    rows.push(xr(r++, xc('A2', 'DOKUMENT I BRENDSHËM KONTABËL (JO-FISKALE)', 4), 22));
+  }
   rows.push(xr(r++, xc('A3', 'SHITËSI: ' + sellerName, 2) + xc('F3', 'BLERËSI: ' + buyerName, 2), 24));
   rows.push(xr(r++, xc('A4', 'NIPT: ' + sellerNipt + '  |  Adresa: ' + sellerAddress, 1) + xc('F4', 'NIPT: ' + buyerNipt + '  |  Adresa: ' + buyerAddress, 1), 22));
   rows.push(xr(r++, xc('A5', 'Data/Ora: ' + dtFull + '  |  Monedha: ' + curLabel + ' (Kursi: ' + (f.exchangeRate || 1) + ')', 1) + xc('F5', 'Mënyra e pagesës: Llogari Bankare', 1), 22));
 
-  if (f.isFiscal !== false) {
+  if (isF) {
     rows.push(xr(r++, xc('A6', 'NSLF (IIC): ' + (f.nslf || '—'), 1) + xc('F6', 'NIVF (FIC): ' + (f.nivf || '—'), 1), 22));
     rows.push(xr(r++, xc('A7', 'Operatori: ' + (f.operatorCode || cfg.operatorCode || 'op123ab456') + '  |  TCR: ' + (f.tcrCode || cfg.tcrCode || 'ab123cd456'), 1) + xc('F7', 'Verifikimi DPT: ' + (f.fiscalQrUrl || 'efiskalizimi-app.tatime.gov.al'), 1), 22));
   } else {
-    rows.push(xr(r++, xc('A6', 'STATUSI: DOKUMENT I BRENDSHËM (JO-FISKALE)', 1), 22));
+    rows.push(xr(r++, xc('A6', 'STATUSI: DOKUMENT I BRENDSHËM (JO-FISKALE)', 2) + xc('F6', 'Miratuar pa detyrim fiskalizimi', 2), 22));
   }
   r++; // Spacing
 
