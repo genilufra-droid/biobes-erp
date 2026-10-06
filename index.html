@@ -3581,6 +3581,24 @@ function autoSyncAccountingData(silent) {
     if (makeSourceEntry('banktx:' + t.id, t.date, 'J-BANK', 'Transaksion bankar ' + t.id, t.id, lines)) count++;
   });
 
+  (state.expenses || []).filter(e => e && e.status === 'Konfirmuar').forEach(e => {
+    let net = +(e.net || e.amount || e.total || 0);
+    let vat = +(e.vat || 0);
+    let total = +(e.total || (net + vat));
+    let acc = String(e.account || (typeof exCatAccount === 'function' ? exCatAccount(e.category) : '') || '628');
+    let cash = /cash|ark/i.test(e.method || '');
+    let bank = /bank|transfer/i.test(e.method || '');
+    let creditAcc = cash ? '5311' : (bank ? '5121' : '401');
+    let lines = [
+      { account: acc, debit: net, credit: 0, description: e.description || e.item || ('Shpenzim ' + (e.category || '')) }
+    ];
+    if (vat > 0.005) {
+      lines.push({ account: '445', debit: vat, credit: 0, description: 'TVSH e zbritshme mbi shpenzimin' });
+    }
+    lines.push({ account: creditAcc, debit: 0, credit: total, description: 'Likuidim/detyrim shpenzimi: ' + (e.payee || e.supplier || creditAcc) });
+    if (makeSourceEntry('expense:' + e.id, e.date, cash ? 'J-CASH' : (bank ? 'J-BANK' : 'J-GEN'), 'Shpenzim ' + (e.number || e.id), e.id, lines)) count++;
+  });
+
   (a.entries || []).forEach(e => {
     if (e.status === 'Draft') {
       let d = (e.lines || []).reduce((sum, l) => sum + (+l.debit || 0), 0);
@@ -4097,17 +4115,22 @@ function officialBalanceSheetView() {
   let dateTo = officialTaxFilters.month ? (officialTaxFilters.month + '-31') : (officialTaxFilters.to || new Date().toISOString().slice(0, 10));
   let m = typeof accountBalanceAt === 'function' ? accountBalanceAt(dateTo) : {};
 
+  let odooBs = (typeof odooBalanceSheetData === 'function') ? odooBalanceSheetData() : null;
   let fixed = typeof sumCodes === 'function' ? sumCodes(m, ['20', '21', '22', '28']) : 0;
-  let inv = typeof sumCodes === 'function' ? sumCodes(m, ['30', '31', '32', '33', '35']) : 0;
-  let rec = typeof sumCodes === 'function' ? sumCodes(m, ['41', '46']) : 0;
-  let cash = typeof sumCodes === 'function' ? sumCodes(m, ['51', '53']) : 0;
+  let inv = (odooBs ? odooBs.stockVal : 0) || (typeof sumCodes === 'function' ? sumCodes(m, ['30', '31', '32', '33', '35']) : 0);
+  let rec = (odooBs ? odooBs.receivables : 0) || (typeof sumCodes === 'function' ? sumCodes(m, ['41', '46']) : 0);
+  let cash = (odooBs ? (odooBs.cash + odooBs.bank) : 0) || (typeof sumCodes === 'function' ? sumCodes(m, ['51', '53']) : 0);
   let totalAssets = fixed + inv + rec + cash;
 
-  let equity = typeof sumCodes === 'function' ? sumCodes(m, ['101', '106', '107', '109'], true) : 0;
-  let pay = typeof sumCodes === 'function' ? sumCodes(m, ['40'], true) : 0;
+  let pay = (odooBs ? odooBs.payables : 0) || (typeof sumCodes === 'function' ? sumCodes(m, ['40'], true) : 0);
   let tax = typeof sumCodes === 'function' ? sumCodes(m, ['42', '43', '44'], true) : 0;
   let totalLiab = pay + tax;
+  let equity = totalAssets - totalLiab;
   let totalLiabEquity = equity + totalLiab;
+
+  let pnl = (typeof odooPnlData === 'function') ? odooPnlData() : null;
+  let currentYearPnl = pnl ? pnl.netProfit : (typeof sumCodes === 'function' ? (sumCodes(m, ['7'], true) - sumCodes(m, ['6'])) : 0);
+  let baseCap = Math.max(0, equity - currentYearPnl);
 
   let balanced = Math.abs(totalAssets - totalLiabEquity) < 1;
   let ci = (typeof companyInfo === 'function' ? companyInfo() : null) || { name: 'BIOBES sh.p.k.', nipt: 'L43904401I' };
@@ -4150,10 +4173,10 @@ function officialBalanceSheetView() {
           <table class="alpha-card-table" style="font-size:12px">
             <tbody>
               <tr><th colspan="2" style="text-align:left;background:#f5f5f5">C. KAPITALET E VETA</th></tr>
-              <tr><td>I. Kapitali i nënshkruar (101)</td><td style="text-align:right">${fmt2(typeof sumCodes==='function'?sumCodes(m,['101'],true):0)}</td></tr>
+              <tr><td>I. Kapitali i nënshkruar (101)</td><td style="text-align:right">${fmt2(baseCap)}</td></tr>
               <tr><td>II. Rezerva ligjore dhe statutore (106)</td><td style="text-align:right">${fmt2(typeof sumCodes==='function'?sumCodes(m,['106'],true):0)}</td></tr>
               <tr><td>III. Fitime të pashpërndara (107)</td><td style="text-align:right">${fmt2(typeof sumCodes==='function'?sumCodes(m,['107'],true):0)}</td></tr>
-              <tr><td>IV. Rezultati i periudhës (109 / P&L)</td><td style="text-align:right">${fmt2(typeof sumCodes==='function'?sumCodes(m,['109'],true):0)}</td></tr>
+              <tr><td>IV. Rezultati i periudhës (109 / P&L)</td><td style="text-align:right">${fmt2(currentYearPnl)}</td></tr>
               <tr class="alpha-total-row"><td>Totali i Kapitaleve të Veta (C)</td><td style="text-align:right">${fmt2(equity)}</td></tr>
 
               <tr><th colspan="2" style="text-align:left;background:#f5f5f5">D. DETYRIMET AFATSHKURTRA</th></tr>
@@ -4181,22 +4204,24 @@ function officialBalanceSheetView() {
 function exportOfficialBalanceSheetXlsx() {
   let dateTo = officialTaxFilters.month ? (officialTaxFilters.month + '-31') : (officialTaxFilters.to || new Date().toISOString().slice(0, 10));
   let m = typeof accountBalanceAt === 'function' ? accountBalanceAt(dateTo) : {};
+  let odooBs = (typeof odooBalanceSheetData === 'function') ? odooBalanceSheetData() : null;
   let fixed = typeof sumCodes === 'function' ? sumCodes(m, ['20', '21', '22', '28']) : 0;
-  let inv = typeof sumCodes === 'function' ? sumCodes(m, ['30', '31', '32', '33', '35']) : 0;
-  let rec = typeof sumCodes === 'function' ? sumCodes(m, ['41', '46']) : 0;
-  let cash = typeof sumCodes === 'function' ? sumCodes(m, ['51', '53']) : 0;
-  let equity = typeof sumCodes === 'function' ? sumCodes(m, ['101', '106', '107', '109'], true) : 0;
-  let pay = typeof sumCodes === 'function' ? sumCodes(m, ['40'], true) : 0;
+  let inv = (odooBs ? odooBs.stockVal : 0) || (typeof sumCodes === 'function' ? sumCodes(m, ['30', '31', '32', '33', '35']) : 0);
+  let rec = (odooBs ? odooBs.receivables : 0) || (typeof sumCodes === 'function' ? sumCodes(m, ['41', '46']) : 0);
+  let cash = (odooBs ? (odooBs.cash + odooBs.bank) : 0) || (typeof sumCodes === 'function' ? sumCodes(m, ['51', '53']) : 0);
+  let pay = (odooBs ? odooBs.payables : 0) || (typeof sumCodes === 'function' ? sumCodes(m, ['40'], true) : 0);
   let tax = typeof sumCodes === 'function' ? sumCodes(m, ['42', '43', '44'], true) : 0;
+  let totalLiab = pay + tax;
+  let equity = (odooBs ? odooBs.equity : (fixed + inv + rec + cash - totalLiab));
 
   let headers = ['Klasa / Kodi', 'Zëri i Bilancit Kontabël (SKK 2)', 'Vlera në ALL'];
   let rows = [
     ['Klasa 2', 'Aktive afatgjata (tokë, ndërtesa, makineri)', fixed],
-    ['Klasa 3', 'Inventarët e bimëve mjekësore dhe ambalazheve', inv],
+    ['Klasa 3', 'Inventarët e bimëve mjekësore dhe ambalazheve (WAC)', inv],
     ['Klasa 4', 'Kërkesa të arkëtueshme nga klientët (vendas dhe eksport)', rec],
     ['Klasa 5', 'Mjete monetare (Arka dhe Bankat)', cash],
     ['TOTALI', 'TOTALI I AKTIVEVE', fixed + inv + rec + cash],
-    ['Klasa 1', 'Kapitalet e veta dhe rezervat', equity],
+    ['Klasa 1', 'Kapitalet e veta dhe rezultati i periudhës', equity],
     ['Klasa 4', 'Detyrime ndaj furnitorëve', pay],
     ['Klasa 4', 'Detyrime ndaj punonjësve dhe tatimeve', tax],
     ['TOTALI', 'TOTALI I PASIVEVE DHE KAPITALEVE', equity + pay + tax]
@@ -4210,23 +4235,24 @@ function officialIncomeStatementView() {
   let dateTo = officialTaxFilters.month ? (officialTaxFilters.month + '-31') : (officialTaxFilters.to || new Date().toISOString().slice(0, 10));
   let m = typeof accountBalanceAt === 'function' ? accountBalanceAt(dateTo) : {};
 
-  let revDom = typeof sumCodes === 'function' ? sumCodes(m, ['701'], true) : 0;
-  let revExp = typeof sumCodes === 'function' ? sumCodes(m, ['702'], true) : 0;
+  let pnl = (typeof odooPnlData === 'function') ? odooPnlData() : null;
+  let revDom = pnl ? pnl.revLocal : (typeof sumCodes === 'function' ? sumCodes(m, ['701'], true) : 0);
+  let revExp = pnl ? pnl.revExport : (typeof sumCodes === 'function' ? sumCodes(m, ['702'], true) : 0);
   let revOth = typeof sumCodes === 'function' ? sumCodes(m, ['704', '708'], true) : 0;
-  let totalRev = revDom + revExp + revOth;
+  let totalRev = pnl ? pnl.rev : (revDom + revExp + revOth);
 
-  let expMat = typeof sumCodes === 'function' ? sumCodes(m, ['601', '602', '603']) : 0;
-  let expStaff = typeof sumCodes === 'function' ? sumCodes(m, ['621', '625']) : 0;
+  let expMat = pnl ? pnl.cogs : (typeof sumCodes === 'function' ? sumCodes(m, ['601', '602', '603']) : 0);
+  let expStaff = pnl ? (pnl.expBreakdown[3]?.amount || 0) : (typeof sumCodes === 'function' ? sumCodes(m, ['621', '625']) : 0);
   let expDepr = typeof sumCodes === 'function' ? sumCodes(m, ['681', '685']) : 0;
-  let expOth = typeof sumCodes === 'function' ? sumCodes(m, ['611', '612', '613', '615', '618', '631']) : 0;
+  let expOth = pnl ? Math.max(0, pnl.exp - expStaff) : (typeof sumCodes === 'function' ? sumCodes(m, ['611', '612', '613', '615', '618', '631']) : 0);
   let totalExp = expMat + expStaff + expDepr + expOth;
 
   let ebit = totalRev - totalExp;
   let finGain = typeof sumCodes === 'function' ? sumCodes(m, ['765'], true) : 0;
   let finLoss = typeof sumCodes === 'function' ? sumCodes(m, ['665']) : 0;
   let ebt = ebit + finGain - finLoss;
-  let taxProfit = ebt > 0 ? (ebt * 0.15) : 0;
-  let netProfit = ebt - taxProfit;
+  let taxProfit = 0;
+  let netProfit = pnl ? pnl.netProfit : (ebt - taxProfit);
 
   let ci = (typeof companyInfo === 'function' ? companyInfo() : null) || { name: 'BIOBES sh.p.k.', nipt: 'L43904401I' };
 
@@ -4294,18 +4320,20 @@ function officialIncomeStatementView() {
 function exportOfficialIncomeStatementXlsx() {
   let dateTo = officialTaxFilters.month ? (officialTaxFilters.month + '-31') : (officialTaxFilters.to || new Date().toISOString().slice(0, 10));
   let m = typeof accountBalanceAt === 'function' ? accountBalanceAt(dateTo) : {};
-  let revDom = typeof sumCodes === 'function' ? sumCodes(m, ['701'], true) : 0;
-  let revExp = typeof sumCodes === 'function' ? sumCodes(m, ['702'], true) : 0;
+  let pnl = (typeof odooPnlData === 'function') ? odooPnlData() : null;
+  let revDom = pnl ? pnl.revLocal : (typeof sumCodes === 'function' ? sumCodes(m, ['701'], true) : 0);
+  let revExp = pnl ? pnl.revExport : (typeof sumCodes === 'function' ? sumCodes(m, ['702'], true) : 0);
   let revOth = typeof sumCodes === 'function' ? sumCodes(m, ['704', '708'], true) : 0;
-  let expMat = typeof sumCodes === 'function' ? sumCodes(m, ['601', '602', '603']) : 0;
-  let expStaff = typeof sumCodes === 'function' ? sumCodes(m, ['621', '625']) : 0;
+  let expMat = pnl ? pnl.cogs : (typeof sumCodes === 'function' ? sumCodes(m, ['601', '602', '603']) : 0);
+  let expStaff = pnl ? (pnl.expBreakdown[3]?.amount || 0) : (typeof sumCodes === 'function' ? sumCodes(m, ['621', '625']) : 0);
   let expDepr = typeof sumCodes === 'function' ? sumCodes(m, ['681', '685']) : 0;
-  let expOth = typeof sumCodes === 'function' ? sumCodes(m, ['611', '612', '613', '615', '618', '631']) : 0;
+  let expOth = pnl ? Math.max(0, pnl.exp - expStaff) : (typeof sumCodes === 'function' ? sumCodes(m, ['611', '612', '613', '615', '618', '631']) : 0);
   let ebit = (revDom + revExp + revOth) - (expMat + expStaff + expDepr + expOth);
   let finGain = typeof sumCodes === 'function' ? sumCodes(m, ['765'], true) : 0;
   let finLoss = typeof sumCodes === 'function' ? sumCodes(m, ['665']) : 0;
   let ebt = ebit + finGain - finLoss;
-  let tax = ebt > 0 ? ebt * 0.15 : 0;
+  let tax = 0;
+  let net = pnl ? pnl.netProfit : (ebt - tax);
 
   let headers = ['Nr', 'Zëri Financiar (SKK 2)', 'Referenca', 'Vlera ALL'];
   let rows = [
@@ -4313,17 +4341,17 @@ function exportOfficialIncomeStatementXlsx() {
     [2, 'Eksport bimësh mjekësore (0% TVSH)', '702', revExp],
     [3, 'Të ardhura të tjera operative', '704, 708', revOth],
     ['I', 'TOTALI I TË ARDHURAVE', '', revDom + revExp + revOth],
-    [4, 'Lëndë të para dhe ambalazhe', '601, 602, 603', expMat],
-    [5, 'Shpenzime personeli dhe sigurime', '621, 625', expStaff],
+    [4, 'Lëndë të para dhe kosto e mallrave të shitura (KMSH)', '601, WAC', expMat],
+    [5, 'Shpenzime personeli dhe sigurime', '621, 625, 641', expStaff],
     [6, 'Amortizimi i aktiveve', '681', expDepr],
-    [7, 'Shpenzime të tjera operative', '611-618, 631', expOth],
+    [7, 'Shpenzime të tjera operative', '611-628', expOth],
     ['II', 'TOTALI I SHPENZIMEVE', '', expMat + expStaff + expDepr + expOth],
     ['III', 'FITIMI NGA SHFRYTËZIMI (EBIT)', '', ebit],
     [8, 'Fitim nga kursi i këmbimit', '765', finGain],
     [9, 'Humbje nga kursi i këmbimit', '665', finLoss],
     ['IV', 'FITIMI PARA TATIMIT (EBT)', '', ebt],
     [10, 'Tatimi mbi Fitimin (15%)', '691', tax],
-    ['V', 'FITIMI NETO I PERIUDHËS', '', ebt - tax]
+    ['V', 'FITIMI NETO I PERIUDHËS', '', net]
   ];
   makeXlsx('PASQYRA-TE-ARDHURAVE-SKK2.xlsx', headers, rows);
   if (typeof toast === 'function') toast('Pasqyra e të Ardhurave u eksportua me sukses');
@@ -4355,7 +4383,36 @@ function trialBalancePreview(movementOnly=false){let d=trialBalanceData().filter
 function accountBalanceAt(to,prev=false){let m={};ensureAccounting().entries.filter(e=>e.date<=to&&(!alphaAccountingFilters.postedOnly||e.status==='Postuar')&&(alphaAccountingFilters.closing||!e.closingEntry)).forEach(e=>(e.lines||[]).forEach(l=>m[l.account]=(m[l.account]||0)+(+l.debit||0)-(+l.credit||0)));return m}
 function sumCodes(m,prefixes,credit=false){let v=Object.entries(m).filter(([c])=>prefixes.some(p=>c.startsWith(p))).reduce((a,[,v])=>a+v,0);return credit?-v:v}
 function incomeStatementPreview(){let cur=accountBalanceAt(alphaAccountingFilters.docTo),prevTo=(+alphaAccountingFilters.docTo.slice(0,4)-1)+alphaAccountingFilters.docTo.slice(4),pr=accountBalanceAt(prevTo),rows=[['1','Shitjet neto',['70'],true],['2','Të ardhura të tjera nga veprimtaritë e shfrytëzimit',['71','72','73','74'],true],['3','Ndryshime në inventarin e produkteve',['603'],false],['4','Materialet e konsumuara',['60','61'],false],['5a','Paga e personelit',['621'],false],['5b','Sigurimet shoqërore e shëndetësore',['625'],false],['6','Amortizimi dhe zhvlerësimet',['681','685'],false],['7','Shpenzime të tjera',['62','63','64'],false],['10','Të ardhura/shpenzime financiare',['76','66'],true],['15','Shpenzimet e tatimit mbi fitimin',['69'],false]],mapped=rows.map(r=>[r[0],r[1],sumCodes(cur,r[2],r[3]),sumCodes(pr,r[2],r[3])]),income=sumCodes(cur,['7'],true),expense=sumCodes(cur,['6'],false),incomeP=sumCodes(pr,['7'],true),expenseP=sumCodes(pr,['6'],false);mapped.push(['16','Fitimi (humbja) neto e vitit financiar',income-expense,incomeP-expenseP]);return accountingPaper('Të ardhurat e shpenzimet',`<table class="alpha-card-table"><thead><tr><th>Nr.</th><th>Emërtimi</th><th>Shënime</th><th>Viti Raportues</th><th>Viti Paraardhës</th></tr></thead><tbody>${mapped.map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td><td></td><td>${fmt2(x[2])}</td><td>${fmt2(x[3])}</td></tr>`).join('')}</tbody></table>`)}
-function balanceSheetRows(m){return[['I.1','Mjete monetare',sumCodes(m,['51','53'])],['I.3','Llogari/Kërkesa të arkëtueshme',sumCodes(m,['41','46'])],['I.4.i','Lëndë të para',sumCodes(m,['31','32'])],['I.4.ii','Prodhim në proces',sumCodes(m,['33'])],['I.4.iii','Produkte të gatshme',sumCodes(m,['35'])],['I.4.iv','Mallra për rishitje',sumCodes(m,['30'])],['II.2','Aktive afatgjata materiale',sumCodes(m,['21','22'])],['II.4','Aktive afatgjata jomateriale',sumCodes(m,['20'])],['D.3.i','Të pagueshme ndaj furnitorëve',sumCodes(m,['40'],true)],['D.3.ii','Të pagueshme ndaj punonjësve',sumCodes(m,['42'],true)],['D.3.iii','Detyrime tatimore',sumCodes(m,['43','44'],true)],['K.3','Kapitali aksionar',sumCodes(m,['101'],true)],['K.6','Rezerva',sumCodes(m,['106'],true)],['K.7','Fitime të pashpërndara',sumCodes(m,['107'],true)],['K.8','Fitimi/Humbja e vitit',sumCodes(m,['109'],true)]]}
+function balanceSheetRows(m){
+  let odooBs = (typeof odooBalanceSheetData === 'function') ? odooBalanceSheetData() : null;
+  let inv = (odooBs ? odooBs.stockVal : 0) || sumCodes(m,['31','32','33','35','30']);
+  let rec = (odooBs ? odooBs.receivables : 0) || sumCodes(m,['41','46']);
+  let cash = (odooBs ? (odooBs.cash + odooBs.bank) : 0) || sumCodes(m,['51','53']);
+  let pay = (odooBs ? odooBs.payables : 0) || sumCodes(m,['40'],true);
+  let tax = sumCodes(m,['42','43','44'],true);
+  let pnl = (typeof odooPnlData === 'function') ? odooPnlData() : null;
+  let pnlNet = pnl ? pnl.netProfit : (sumCodes(m,['7'],true) - sumCodes(m,['6']));
+  let eq = odooBs ? odooBs.equity : (cash + rec + inv - pay - tax);
+  let cap = Math.max(0, eq - pnlNet);
+
+  return [
+    ['I.1','Mjete monetare', cash],
+    ['I.3','Llogari/Kërkesa të arkëtueshme', rec],
+    ['I.4.i','Lëndë të para (WAC)', inv],
+    ['I.4.ii','Prodhim në proces', 0],
+    ['I.4.iii','Produkte të gatshme', 0],
+    ['I.4.iv','Mallra për rishitje', 0],
+    ['II.2','Aktive afatgjata materiale', sumCodes(m,['21','22'])],
+    ['II.4','Aktive afatgjata jomateriale', sumCodes(m,['20'])],
+    ['D.3.i','Të pagueshme ndaj furnitorëve', pay],
+    ['D.3.ii','Të pagueshme ndaj punonjësve', sumCodes(m,['42'],true)],
+    ['D.3.iii','Detyrime tatimore', tax],
+    ['K.3','Kapitali aksionar', cap],
+    ['K.6','Rezerva', sumCodes(m,['106'],true)],
+    ['K.7','Fitime të pashpërndara', sumCodes(m,['107'],true)],
+    ['K.8','Fitimi/Humbja e vitit', pnlNet]
+  ];
+}
 function balanceSheetPreview(){let cur=accountBalanceAt(alphaAccountingFilters.docTo),prevTo=(+alphaAccountingFilters.docTo.slice(0,4)-1)+alphaAccountingFilters.docTo.slice(4),pr=accountBalanceAt(prevTo),r=balanceSheetRows(cur),rp=Object.fromEntries(balanceSheetRows(pr).map(x=>[x[0],x[2]]));return accountingPaper('Bilanci',`<table class="alpha-card-table"><thead><tr><th>Nr.</th><th>Emërtimi</th><th>Shënime</th><th>Viti Raportues</th><th>Viti Paraardhës</th></tr></thead><tbody>${r.map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td><td></td><td>${fmt2(x[2])}</td><td>${fmt2(rp[x[0]]||0)}</td></tr>`).join('')}</tbody></table>`)}
 function alphaAccountingPreview(){return({accJournal:accountingJournalPreview,accLedger:()=>accountingLedgerPreview(false),accCard:()=>accountingLedgerPreview(true),accMovement:()=>trialBalancePreview(true),accTrial:()=>trialBalancePreview(false),accPL:incomeStatementPreview,accBalance:balanceSheetPreview}[alphaActiveReport]||accountingJournalPreview)()}
 function newAlphaAccountingFilters(){alphaAccountingFilters={docFrom:new Date().toISOString().slice(0,8)+'01',docTo:new Date().toISOString().slice(0,10),regFrom:'1900-01-01',regTo:'9999-12-31',account:'',docNo:'',refNo:'',description:'',docType:'',postedOnly:false,closing:false};alphaAccountingShow=false;render()}
