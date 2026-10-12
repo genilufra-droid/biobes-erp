@@ -19,7 +19,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BioBes ERP</title>
 <style>
-:root{--brand:#176b49;--brand2:#21825c;--accent:#8bbf3f;--ink:#27332e;--muted:#718079;--bg:#f3f5f4;--card:#fff;--line:#dfe6e2;--danger:#b63c46;--warn:#d28b13;--shadow:0 3px 16px #173b2b12}*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,-apple-system,Segoe UI,Arial;color:var(--ink);background:var(--bg)}button,input,select,textarea{font:inherit}.top{height:60px;background:var(--brand);color:#fff;display:flex;align-items:center;padding:0 18px;gap:14px;position:sticky;top:0;z-index:30}.logo{font-size:22px;font-weight:800}.logo span{color:#b7dc74}.top-search{flex:1;max-width:620px;position:relative}.top-search input{width:100%;border:0;border-radius:8px;padding:10px 14px;background:#ffffff20;color:#fff;outline:none}.top-search input::placeholder{color:#dcece4}.top-actions{margin-left:auto;display:flex;gap:8px}.icon-btn{border:0;background:#ffffff16;color:#fff;border-radius:7px;padding:9px 11px;cursor:pointer}.shell{display:flex;min-height:calc(100vh - 60px)}aside{width:230px;background:#fff;border-right:1px solid var(--line);padding:13px 9px;position:sticky;top:60px;height:calc(100vh - 60px);overflow:auto}.nav-title{padding:8px 12px;color:var(--muted);font-size:11px;text-transform:uppercase;font-weight:700}.nav button{width:100%;border:0;background:transparent;padding:10px 12px;border-radius:7px;text-align:left;color:#34433c;cursor:pointer;display:flex;gap:10px;align-items:center}.nav button:hover,.nav button.active{background:#e8f3ed;color:var(--brand);font-weight:650}.nav .ico{width:22px;text-align:center;font-size:16px}main{flex:1;padding:24px;min-width:0}.page-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}.page-head h1{font-size:25px;margin:0}.page-head p{margin:4px 0 0;color:var(--muted)}.btn{border:1px solid var(--line);background:#fff;border-radius:7px;padding:9px 13px;cursor:pointer;color:var(--ink)}.btn:hover{background:#f7faf8}.btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}.btn.danger{color:var(--danger)}.btn.small{padding:6px 9px;font-size:12px}.actions{display:flex;gap:8px;flex-wrap:wrap}.apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:15px}.app{background:#fff;border:1px solid var(--line);border-radius:10px;padding:19px 12px;text-align:center;cursor:pointer;box-shadow:var(--shadow)}.app:hover{transform:translateY(-2px);border-color:#a8cdbb}.app i{display:grid;place-items:center;width:55px;height:55px;margin:0 auto 10px;border-radius:13px;background:#e8f4ed;font-style:normal;font-size:27px}.app b{display:block}.app small{color:var(--muted)}.kpis{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:14px;margin-bottom:20px}.kpi{background:#fff;border:1px solid var(--line);border-radius:9px;padding:16px;box-shadow:var(--shadow)}.kpi small{color:var(--muted)}.kpi strong{display:block;font-size:26px;margin-top:4px}.grid2{display:grid;grid-template-columns:1.3fr 1fr;gap:16px}.card{background:#fff;border:1px solid var(--line);border-radius:9px;padding:16px;box-shadow:var(--shadow);margin-bottom:16px}.card h3{margin:0 0 13px;font-size:16px}.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}.toolbar input,.toolbar select{border:1px solid var(--line);background:#fff;border-radius:7px;padding:9px 10px}.toolbar input{min-width:240px}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:8px}table{border-collapse:collapse;width:100%;background:#fff}th{background:#f5f8f6;text-align:left;color:#5d6e65;font-size:12px;white-space:nowrap}th,td{padding:10px 11px;border-bottom:1px solid var(--line);vertical-align:top}tr:last-child td{border-bottom:0}tr:hover td{background:#fbfdfc}.link{color:var(--brand);font-weight:650;cursor:pointer;text-decoration:none}.pill{display:inline-block;border-radius:99px;padding:3px 8px;font-size:11px;font-weight:700;background:#edf1ef;color:#526158}.pill.green{background:#e1f4e8;color:#167044}.pill.orange{background:#fff0d4;color:#975e00}.pill.red{background:#fbe5e7;color:#a32934}.pill.blue{background:#e4effb;color:#29649b}.modal-bg{display:none;position:fixed;inset:0;background:#13251d88;z-index:80;align-items:flex-start;justify-content:center;padding:35px 14px;overflow:auto}.modal-bg.above-lock{z-index:100001}.modal-bg.open{display:flex}.modal{background:#fff;width:min(900px,100%);border-radius:11px;box-shadow:0 20px 70px #0004}.modal-head{padding:16px 19px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}.modal-head h2{margin:0;font-size:20px}.modal-body{padding:19px}.modal-foot{padding:14px 19px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.field{display:flex;flex-direction:column;gap:5px}.field.full{grid-column:1/-1}.field label{font-size:12px;font-weight:700;color:#596961}.field input,.field select,.field textarea{border:1px solid #cfd9d4;border-radius:7px;padding:10px;background:#fff;width:100%}.field textarea{min-height:75px;resize:vertical}.hint{font-size:11px;color:var(--muted)}.totals{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.total{background:#f1f6f3;padding:10px;border-radius:7px}.total small{color:var(--muted);display:block}.total b{font-size:17px}.stepbar{display:flex;gap:4px;margin:0 0 18px;overflow:auto}.step{padding:7px 12px;background:#edf1ef;color:#617068;white-space:nowrap;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 50%,calc(100% - 8px) 100%,0 100%,8px 50%)}.step.on{background:var(--brand);color:#fff}.empty{text-align:center;padding:40px;color:var(--muted)}.rack-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}.rack{border:1px solid var(--line);border-radius:8px;padding:12px;background:#fff}.rack b{display:block}.rack .bar{height:7px;background:#e8ecea;border-radius:8px;margin:9px 0}.rack .bar span{display:block;height:100%;border-radius:8px;background:var(--accent)}.timeline{border-left:2px solid #bad7c8;margin-left:7px;padding-left:18px}.event{position:relative;padding:0 0 15px}.event:before{content:'';position:absolute;width:10px;height:10px;background:var(--brand);border-radius:50%;left:-24px;top:4px}.event small{color:var(--muted)}.toast{position:fixed;right:18px;bottom:18px;background:#243d31;color:#fff;padding:12px 16px;border-radius:8px;display:none;z-index:100002}.toast.show{display:block}.mobile-nav{display:none}@media(max-width:900px){aside{width:74px}.nav-title{display:none}.nav button{justify-content:center}.nav button span:last-child{display:none}.kpis{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}@media(max-width:620px){.top{padding:0 10px}.top-search{display:none}.shell{display:block}aside{display:none}main{padding:15px 12px 78px}.page-head{align-items:flex-start}.page-head h1{font-size:21px}.kpis{grid-template-columns:1fr 1fr;gap:9px}.kpi{padding:12px}.kpi strong{font-size:21px}.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.totals{grid-template-columns:1fr 1fr}.mobile-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);z-index:40;justify-content:space-around;padding:7px}.mobile-nav button{border:0;background:none;font-size:11px;color:#516158}.mobile-nav i{display:block;font-style:normal;font-size:20px}.apps{grid-template-columns:repeat(3,1fr);gap:8px}.app{padding:12px 5px}.app i{width:43px;height:43px;font-size:21px}.app small{display:none}}
+:root{--brand:#176b49;--brand2:#21825c;--accent:#8bbf3f;--ink:#27332e;--muted:#718079;--bg:#f3f5f4;--card:#fff;--line:#dfe6e2;--danger:#b63c46;--warn:#d28b13;--shadow:0 3px 16px #173b2b12}*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,-apple-system,Segoe UI,Arial;color:var(--ink);background:var(--bg)}html,body{overflow-x:hidden;width:100%;max-width:100%}.top{max-width:100vw;overflow-x:auto}.top-actions{overflow-x:auto;flex-shrink:1}button,input,select,textarea{font:inherit}.top{height:60px;background:var(--brand);color:#fff;display:flex;align-items:center;padding:0 18px;gap:14px;position:sticky;top:0;z-index:30}.logo{font-size:22px;font-weight:800}.logo span{color:#b7dc74}.top-search{flex:1;max-width:620px;position:relative}.top-search input{width:100%;border:0;border-radius:8px;padding:10px 14px;background:#ffffff20;color:#fff;outline:none}.top-search input::placeholder{color:#dcece4}.top-actions{margin-left:auto;display:flex;gap:8px}.icon-btn{border:0;background:#ffffff16;color:#fff;border-radius:7px;padding:9px 11px;cursor:pointer}.shell{display:flex;min-height:calc(100vh - 60px)}aside{width:230px;background:#fff;border-right:1px solid var(--line);padding:13px 9px;position:sticky;top:60px;height:calc(100vh - 60px);overflow:auto}.nav-title{padding:8px 12px;color:var(--muted);font-size:11px;text-transform:uppercase;font-weight:700}.nav button{width:100%;border:0;background:transparent;padding:10px 12px;border-radius:7px;text-align:left;color:#34433c;cursor:pointer;display:flex;gap:10px;align-items:center}.nav button:hover,.nav button.active{background:#e8f3ed;color:var(--brand);font-weight:650}.nav .ico{width:22px;text-align:center;font-size:16px}main{flex:1;padding:24px;min-width:0}.page-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}.page-head h1{font-size:25px;margin:0}.page-head p{margin:4px 0 0;color:var(--muted)}.btn{border:1px solid var(--line);background:#fff;border-radius:7px;padding:9px 13px;cursor:pointer;color:var(--ink)}.btn:hover{background:#f7faf8}.btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}.btn.danger{color:var(--danger)}.btn.small{padding:6px 9px;font-size:12px}.actions{display:flex;gap:8px;flex-wrap:wrap}.apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:15px}.app{background:#fff;border:1px solid var(--line);border-radius:10px;padding:19px 12px;text-align:center;cursor:pointer;box-shadow:var(--shadow)}.app:hover{transform:translateY(-2px);border-color:#a8cdbb}.app i{display:grid;place-items:center;width:55px;height:55px;margin:0 auto 10px;border-radius:13px;background:#e8f4ed;font-style:normal;font-size:27px}.app b{display:block}.app small{color:var(--muted)}.kpis{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:14px;margin-bottom:20px}.kpi{background:#fff;border:1px solid var(--line);border-radius:9px;padding:16px;box-shadow:var(--shadow)}.kpi small{color:var(--muted)}.kpi strong{display:block;font-size:26px;margin-top:4px}.grid2{display:grid;grid-template-columns:1.3fr 1fr;gap:16px}.card{background:#fff;border:1px solid var(--line);border-radius:9px;padding:16px;box-shadow:var(--shadow);margin-bottom:16px}.card h3{margin:0 0 13px;font-size:16px}.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}.toolbar input,.toolbar select{border:1px solid var(--line);background:#fff;border-radius:7px;padding:9px 10px}.toolbar input{min-width:240px}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:8px}table{border-collapse:collapse;width:100%;background:#fff}th{background:#f5f8f6;text-align:left;color:#5d6e65;font-size:12px;white-space:nowrap}th,td{padding:10px 11px;border-bottom:1px solid var(--line);vertical-align:top}tr:last-child td{border-bottom:0}tr:hover td{background:#fbfdfc}.link{color:var(--brand);font-weight:650;cursor:pointer;text-decoration:none}.pill{display:inline-block;border-radius:99px;padding:3px 8px;font-size:11px;font-weight:700;background:#edf1ef;color:#526158}.pill.green{background:#e1f4e8;color:#167044}.pill.orange{background:#fff0d4;color:#975e00}.pill.red{background:#fbe5e7;color:#a32934}.pill.blue{background:#e4effb;color:#29649b}.modal-bg{display:none;position:fixed;inset:0;background:#13251d88;z-index:80;align-items:flex-start;justify-content:center;padding:35px 14px;overflow:auto}.modal-bg.above-lock{z-index:100001}.modal-bg.open{display:flex}.modal{background:#fff;width:min(900px,100%);border-radius:11px;box-shadow:0 20px 70px #0004}.modal-head{padding:16px 19px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}.modal-head h2{margin:0;font-size:20px}.modal-body{padding:19px}.modal-foot{padding:14px 19px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.field{display:flex;flex-direction:column;gap:5px}.field.full{grid-column:1/-1}.field label{font-size:12px;font-weight:700;color:#596961}.field input,.field select,.field textarea{border:1px solid #cfd9d4;border-radius:7px;padding:10px;background:#fff;width:100%}.field textarea{min-height:75px;resize:vertical}.hint{font-size:11px;color:var(--muted)}.totals{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.total{background:#f1f6f3;padding:10px;border-radius:7px}.total small{color:var(--muted);display:block}.total b{font-size:17px}.stepbar{display:flex;gap:4px;margin:0 0 18px;overflow:auto}.step{padding:7px 12px;background:#edf1ef;color:#617068;white-space:nowrap;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 50%,calc(100% - 8px) 100%,0 100%,8px 50%)}.step.on{background:var(--brand);color:#fff}.empty{text-align:center;padding:40px;color:var(--muted)}.rack-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}.rack{border:1px solid var(--line);border-radius:8px;padding:12px;background:#fff}.rack b{display:block}.rack .bar{height:7px;background:#e8ecea;border-radius:8px;margin:9px 0}.rack .bar span{display:block;height:100%;border-radius:8px;background:var(--accent)}.timeline{border-left:2px solid #bad7c8;margin-left:7px;padding-left:18px}.event{position:relative;padding:0 0 15px}.event:before{content:'';position:absolute;width:10px;height:10px;background:var(--brand);border-radius:50%;left:-24px;top:4px}.event small{color:var(--muted)}.toast{position:fixed;right:18px;bottom:18px;background:#243d31;color:#fff;padding:12px 16px;border-radius:8px;display:none;z-index:100002}.toast.show{display:block}.mobile-nav{display:none}@media(max-width:900px){aside{width:74px}.nav-title{display:none}.nav button{justify-content:center}.nav button span:last-child{display:none}.kpis{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}@media(max-width:620px){.top{padding:0 10px}.top-search{display:none}.shell{display:block}aside{display:none}main{padding:15px 12px 78px}.page-head{align-items:flex-start}.page-head h1{font-size:21px}.kpis{grid-template-columns:1fr 1fr;gap:9px}.kpi{padding:12px}.kpi strong{font-size:21px}.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.totals{grid-template-columns:1fr 1fr}.mobile-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);z-index:40;justify-content:space-around;padding:7px}.mobile-nav button{border:0;background:none;font-size:11px;color:#516158}.mobile-nav i{display:block;font-style:normal;font-size:20px}.apps{grid-template-columns:repeat(3,1fr);gap:8px}.app{padding:12px 5px}.app i{width:43px;height:43px;font-size:21px}.app small{display:none}}
 @media print{.top,aside,.mobile-nav,.page-head .actions,.toolbar{display:none!important}main{padding:0}.card{box-shadow:none;border:0}.shell{display:block}}
 </style></head>
 <body>
@@ -519,7 +519,7 @@ purchase-doc-legacy { display:none }
 <script>
 function purchaseDocumentHtml(f){
   if (typeof renderUnifiedDptInvoiceHtml === 'function') {
-    return renderUnifiedDptInvoiceHtml(f, true, !!f.isFiscal);
+    return renderUnifiedDptInvoiceHtml(f, true, f.isFiscal !== false);
   }
   return '';
 }
@@ -1050,7 +1050,7 @@ const addOrderRowResizableBase=addOrderEditRow;addOrderEditRow=function(){addOrd
 <script>
 const officialSupplierCatalog=[{"code":"100","name":"KALDAJA BAZE BAZE","address":""},{"code":"101","name":"Artur Begolli Korce","address":""},{"code":"102","name":"Artur Mekolli Pogradec","address":""},{"code":"103","name":"Artur Shahini Grabjan, Lushnje","address":""},{"code":"104","name":"Bashkim Shahu Skrapar","address":""},{"code":"105","name":"Baza Biobes Lushnje","address":""},{"code":"106","name":"Edmond Kalemi Skrapar","address":""},{"code":"107","name":"Edmond Turhani Berat","address":""},{"code":"108","name":"Edvin Kuqa Elbasan","address":""},{"code":"109","name":"Ekuran Xhefer Korce","address":""},{"code":"110","name":"Erald Muca Elbasan","address":""},{"code":"111","name":"Eri Adem Strana Korce","address":""},{"code":"112","name":"Erjon Gora Korce","address":""},{"code":"113","name":"Estref Beqari Berat","address":""},{"code":"114","name":"Fati Ilias Cimi Permet","address":""},{"code":"115","name":"Fatjon Lalaj XENG","address":""},{"code":"116","name":"Fatmir Dervishi Belsh, Elbasan","address":""},{"code":"117","name":"FATMIR NASUFI BORSH","address":""},{"code":"118","name":"Flamur Guraj Berat","address":""},{"code":"119","name":"Genti Erseke Erseke","address":""},{"code":"120","name":"Gjergj Murataj Vlore","address":""},{"code":"121","name":"Hektor GJIROKASTER","address":""},{"code":"122","name":"Ilir Gjolaj Shkoder","address":""},{"code":"123","name":"Ilir Shtylla Belsh, Elbasan","address":""},{"code":"124","name":"Ilirjan Erseke Erseke","address":""},{"code":"125","name":"Izet Rrapaj Patos, Fier","address":""},{"code":"126","name":"Izmir Korce Korce","address":""},{"code":"127","name":"Jonuz Rrapo Vlore","address":""},{"code":"128","name":"Kujtim Kalemi Rrogozhine","address":""},{"code":"129","name":"Ladi Merkuri Borsh","address":""},{"code":"130","name":"Llazar Gjata Lushnje","address":""},{"code":"131","name":"Lume Kolonje Lushnje","address":""},{"code":"132","name":"Manushi Novosel Vlore","address":""},{"code":"133","name":"MONDI ROZMARIN PEQIN","address":""},{"code":"134","name":"Mentor Maha Diber","address":""},{"code":"135","name":"Nazar Homollari POGRADEC","address":""},{"code":"136","name":"Nazmi Hyska","address":""},{"code":"137","name":"Nderim Qato POLICAN","address":""},{"code":"138","name":"Neli Cela TEPELENE","address":""},{"code":"139","name":"Nila Fier FIER","address":""},{"code":"140","name":"Alban Brahimi !! ELBASAN","address":""},{"code":"141","name":"Perikli Dosari","address":""},{"code":"142","name":"Ramazan Goriza","address":""},{"code":"143","name":"Saimir Kazanxhiu","address":""},{"code":"144","name":"BESMIR CAKA","address":""},{"code":"145","name":"Shkelzen Paci","address":""},{"code":"146","name":"Sokol KOLA SHKODER","address":""},{"code":"147","name":"Tefik Peqini Lushnje","address":""},{"code":"148","name":"Tomorr Malaj URE VAJGURORE","address":""},{"code":"149","name":"Vari Lila DUSHK","address":""},{"code":"150","name":"Zamir Mema TEPELENE","address":""},{"code":"151","name":"Zyber Gjoni DIBER","address":""},{"code":"152","name":"ARQILE KELCYRE","address":""},{"code":"153","name":"Pellumb Cela","address":""},{"code":"154","name":"Pranvera Ceco GJIROKASTER","address":""},{"code":"155","name":"DASHNOR LAME SKRAPAR","address":""},{"code":"156","name":"TOMORR MONCE POLICAN","address":""},{"code":"157","name":"MYRTO CANKAJ BERAT","address":""},{"code":"158","name":"BEHAR HOXHA","address":""},{"code":"159","name":"ALFONS DULE(MONDI) KORCE","address":""},{"code":"160","name":"IMPORT","address":""},{"code":"161","name":"FATOS DOCI ELBASAN","address":""},{"code":"162","name":"K06 EDUART ZILI/TANI PEQIN 6","address":""},{"code":"163","name":"K02 AVNI PROGMI PEQIN 2","address":""},{"code":"164","name":"K03 BEKTASH PROGMI PEQIN 3","address":""},{"code":"165","name":"K04 ISA PROGMI/JETI PEQIN 4","address":""},{"code":"166","name":"K05 SHYQYRI PROGMI PEQIN 5","address":""},{"code":"167","name":"K01 ASTRIT PROGMI PEQIN 1","address":""},{"code":"168","name":"DIU/ AVDIU ZILI PEQIN 22","address":""},{"code":"169","name":"TOMI PEQIN","address":""},{"code":"170","name":"K07 ISLAM PROGMI / K08 DANIEL PEQIN 7","address":""},{"code":"171","name":"K03 GANI ZILI PEQIN 3","address":""},{"code":"172","name":"SETMIR OSMANI","address":""},{"code":"173","name":"K10 LENCI PEQIN 10","address":""},{"code":"174","name":"SPIRO XHAKA","address":""},{"code":"175","name":"K11 CAUSHI PEQIN 11","address":""},{"code":"176","name":"AMARILDO SULA","address":""},{"code":"177","name":"DIO PEQIN","address":""},{"code":"178","name":"BESNIK MERAJ","address":""},{"code":"179","name":"K12 XHEVATI PEQIN 12","address":""},{"code":"180","name":"KELI PEQIN","address":""},{"code":"181","name":"K09 PETRIT BALI PEQIN 9","address":""},{"code":"182","name":"NAZMI DURO","address":""},{"code":"183","name":"ARIANIT JACELLI ERSEK","address":""},{"code":"184","name":"FATMIR MURRACI LIBRAZHD","address":""},{"code":"185","name":"NAMIK YMERI KARBUNAR","address":""},{"code":"186","name":"AGRON STAMBOLLIU KOLONJ","address":""},{"code":"187","name":"EMILIANO BERAT","address":""},{"code":"188","name":"K14 SHPENDI PROGMI PEQIN 14","address":""},{"code":"189","name":"ELTON KADILLARI POLICAN","address":""},{"code":"190","name":"HEKTOR SHEHU LIBOHOV","address":""},{"code":"191","name":"Gezim","address":""},{"code":"192","name":"ILIR BLLIKU SOPEZ","address":""},{"code":"193","name":"ALDI TOSHKOLARI","address":""},{"code":"194","name":"FATMIR NASUFI PORTO PALERMO","address":""},{"code":"195","name":"ISTREF RROKAJ TERBAC","address":""},{"code":"196","name":"MAKSIM XHEPEXHIU","address":""},{"code":"197","name":"AGRO MEN Tirane","address":""},{"code":"198","name":"MYRO CANKAJ","address":""},{"code":"199","name":"MEHMET DELLANI BERAT","address":""},{"code":"200","name":"Gjendje magazine","address":""},{"code":"201","name":"AGUR PAJA BERAT","address":""},{"code":"202","name":"ALFRED MESINI","address":""},{"code":"203","name":"VARI DUSHKE","address":""},{"code":"204","name":"ALBANI GRAMESH","address":""},{"code":"206","name":"GJERGJ SULAJ FIER","address":""},{"code":"207","name":"RIZA SHAHOLLI BILISHT","address":""},{"code":"210","name":"ODHISEA MASTORA GJIROKASTER","address":""},{"code":"211","name":"KLEOS LAZARAT","address":""},{"code":"212","name":"ISMAIL XHAJA POGRADEC","address":""},{"code":"213","name":"ILIR SHEHU VLORE","address":""},{"code":"214","name":"MYSLYM PEPA DURRES","address":""},{"code":"215","name":"NURI QATO","address":""},{"code":"216","name":"BARDHUL HYSKA ELBASAN","address":""},{"code":"217","name":"NATYRAL ATC SHPK DURRES","address":""},{"code":"218","name":"ARBEN ISLAMI","address":""},{"code":"219","name":"ARBER KOCI","address":""},{"code":"220","name":"Genti Korce Korce","address":""},{"code":"221","name":"BENI VOSKOPOJE VOSKOPOJE","address":""},{"code":"222","name":"ERIDIAN HOXHA GRABIAN","address":""},{"code":"223","name":"EDISON KLOSI BURREL","address":""},{"code":"224","name":"GERI TEPELENE TEPELENE","address":""},{"code":"225","name":"KLEMENTI TEPELENE TEPELENE","address":""},{"code":"226","name":"DANIELI TEPELENE TEPELENE","address":""},{"code":"227","name":"MARIGLEN SEITLLI ERSEK","address":""},{"code":"228","name":"AGRON GRECA","address":""},{"code":"229","name":"BESIM KAPAJ","address":""},{"code":"232","name":"K13 BEDRIU ROZMARINE PEQIN 13","address":""},{"code":"233","name":"FLORENC JACELLI ERSEK","address":""},{"code":"234","name":"AGRO MAP","address":""},{"code":"235","name":"AGRO HERBAL","address":""},{"code":"236","name":"SHYQYRI POLE","address":""},{"code":"237","name":"ARDJAN LULAJ","address":""},{"code":"238","name":"RRAHMANI MBRESHTAN BERAT","address":""},{"code":"239","name":"SAJMIR SULA MILOT","address":""},{"code":"240","name":"PELIVAN KELCYRE","address":""},{"code":"245","name":"EDIS OSMAN","address":""},{"code":"246","name":"EMILJANO AHMETBEJA","address":""},{"code":"247","name":"ANDON VRETO","address":""},{"code":"248","name":"HASIM KOSOVA PAFTAL","address":""},{"code":"249","name":"ALBAN RRODHE","address":""},{"code":"250","name":"ERVISI LLAZIT REMAS","address":""},{"code":"251","name":"ISA ZELA DUSHK","address":""},{"code":"252","name":"llukan bixheku ura vajgurore","address":""},{"code":"253","name":"ADMIR BALTA TIRAN","address":""},{"code":"254","name":"HASMANI PEQIN ROZMARIN","address":""},{"code":"255","name":"ZYRAJA PEQIN ROZMARIN","address":""},{"code":"256","name":"ILIR PROGMI PEQIN ROZMARIN 17/1","address":""},{"code":"257","name":"ASTRIT ALLUSHI","address":""},{"code":"258","name":"ISUF KAPLLANI PEQIN","address":""},{"code":"259","name":"Gazmir Kurti BURREL","address":""},{"code":"260","name":"AHMET HYSEN LIKAJ BURREL","address":""},{"code":"261","name":"NIKOLLAQ UKAJ BURREL","address":""},{"code":"262","name":"GORKA","address":""},{"code":"263","name":"AGIM KONI ROZMARINE PEQIN","address":""},{"code":"264","name":"BEHAR SULA","address":""},{"code":"265","name":"ZARIK ZAKA LIBOFAH","address":""},{"code":"266","name":"ELTON AGOLLI KORC","address":""},{"code":"267","name":"ELVIS OSMANI KOSOV","address":""},{"code":"268","name":"Nazmi Alimeta PRRENJAS","address":""},{"code":"269","name":"PELLUMB XHANARI ALLKAJ","address":""},{"code":"270","name":"ELBA SHEHU GRAMSH","address":""},{"code":"271","name":"ALEKSANDER MARKU SHKODER","address":""},{"code":"272","name":"YLLI SHEU","address":""},{"code":"273","name":"VESEL MUCAJ SHKODER","address":""},{"code":"274","name":"SULEJMAN MEKO MALIQ","address":""},{"code":"275","name":"AZEM CINA","address":""},{"code":"276","name":"ESAT ZANI","address":""},{"code":"277","name":"JETNOR KADILLARI","address":""},{"code":"278","name":"YLBER SHEHU fit flores KOSOV","address":""},{"code":"279","name":"xhoda elbasan","address":""},{"code":"280","name":"LADI QAF GJASHT","address":""},{"code":"281","name":"QAZIM CEKA ELBASAN","address":""},{"code":"282","name":"KRESHNIK ABAZI VLOR","address":""},{"code":"283","name":"VIKTOR MACE","address":""},{"code":"284","name":"ALB KALUSTNAN","address":""},{"code":"285","name":"RIMI ELBASAN","address":""},{"code":"286","name":"KLODIAN OSEKU BERAT","address":""},{"code":"287","name":"SOKOL AGALLIU BERAT","address":""},{"code":"288","name":"DRILON DAJA","address":""},{"code":"289","name":"MARIGLEN ZHULEKU BILISHT","address":""},{"code":"290","name":"GEZIM PROGMI PEQIN","address":""},{"code":"291","name":"ILIR KAJA KOLONJ","address":""},{"code":"292","name":"SHEFQET HYSA GRAMSH","address":""},{"code":"293","name":"GAZ MAKSUTI","address":""},{"code":"294","name":"EMILJANO XHAJA","address":""},{"code":"295","name":"AGRON RRENJA","address":""},{"code":"296","name":"SAFET MANATI LUSHNJE","address":""},{"code":"297","name":"YLLI SKENDERAJ","address":""},{"code":"298","name":"REDIS KORRESHI","address":""},{"code":"299","name":"LANDI PRIFTI","address":""},{"code":"300","name":"Mbetjet","address":""},{"code":"301","name":"FATOS BITI","address":""},{"code":"302","name":"REDI SPAHILLARI KORCE","address":""},{"code":"303","name":"RESMI MERAJ","address":""},{"code":"304","name":"ELVIS THIMO","address":""},{"code":"305","name":"ALTIN BERBATI","address":""},{"code":"306","name":"ARBER HASANI","address":""},{"code":"307","name":"QEMAL BEPOSHI BERAT","address":""},{"code":"308","name":"Selman Osmenaj BERAT","address":""},{"code":"309","name":"AFRIM DEDEJ DUSHK","address":""},{"code":"310","name":"VULLNET POGRADEC","address":""},{"code":"311","name":"LUIGJ STERKAJ","address":""},{"code":"312","name":"DRILON VOCI BULQIZE","address":""},{"code":"313","name":"NDRICIM ALLA","address":""},{"code":"314","name":"ALDO NAQELLARI MALIQ","address":""},{"code":"315","name":"DASHI(OLGERT JANOS) SHENGJERGJ","address":""},{"code":"316","name":"BIDAJ","address":""},{"code":"317","name":"GJOVALIN POPAJ","address":""},{"code":"318","name":"KUJTIM SELFO BALLSH","address":""},{"code":"319","name":"ALBAN SULI ELBASAN","address":""},{"code":"320","name":"BIG SALLAKU BELSH","address":""},{"code":"321","name":"MURAT SHEGA ROZMARINE PEQIN","address":""},{"code":"322","name":"Agim Cela Ballagat","address":""},{"code":"323","name":"ERLAND BLLOSHMI BABUNJE","address":""},{"code":"324","name":"BEKTASH BALI","address":""},{"code":"325","name":"MISIR KOCI PEQIN","address":""},{"code":"326","name":"GAZI KOLDASHI KUKES","address":""},{"code":"327","name":"DANE","address":""},{"code":"328","name":"GEZIM KUMANAKU","address":""},{"code":"400","name":"KTHIM NE ORIGJINE","address":""},{"code":"500","name":"BIOBES PERPUNUAR","address":""},{"code":"950","name":"KALIM LENDE E PARE NE PRODUKT FINAL","address":""},{"code":"999","name":"Kalim org. ne konv.","address":""},{"code":"329","name":"CIM PLAKU PAJOVE","address":""}];
 function normalizeSupplierName(v){return String(v||'').toUpperCase().replace(/[^A-ZËÇ0-9]/g,'')}
-function importOfficialSupplierCodes(){if(!window.state)return setTimeout(importOfficialSupplierCodes,200);if(state.supplierCatalogVersion===1)return;let aliases={'SOKOLAGALLIU':'287','FLAMURGURI':'118','ARBENKOCI':'219'};state.suppliers.forEach(s=>{let code=aliases[normalizeSupplierName(s.name)];if(code)s.code=code});let existingCodes=new Set(state.suppliers.map(s=>String(s.code)));officialSupplierCatalog.forEach(r=>{if(existingCodes.has(r.code))return;state.suppliers.push({id:'SUP-'+r.code,code:r.code,name:r.name,address:r.address||'',region:'',phone:'',balance:0,active:true});existingCodes.add(r.code)});state.supplierCatalogVersion=1;state.events.push({user:evUser(),date:new Date().toLocaleString('sq-AL'),type:'Import furnitorësh',ref:'REG-FURNITOR',text:officialSupplierCatalog.length+' kode zyrtare furnitorësh u importuan nga lista PDF'});save();renderNav();render();toast('Lista zyrtare me kode furnitorësh u importua')}
+function importOfficialSupplierCodes(){if(!window.state)return setTimeout(importOfficialSupplierCodes,200);if(state.supplierCatalogVersion===1)return;let aliases={};state.suppliers.forEach(s=>{let code=aliases[normalizeSupplierName(s.name)];if(code)s.code=code});let existingCodes=new Set(state.suppliers.map(s=>String(s.code)));officialSupplierCatalog.forEach(r=>{if(existingCodes.has(r.code))return;state.suppliers.push({id:'SUP-'+r.code,code:r.code,name:r.name,address:r.address||'',region:'',phone:'',balance:0,active:true});existingCodes.add(r.code)});state.supplierCatalogVersion=1;state.events.push({user:evUser(),date:new Date().toLocaleString('sq-AL'),type:'Import furnitorësh',ref:'REG-FURNITOR',text:officialSupplierCatalog.length+' kode zyrtare furnitorësh u importuan nga lista PDF'});save();renderNav();render();toast('Lista zyrtare me kode furnitorësh u importua')}
 setTimeout(importOfficialSupplierCodes,500);
 </script>
 <style>.sales-doc{background:#fff;border:1px solid #222;padding:10mm;color:#111;max-width:190mm;margin:auto}.sales-head{display:grid;grid-template-columns:1fr 1fr;border:2px solid #111}.sales-head>div{padding:8px;border-right:1px solid #111}.sales-head>div:last-child{border:0}.sales-title{font-size:24px;font-weight:900;text-align:center;margin:10px}</style>
@@ -1494,7 +1494,7 @@ function odooSalesFullReport(){return odooReportHeader('Analiza e Shitjeve')+sal
 function odooModuleContent(){return({sales:odooSalesFullReport,purchase:odooPurchaseReport,inventory:odooInventoryReport,products:odooProductsReport,processing:odooProcessingReport,finance:odooFinanceReport,exports:odooExportsReport,trace:odooTraceReport}[odooReportModule]||odooReportHome)()}
 function exportCurrentOdooModule(){let data={purchase:purchaseReportData,inventory:inventoryReportData,products:productAnalysisData,processing:processReportData,finance:financeReportData,exports:exportReportData,trace:traceReportData,sales:salesReportData}[odooReportModule]?.()||[];if(!data.length)return toast('Nuk ka të dhëna për eksport');let headers=Object.keys(data[0]),rows=data.map(x=>headers.map(h=>x[h] instanceof Set?[...x[h]].join(', '):x[h]));makeXlsx('ODOO19-'+odooReportModule.toUpperCase()+'-'+new Date().toISOString().slice(0,10)+'.xlsx',headers,rows)}
 reportsMode='odoo';
-views.reports=function(){let header=head('Raportet','Raporte të lidhura me transaksionet reale të ERP-së'),tabs=`<div class="reports-mode-tabs"><button class="btn ${reportsMode==='alpha'?'active':''}" onclick="reportsMode='alpha';render()">🏛 Raporte Financiare (Alpha)</button><button class="btn ${reportsMode==='odoo'?'active':''}" onclick="reportsMode='odoo';odooReportModule='';render()">🏢 Raporte Odoo 19 Enterprise</button><button class="btn ${reportsMode==='vyapar'?'active':''}" onclick="if(typeof vyEnter==='function')vyEnter();else{reportsMode='vyapar';render()}">📦 Raporte Vyapar Desktop</button></div>`;if(reportsMode==='alpha')return header+tabs+alphaReportsHome();reportsMode='odoo';return header+tabs+reportFiltersHtml()+odooModuleContent()}
+views.reports=function(){let header=head('Raportet','Raporte të lidhura me transaksionet reale të ERP-së'),tabs=`<div class="reports-mode-tabs"><button class="btn ${reportsMode==='alpha'?'active':''}" onclick="reportsMode='alpha';render()">🏛 Raporte Alpha</button><button class="btn ${reportsMode==='odoo'?'active':''}" onclick="reportsMode='odoo';odooReportModule='';render()">🏢 Raporte Odoo 19 Enterprise</button><button class="btn ${reportsMode==='vyapar'?'active':''}" onclick="if(typeof vyEnter==='function')vyEnter();else{reportsMode='vyapar';render()}">📦 Raporte Vyapar Desktop</button></div>`;if(reportsMode==='alpha')return header+tabs+alphaReportsHome();reportsMode='odoo';return header+tabs+reportFiltersHtml()+odooModuleContent()}
 </script>
 <style>.odoo-advanced{background:#fff;border:1px solid var(--line);border-radius:8px;padding:11px;margin-bottom:12px}.odoo-advanced-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:7px}.odoo-advanced input{width:100%;border:1px solid var(--line);border-radius:6px;padding:8px}.odoo-filter-title{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:4px}.odoo-choice-row{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}.odoo-choice-row .active{background:var(--brand);color:#fff}.pivot-total{background:#e8f5ed;font-weight:800}</style><script>
 let odooAdv={customer:'',product:'',supplier:'',warehouse:'',status:'',currency:'',country:'',organic:'',group1:'customer',group2:'product',measure:'revenue'};
@@ -1541,7 +1541,7 @@ function odooCleanView(){let data=odooFilteredDataset();if(odooViewMode==='pivot
 function odooCleanGraph(data){let g=odooAdv.group1||odooModuleFields()[0]?.[0],map={};data.forEach(r=>{let k=odooGroupValue(r,g);map[k]=(map[k]||0)+odooMetric(r)});let arr=Object.entries(map).map(([name,revenue])=>({name,revenue,qty:revenue,margin:revenue,count:revenue})).sort((a,b)=>b.revenue-a.revenue);return `<div class="odoo-graph-options"><button class="btn small ${odooChartType==='bar'?'active':''}" onclick="odooChartType='bar';render()">▥ Shtylla</button><button class="btn small ${odooChartType==='line'?'active':''}" onclick="odooChartType='line';render()">⌁ Vijë</button><button class="btn small ${odooChartType==='pie'?'active':''}" onclick="odooChartType='pie';render()">◉ Rreth</button></div>${reportBars((odooModuleFields().find(x=>x[0]===g)?.[1]||g)+' — '+odooAdv.measure,arr)}`}
 function odooCleanList(data){if(!data.length)return'<div class="empty">Nuk ka të dhëna për filtrat e zgjedhur.</div>';let heads=Object.keys(data[0]).filter(k=>typeof data[0][k]!=='object').slice(0,14);return `<div class="odoo-list table-wrap"><table><thead><tr>${heads.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${data.map(r=>`<tr>${heads.map(h=>`<td>${typeof r[h]==='number'?fmt2(r[h]):esc(r[h]??'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`}
 const odooModuleContentCleanBase=odooModuleContent;odooModuleContent=function(){if(!odooReportModule)return odooReportHome();return odooReportHeader(({sales:'Analiza e Shitjeve',purchase:'Analiza e Blerjeve',inventory:'Analiza e Inventarit',products:'Analiza e Produkteve',processing:'Analiza e Përpunimit',finance:'Analiza Financiare',exports:'Analiza e Eksporteve',trace:'Gjurmueshmëria'})[odooReportModule])+odooCleanToolbar()}
-views.reports=function(){let header=head('Raportet','Analiza të lidhura me transaksionet reale'),tabs=`<div class="reports-mode-tabs"><button class="btn ${reportsMode==='alpha'?'active':''}" onclick="reportsMode='alpha';render()">🏛 Raporte Financiare (Alpha)</button><button class="btn ${reportsMode==='odoo'?'active':''}" onclick="reportsMode='odoo';odooReportModule='';render()">🏢 Raporte Odoo 19 Enterprise</button><button class="btn ${reportsMode==='vyapar'?'active':''}" onclick="if(typeof vyEnter==='function')vyEnter();else{reportsMode='vyapar';render()}">📦 Raporte Vyapar Desktop</button></div>`;return reportsMode==='alpha'?header+tabs+alphaReportsHome():header+tabs+odooModuleContent()}
+views.reports=function(){let header=head('Raportet','Analiza të lidhura me transaksionet reale'),tabs=`<div class="reports-mode-tabs"><button class="btn ${reportsMode==='alpha'?'active':''}" onclick="reportsMode='alpha';render()">🏛 Raporte Alpha</button><button class="btn ${reportsMode==='odoo'?'active':''}" onclick="reportsMode='odoo';odooReportModule='';render()">🏢 Raporte Odoo 19 Enterprise</button><button class="btn ${reportsMode==='vyapar'?'active':''}" onclick="if(typeof vyEnter==='function')vyEnter();else{reportsMode='vyapar';render()}">📦 Raporte Vyapar Desktop</button></div>`;return reportsMode==='alpha'?header+tabs+alphaReportsHome():header+tabs+odooModuleContent()}
 </script>
 <script>
 function resetOdooReportState(module){odooReportModule=module;salesReportFilters={from:'',to:'',q:''};odooAdv={customer:'',product:'',supplier:'',warehouse:'',status:'',currency:'',country:'',organic:'',group1:odooModuleFields()[0]?.[0]||'',group2:'',measure:module==='inventory'||module==='purchase'||module==='products'||module==='processing'?'qty':module==='trace'?'count':'revenue'}}
@@ -1977,6 +1977,19 @@ function escO(s) {
 
 const num = v => { let n = +v; return Number.isFinite(n) ? n : 0; };
 const sum = (a, f) => (a || []).reduce((s, x) => s + num(typeof f === 'function' ? f(x) : x[f]), 0);
+const arr = k => (typeof state !== 'undefined' && state && Array.isArray(state[k])) ? state[k] : [];
+const rec = (coll, id) => { if (!id) return {}; let r = (typeof by === 'function') ? by(coll, id) : null; return r && typeof r === 'object' ? r : {}; };
+const periodRows = rows => {
+  if (typeof window.periodRows === 'function') return window.periodRows(rows);
+  const from = (window.odooAdv && window.odooAdv.from) || '';
+  const to = (window.odooAdv && window.odooAdv.to) || '';
+  return (rows || []).filter(r => {
+    const d = String(r.date || '').slice(0, 10);
+    return (!from || d >= from) && (!to || d <= to);
+  });
+};
+window.arr = window.arr || arr;
+window.rec = window.rec || rec;
 
 const MODULES = [
   ['pnl', 'Profit and Loss (P&L)', 'account.report.pnl', '⚖', '#059669', 'Pasqyra e të Ardhurave dhe Shpenzimeve me krahasim me vitin 2025, KMSH nga WAC, marzhi bruto dhe fitimi neto'],
@@ -1984,9 +1997,9 @@ const MODULES = [
   ['cashflow', 'Cash Flow Statement', 'account.cash.flow', '💸', '#017E84', 'Pasqyra e flukseve monetare: aktiviteti operativ, investues dhe financiar'],
   ['trialbalance', 'Trial Balance (Bilanci i Verifikimit)', 'account.trial.balance', '∑', '#6366f1', 'Gjendjet fillestare, qarkullimi debi/kredi dhe saldot përfundimtare të llogarive 1–7'],
   ['aged', 'Aged Partner Balances', 'account.aged.partner', '⏳', '#dc2626', 'Maturimi i klientëve dhe furnitorëve: Aktuale, 1–30, 31–60, 61–90, mbi 90 ditë'],
-  ['sales', 'Sales Analysis', 'sale.report', '₳', '#176b49', 'Të ardhura, klientë, produkte, marzh bruto dhe çmime mesatare'],
-  ['purchase', 'Purchase Analysis', 'purchase.report', '🛒', '#2563eb', 'Furnitorë, produkte, pesha fizike vs faturimi, kosto dhe çmime'],
-  ['inventory', 'Inventory Valuation', 'stock.valuation', '▦', '#d97706', 'Gjendje, lote, magazina, lëvizje stoku, vlerësim WAC dhe alarme > 90 ditë'],
+  ['sales', 'Sales Analysis (Shitje)', 'sale.report', '₳', '#176b49', 'Të ardhura, klientë, produkte, marzh bruto dhe çmime mesatare'],
+  ['purchase', 'Purchase Analysis (Blerje)', 'purchase.report', '🛒', '#2563eb', 'Furnitorë, produkte, pesha fizike vs faturimi, kosto dhe çmime'],
+  ['inventory', 'Inventory Valuation (Inventar)', 'stock.valuation', '▦', '#d97706', 'Gjendje, lote, magazina, lëvizje stoku, vlerësim WAC dhe alarme > 90 ditë'],
   ['products', 'Product Performance', 'product.report', '❧', '#0891b2', 'Kartelat e artikujve: Blerë, Shitur, Stok, Kosto WAC, Marzh ALL dhe %'],
   ['processing', 'MRP / Manufacturing', 'mrp.report', '⚙', '#475569', 'Urdhrat e prodhimit, sasi hyrëse/dalëse, humbje procesi %, rendiment %'],
   ['exports', 'Export Deliveries', 'delivery.report', '🚚', '#0284c7', 'Ngarkesat ndërkombëtare, pesha neto/bruto, statuset EUR.1, Phyto, CMR'],
@@ -2671,9 +2684,9 @@ function odooWebClientNavbarHtml() {
       <ul class="o_menu_sections">
         <li class="o_menu_entry" onclick="odooSetModule('pnl')">Accounting</li>
         <li class="o_menu_entry ${['pnl','balancesheet','cashflow','trialbalance','aged'].includes(odooReportModule)?'active':''}" onclick="odooSetModule('pnl')">Reporting ▾</li>
-        <li class="o_menu_entry" onclick="odooSetModule('sales')">Sales</li>
-        <li class="o_menu_entry" onclick="odooSetModule('purchase')">Purchases</li>
-        <li class="o_menu_entry" onclick="odooSetModule('inventory')">Inventory</li>
+        <li class="o_menu_entry" onclick="odooSetModule('sales')">Sales (Shitje)</li>
+        <li class="o_menu_entry" onclick="odooSetModule('purchase')">Purchases (Blerje)</li>
+        <li class="o_menu_entry" onclick="odooSetModule('inventory')">Inventory (Inventar)</li>
       </ul>
     </div>
     <div class="o_navbar_right">
@@ -2701,9 +2714,9 @@ function odooReportingSubnavHtml() {
     ['cashflow', 'Cash Flow'],
     ['trialbalance', 'Trial Balance'],
     ['aged', 'Aged Partner Balances'],
-    ['sales', 'Sales Analysis'],
-    ['purchase', 'Purchase Analysis'],
-    ['inventory', 'Inventory Valuation'],
+    ['sales', 'Sales Analysis (Shitje)'],
+    ['purchase', 'Purchase Analysis (Blerje)'],
+    ['inventory', 'Inventory Valuation (Inventar)'],
     ['products', 'Product Performance'],
     ['processing', 'MRP / Manufacturing'],
     ['exports', 'Export Deliveries'],
@@ -5924,16 +5937,16 @@ setTimeout(function(){try{if(typeof state!=='undefined'&&state&&window.__biobesB
   // Persist reportsMode
   try{
     var saved=localStorage.getItem('biobesReportsMode');
-    if(saved==='alpha'||saved==='odoo') reportsMode=saved;
-    else reportsMode='odoo';
-  }catch(e){ reportsMode='odoo'; }
+    if(saved==='alpha'||saved==='odoo'||saved==='vyapar') reportsMode=saved;
+    else reportsMode='alpha';
+  }catch(e){ reportsMode='alpha'; }
   odooReportModule='';
 
   var reportsFinalBase=views.reports;
 
   function reportsModeTabs(activeOdoo){
     return `<div class="reports-mode-tabs">
-      <button class="btn ${activeOdoo?'':'active'}" onclick="reportsMode='alpha';try{localStorage.setItem('biobesReportsMode','alpha')}catch(e){};render()">🏛 Raporte Financiare (Alpha)</button>
+      <button class="btn ${activeOdoo?'':'active'}" onclick="reportsMode='alpha';try{localStorage.setItem('biobesReportsMode','alpha')}catch(e){};render()">🏛 Raporte Alpha</button>
       <button class="btn ${activeOdoo?'active':''}" onclick="reportsMode='odoo';odooReportModule='';try{localStorage.setItem('biobesReportsMode','odoo')}catch(e){};render()">🏢 Raporte Odoo 19 Enterprise</button>
       <button class="btn" onclick="if(typeof vyEnter==='function')vyEnter();else{reportsMode='vyapar';render()}">📦 Raporte Vyapar Desktop</button>
     </div>`;
@@ -10033,6 +10046,7 @@ const isBank=m=>/bank|transfer/i.test(String(m||''));
 const inP=d=>{d=String(d||'').slice(0,10);return(!S.from||d>=S.from)&&(!S.to||d<=S.to)};
 const matchQ=r=>{if(!S.q)return true;let q=S.q.toLocaleLowerCase('sq');return Object.values(r).some(v=>v!=null&&typeof v!=='object'&&typeof v!=='function'&&String(v).toLocaleLowerCase('sq').includes(q))};
 const periodRows=rows=>rows.filter(r=>inP(r.date)&&matchQ(r));
+try{window.periodRows=periodRows;window.arr=arr;window.rec=rec;}catch(e){}
 const link=(fn,id,text,cls)=>id?`<button type="button" class="link ${cls||''}" data-fn="${esc(fn)}" data-id="${esc(id)}" onclick="vyOpen(this.dataset.fn,this.dataset.id)">${esc(text==null||text===''?id:text)}</button>`:esc(text==null?'':text);
 const signed=v=>`<span class="${num(v)<0?'vy-neg':'vy-pos'}">${fmt(v)}</span>`;
 const pill=s=>{try{return status(s||'')}catch(e){return esc(s||'')}};
@@ -11064,7 +11078,7 @@ MOD.gstr = {
 
 /* ---------------- shtresa e pamjes ---------------- */
 function tabBtn(active){return `<button class="btn ${active?'active':''}" type="button" onclick="vyEnter()">📦 Raporte Vyapar Desktop</button>`}
-function modeTabs(){return `<div class="reports-mode-tabs"><button class="btn ${reportsMode==='alpha'?'active':''}" type="button" onclick="vyLeave('alpha')">🏛 Raporte Financiare (Alpha)</button><button class="btn ${reportsMode==='odoo'?'active':''}" type="button" onclick="vyLeave('odoo')">🏢 Raporte Odoo 19 Enterprise</button><button class="btn ${reportsMode==='vyapar'?'active':''}" type="button" onclick="vyEnter()">📦 Raporte Vyapar Desktop</button></div>`}
+function modeTabs(){return `<div class="reports-mode-tabs"><button class="btn ${reportsMode==='alpha'?'active':''}" type="button" onclick="vyLeave('alpha')">🏛 Raporte Alpha</button><button class="btn ${reportsMode==='odoo'?'active':''}" type="button" onclick="vyLeave('odoo')">🏢 Raporte Odoo 19 Enterprise</button><button class="btn ${reportsMode==='vyapar'?'active':''}" type="button" onclick="vyEnter()">📦 Raporte Vyapar Desktop</button></div>`}
 function injectTab(html){if(typeof html!=='string')return html;let m='<div class="reports-mode-tabs">',i=html.indexOf(m);if(i<0||html.indexOf('onclick="vyEnter()"')>=0)return html;let e=html.indexOf('>',i)+1;return html.slice(0,e)+tabBtn(false)+html.slice(e)}
 function railCounts(){try{return{purchases:arr('weighings').filter(w=>w&&w.status==='Konfirmuar').length,sales:arr('salesInvoices').filter(f=>f&&f.status==='Konfirmuar').length,daybook:arr('salesInvoices').length+arr('weighings').length+arr('payments').length+arr('customerPayments').length,alltx:arr('salesInvoices').length+arr('weighings').length+arr('payments').length+arr('customerPayments').length+arr('expenses').length,stock:arr('lots').filter(l=>l&&lotAvail(l)>0).length,article:arr('products').length,itempnl:arr('products').length,lowstock:arr('products').filter(p=>stockRows().filter(r=>r.productId===p.id).reduce((s,r)=>s+r.available,0)<=0).length,party:arr('customers').length+arr('suppliers').length,partyaging:arr('customers').length+arr('suppliers').length,finance:arr('payments').length+arr('customerPayments').length+arr('bankTransactions').length,expenses:arr('expenses').filter(d=>d&&d.status==='Konfirmuar').length,pnl:arr('salesInvoices').filter(f=>f&&f.status==='Konfirmuar').length,balancesheet:arr('customers').length+arr('suppliers').length,gstr:arr('salesInvoices').length+arr('weighings').length+arr('expenses').length,processing:arr('processes').length,exports:arr('shipments').length,trace:arr('lots').length}}catch(e){return{}}}
 function rail(){let counts=railCounts(),groups=[];MODS.forEach(m=>{let g=groups.find(x=>x.name===m[4]);if(!g)groups.push(g={name:m[4],items:[]});g.items.push(m)});return `<div class="vy-rail"><div class="vy-brand"><b>Vyapar Desktop Premium</b><small>Paneli Tregtar & Inventari · ${MODS.length} module</small></div>${groups.map(g=>`<h4>${esc(g.name)}</h4>${g.items.map(m=>`<button type="button" class="${S.mod===m[0]?'active':''}" onclick="vyGo('${m[0]}')"><i>${m[1]}</i><span>${esc(m[2])}</span>${counts[m[0]]!=null?`<small>${esc(counts[m[0]])}</small>`:''}</button>`).join('')}`).join('')}</div>`}
@@ -11582,7 +11596,7 @@ function sdWarehouseName(id){let w=by('warehouses',id);return w&&w.id?(w.code?w.
 function sdRackName(id){let r=by('racks',id);return r&&r.id?r.code+(r.name?' '+r.name:''):'—'}
 function sdProductLabel(id){let p=by('products',id);return p&&p.id?(p.code?p.code+' — ':'')+p.name:'—'}
 function sdSupplierLabel(id){let s=by('suppliers',id);return s&&s.id?(s.code?s.code+' — ':'')+s.name:''}
-function sdLotCode(sup,prod,date){let __z=window.lotCodeAuto?window.lotCodeAuto(sup):'';if(__z)return __z;let s=by('suppliers',sup),p=by('products',prod),base='B1'+(s&&(s.code||s.id)||'FH')+'-'+(p&&p.code||'000')+'-'+String(new Date(date||today()).getFullYear()).slice(-2);if(!(state.lots||[]).some(l=>l&&l.code===base))return base;let i=2,c;do{c=base+'/'+i;i++}while((state.lots||[]).some(l=>l&&l.code===c));return c}
+function sdLotCode(sup,prod,date){let s=by('suppliers',sup),p=by('products',prod),base='B1'+(s&&(s.code||s.id)||'FH')+'-'+(p&&p.code||'000')+'-'+String(new Date(date||today()).getFullYear()).slice(-2);if(!(state.lots||[]).some(l=>l&&l.code===base))return base;let i=2,c;do{c=base+'/'+i;i++}while((state.lots||[]).some(l=>l&&l.code===c));return c}
 function sdProductCost(prod){let p=by('products',prod)||{};try{if(typeof historicalProductCost==='function'){let c=+historicalProductCost(prod,today());if(c>0)return c}}catch(e){}return +p.purchasePrice||0}
 function sdLotWac(lotId){let l=by('lots',lotId);if(!l||!l.id)return 0;if(+l.unitCost>0)return +l.unitCost;try{let q=0,v=0;stockMoves().forEach(m=>{if(m&&m.product===l.product&&m.status!=='Anuluar'&&+m.qty>0&&+m.unitCost>0){q+=+m.qty;v+=(+m.qty)*(+m.unitCost)}});if(q>0)return r2(v/q)}catch(e){}return sdProductCost(l.product)}
 function sdAvailableLots(warehouse,product){return (state.lots||[]).filter(l=>l&&l.id&&(!warehouse||l.warehouse===warehouse)&&(!product||l.product===product)&&!/anul|bllok/i.test(String(l.status||''))&&lotAvail(l)>0.0005)}
@@ -11829,13 +11843,18 @@ console.log(VERSION+' aktiv');
 #modal .sdf-sheet .sdf-party{display:flex;flex-direction:column;gap:2px;margin-top:4px}
 #modal .sdf-sheet .sdf-party .sdf-row>*:first-child{flex:0 0 38%}
 @media (max-width:640px){
-.sdf-sheet{padding:8px}.sdf-sheet .sdf-head{grid-template-columns:1fr}.sdf-sheet .sdf-title{border-left:0;border-right:0;border-top:1px solid #111;border-bottom:1px solid #111}.sdf-sheet .sdf-sign{gap:16px}
+.modal-bg{padding:8px 6px!important}
+.modal{width:100%!important;max-width:calc(100vw - 12px)!important;box-sizing:border-box!important}
+.modal-body{padding:10px 8px!important;max-width:100%!important;box-sizing:border-box!important}
+.modal-foot{padding:8px 6px!important;flex-wrap:wrap!important;gap:6px!important}
+.sdf-sheet{padding:6px;max-width:100%!important;box-sizing:border-box!important}
+.sdf-sheet .sdf-head{grid-template-columns:1fr}.sdf-sheet .sdf-title{border-left:0;border-right:0;border-top:1px solid #111;border-bottom:1px solid #111}.sdf-sheet .sdf-sign{gap:16px}
 /* në celular çdo rresht i fletës bëhet kartë me dy rreshta: [Nr.] emërtimi (+ nën-rreshti) / Sasia | Çmimi | Vlefta — pa rrëshqitje horizontale */
-.sdf-sheet .sdf-wrap{overflow:visible}
-.sdf-sheet table.sdf-table{min-width:0;display:block;border:1px solid #111}
+.sdf-sheet .sdf-wrap{overflow:visible;max-width:100%!important}
+.sdf-sheet table.sdf-table{min-width:0;width:100%!important;max-width:100%!important;display:block;border:1px solid #111}
 .sdf-sheet table.sdf-table colgroup,.sdf-sheet table.sdf-table thead{display:none}
 .sdf-sheet table.sdf-table tbody,.sdf-sheet table.sdf-table tfoot{display:block}
-.sdf-sheet table.sdf-table tr{display:grid;grid-template-columns:26px 1fr 1fr 1.15fr 24px;border-bottom:1px solid #111}
+.sdf-sheet table.sdf-table tr{display:grid;grid-template-columns:26px minmax(0,1fr) minmax(0,1fr) minmax(0,1.15fr) 24px;border-bottom:1px solid #111}
 .sdf-sheet table.sdf-table td,.sdf-sheet table.sdf-table th{border:0;display:block;min-width:0}
 .sdf-sheet table.sdf-table tr.sd-line td.sd-n{grid-row:1/3;grid-column:1;border-right:1px solid #111}
 .sdf-sheet table.sdf-table tr.sd-line td.sdf-name{grid-column:2/5;grid-row:1}
@@ -11849,12 +11868,16 @@ console.log(VERSION+' aktiv');
 .sdf-sheet table.sdf-table tr.sd-line td.sdf-cost::before{content:'Çmimi ALL/kg'}
 .sdf-sheet table.sdf-table tr.sd-line td.sdl-value::before{content:'Vlefta ALL'}
 .sdf-sheet table.sdf-table tr.sd-line td.sdf-qty::before,.sdf-sheet table.sdf-table tr.sd-line td.sdf-cost::before,.sdf-sheet table.sdf-table tr.sd-line td.sdl-value::before{display:block;font-size:9.5px;color:#667;font-family:system-ui,Segoe UI,Arial;text-align:left;font-weight:400;line-height:1.2}
-.sdf-sheet table.sdf-table tr.sdf-blank{grid-template-columns:26px 1fr}
+.sdf-sheet table.sdf-table tr.sdf-blank{grid-template-columns:26px minmax(0,1fr)}
 .sdf-sheet table.sdf-table tr.sdf-blank td:first-child{border-right:1px solid #111}
 .sdf-sheet table.sdf-table tr.sdf-blank td:nth-child(n+3){display:none}
+.sdf-sheet table.sdf-table tr.sdf-blank .sdf-add-btn{max-width:100%!important;white-space:normal!important}
 .sdf-sheet table.sdf-table tfoot tr{grid-template-columns:1fr auto auto auto;gap:8px;align-items:baseline;border-bottom:0;padding:0 4px}
 .sdf-sheet table.sdf-table tfoot th:first-child{text-align:left}
 .sdf-sheet table.sdf-table tfoot th:last-child{display:none}
+#modal .sdf-sheet .sdf-nr input[type=date]{min-width:0!important;width:110px!important}
+#modal .sdf-sheet #sdNumber{width:90px!important}
+.sdf-hint{white-space:normal!important;overflow-wrap:break-word!important}
 }
 /* raportet tabelare të fletëve */
 .sdr-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
@@ -12085,7 +12108,7 @@ window.sdrOpenReports=function(){try{if(typeof page!=='undefined'&&page!=='repor
 window.sdrCloseReports=function(){window.__sdrReportsOpen=false;render()};
 try{if(typeof views!=='undefined'&&views&&typeof views.reports==='function'){const baseReports=views.reports;views.reports=function(){if(window.__sdrReportsOpen)return head('Raportet','Fletët e magazinës — raporte tabelare (hyrje / dalje)')+'<div class="reports-mode-tabs"><button class="btn" type="button" onclick="sdrCloseReports()">← Raportet</button><button class="btn active" type="button">📋 Fletët e magazinës</button></div>'+window.stockDocReportsView();
  let h=baseReports.apply(this,arguments);try{let inAlpha=(typeof alphaActiveReport!=='undefined'&&alphaActiveReport);if(typeof h==='string'&&!inAlpha&&h.indexOf('onclick="sdrOpenReports()"')<0){let m='<div class="reports-mode-tabs">',i=h.indexOf(m);if(i>=0){let e=h.indexOf('</div>',i);if(e>i)h=h.slice(0,e)+'<button class="btn" type="button" onclick="sdrOpenReports()">📋 Fletët e magazinës</button>'+h.slice(e)}}}catch(e){}return h}}}catch(e){console.error(VERSION,'views.reports',e)}
-try{const baseGo=window.go;if(typeof baseGo==='function'){window.go=function(p){window.__sdrReportsOpen=false;if(p!=='warehouse')window.__sdWhTab='docs';return baseGo.apply(this,arguments)};try{go=window.go}catch(e){}}}catch(e){}
+try{const baseGo=window.go;if(typeof baseGo==='function'){window.go=function(p){window.__sdrReportsOpen=false;if(p==='reports'){try{alphaActiveReport='';alphaShowResult=false;alphaPurchaseShow=false;alphaPurchaseAnalyticShow=false;alphaArticleShow=false;alphaStockShow=false;alphaAccountingShow=false;alphaCashShow=false;alphaReportGroup='home'}catch(e){}}if(p!=='warehouse')window.__sdWhTab='docs';return baseGo.apply(this,arguments)};try{go=window.go}catch(e){}}}catch(e){}
 
 window.__biobesStockDocsV2={version:VERSION,views:VIEWS.map(v=>v[0]),lineRows,buildReport,formRows:FORM_ROWS};
 console.log(VERSION+' aktiv: formulari i fletës si dokumenti i letrës + '+VIEWS.length+' raporte tabelare');
@@ -14594,7 +14617,7 @@ function rtEffectiveModules(u){let out={};rtModules().forEach(m=>{let acts=rtAll
 window.rtBuildRights=rtBuildRights;window.rtModulesFromRights=rtModulesFromRights;window.rtSummary=rtSummary;
 
 /* ---------- vendimi: userCan / requirePermission / isAdmin / requireAdmin ---------- */
-userCan=function(module,action){action=action||'view';let m=rtCanon(module);if(action==='view'&&(m==='fiscalization'||m==='accounting'||m==='sales'||m==='dashboard'))return true;if(action==='print')return true;let u=null;try{u=activeUser()}catch(e){}if(!u)return action==='view';if(u.role==='ROLE-ADMIN')return true;
+userCan=function(module,action){action=action||'view';let m=rtCanon(module);if(action==='view'&&(m==='fiscalization'||m==='accounting'||m==='sales'||m==='dashboard'))return true;let u=null;try{u=activeUser()}catch(e){}if(!u)return action==='view';if(u.role==='ROLE-ADMIN')return true;
  let a=RT_ACTION_ALIAS[action]||action,r=null;try{r=(securityState().roles||[]).find(x=>x.id===u.role)}catch(e){}
  if(r&&r.permissions&&(r.permissions['*']||[]).includes('*'))return true;
  let R=u.rights;
@@ -15381,27 +15404,17 @@ printOnly = function(elementId, title) {
 
   try {
     const frame = document.getElementById('biobesPrintFrame');
-    if (frame) {
-      frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:1200px;height:900px;border:0';
-      try {
-        if (frame.contentWindow) {
-          // Handled reliably by main window print root to avoid conflicting dual print dialogs
-          frame.contentWindow.print = function() {};
-        }
-      } catch(_sp) {}
-    }
+    if (!frame) return;
+    frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:1200px;height:900px;border:0';
+    if (!isIOS()) return;
 
-    const doc = frame ? frame.contentDocument : null;
+    const doc = frame.contentDocument;
+    if (!doc || !doc.body) return;
     document.getElementById('biobesPrintRoot')?.remove();
     const root = document.createElement('div');
     root.id = 'biobesPrintRoot';
 
-    let contentHtml = '';
-    if (doc && doc.body && doc.body.innerHTML) {
-      contentHtml = '<style>' + [...doc.querySelectorAll('style')].map(s => s.textContent).join('\n') + '</style>' + doc.body.innerHTML;
-    } else if (el) {
-      contentHtml = '<style>' + [...document.querySelectorAll('style')].map(s => s.textContent).join('\n') + '</style>' + el.outerHTML;
-    }
+    let contentHtml = '<style>' + [...doc.querySelectorAll('style')].map(s => s.textContent).join('\n') + '</style>' + doc.body.innerHTML;
 
     if (contentHtml) {
       let isLandscape = (elementId === 'printTraceDossier' || (arguments[2] && (arguments[2].landscape || arguments[2].orientation === 'landscape')));
@@ -15449,9 +15462,7 @@ printOnly = function(elementId, title) {
       canvasToImages(root);
       document.body.appendChild(root);
 
-      if (isIOS() && frame) {
-        frame.remove();
-      }
+      frame.remove();
 
       document.body.classList.add('biobes-print-active');
       let oldTitle = document.title;
@@ -15475,9 +15486,8 @@ printOnly = function(elementId, title) {
           window.print();
         } catch(e) {
           console.warn('window.print error:', e);
-          try { frame?.contentWindow?.focus(); frame?.contentWindow?.print(); } catch(_e) {}
         }
-        setTimeout(done, 60000);
+        setTimeout(done, 2500);
       }, 100);
     }
   } catch(e) {
@@ -19836,7 +19846,7 @@ window.openAlbanianSaleInvoice = function(id) {
   <div class="fiscal-action-bar" style="margin-bottom:12px;display:flex;gap:8px;justify-content:space-between;align-items:center;background:#f0fdf4;border:1px solid #bbf7d0;padding:10px 14px;border-radius:8px">
     <span style="font-weight:bold;color:#166534;font-size:13px">⚡ Faturë Tatimore Zyrtare (DPT) &amp; E Brendshme</span>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="printUnifiedInvoice('${f.id}')">🖨 Printo / Ruaj PDF</button>
+      <button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="printUnifiedInvoice('${f.id}')">🖨 Printo faturën</button>
       <button class="btn" onclick="exportDptSaleInvoiceXlsx('${f.id}')">📊 Shkarko Excel (XLSX)</button>
       <button class="btn" onclick="openGoodsTransportNote('${f.id}', 'sale')">🚚 Faturë Shoqëruese (WTN)</button>
       ${f.isFiscal ? `<button class="btn" onclick="verifyInvoiceOnDPT('${f.id}')">🔍 Verifiko DPT</button>` : ''}
@@ -19869,7 +19879,7 @@ window.openAlbanianSaleInvoice = function(id) {
      <button class="btn" onclick="exportDptSaleInvoiceXlsx('${f.id}')">📊 Shkarko Excel (DPT)</button>
      ${f.isFiscal ? `<button class="btn" onclick="verifyInvoiceOnDPT('${f.id}')">🔍 Verifiko DPT</button>` : ''}
      <button class="btn" onclick="openFiscalXmlModal('${f.id}')">XML DPT</button>
-     <button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="printUnifiedInvoice('${f.id}')">🖨 Printo / Ruaj PDF</button>`
+     <button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="printUnifiedInvoice('${f.id}')">Printo / PDF</button>`
   );
 
   if (f.isFiscal && typeof renderUnifiedQr === 'function') {
@@ -19891,7 +19901,7 @@ window.printPurchase = function(id) {
   <div class="fiscal-action-bar" style="margin-bottom:12px;display:flex;gap:8px;justify-content:space-between;align-items:center;background:#f0fdf4;border:1px solid #bbf7d0;padding:10px 14px;border-radius:8px">
     <span style="font-weight:bold;color:#166534;font-size:13px">⚡ Faturë Blerjeje / Vetëfaturim (DPT &amp; E Brendshme)</span>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="printUnifiedInvoice('${f.id}')">🖨 Printo / Ruaj PDF</button>
+      <button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="printUnifiedInvoice('${f.id}')">🖨 Printo faturën</button>
       <button class="btn" onclick="exportPurchaseDocumentXlsx('${f.id}')">📊 Shkarko Excel (XLSX)</button>
       <button class="btn" onclick="openGoodsTransportNote('${f.id}', 'purchase')">🚚 Faturë Shoqëruese (WTN)</button>
       ${f.isFiscal ? `<button class="btn" onclick="verifyInvoiceOnDPT('${f.id}')">🔍 Verifiko DPT</button>` : ''}
@@ -19921,7 +19931,7 @@ window.printPurchase = function(id) {
      <button class="btn" onclick="openGoodsTransportNote('${f.id}', 'purchase')">🚚 Faturë Shoqëruese</button>
      <button class="btn" onclick="exportPurchaseDocumentXlsx('${f.id}')">📊 Shkarko Excel (XLSX)</button>
      ${f.isFiscal ? `<button class="btn" onclick="verifyInvoiceOnDPT('${f.id}')">🔍 Verifiko DPT</button>` : ''}
-     <button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="printUnifiedInvoice('${f.id}')">🖨 Printo / Ruaj PDF</button>`
+     <button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="printUnifiedInvoice('${f.id}')">Printo / PDF</button>`
   );
 
   if (f.isFiscal && typeof renderUnifiedQr === 'function') {
@@ -19985,7 +19995,7 @@ window.openGoodsTransportNote = function(id, sourceKind) {
   <div class="fiscal-action-bar" style="margin-bottom:12px;display:flex;gap:8px;justify-content:space-between;align-items:center;background:#f0fdf4;border:1px solid #bbf7d0;padding:10px 14px;border-radius:8px">
     <span style="font-weight:bold;color:#166534;font-size:13px">🚚 Faturë Shoqëruese e Mallit (WTN Zyrtare DPT)</span>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="printWtn('${doc.id}')">🖨 Printo / Ruaj PDF</button>
+      <button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="printWtn('${doc.id}')">🖨 Printo faturën</button>
       <button class="btn" onclick="exportGoodsTransportNoteXlsx('${doc.id}', '${sourceKind}')">📊 Shkarko Excel (XLSX)</button>
       <button class="btn" onclick="verifyInvoiceOnDPT('${doc.id}')">🔍 Verifiko DPT</button>
     </div>
@@ -20013,7 +20023,7 @@ window.openGoodsTransportNote = function(id, sourceKind) {
     `<button class="btn" onclick="closeModal()">Mbyll</button>
      <button class="btn" onclick="exportGoodsTransportNoteXlsx('${doc.id}', '${sourceKind}')">📊 Shkarko Excel (WTN)</button>
      <button class="btn" onclick="verifyInvoiceOnDPT('${doc.id}')">🔍 Verifiko DPT</button>
-     <button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="printWtn('${doc.id}')">🖨 Printo / Ruaj PDF</button>`
+     <button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="printWtn('${doc.id}')">Printo / PDF</button>`
   );
 
   if (isFiscalWtn && typeof renderUnifiedQr === 'function') {
@@ -20238,7 +20248,7 @@ window.views.fiscalization = function() {
     ];
   });
 
-  return head('Fiskalizimi dhe Lëvizja e Mallrave (DPT / CIS / WTN)',
+  return head('Fiskalizimi me Drejtorinë e Përgjithshme të Tatimeve (DPT)',
     'Sistemi zyrtar i faturave tatimore dhe faturave shoqëruese të mallit · Ligji Nr. 87/2019',
     `<button class="btn primary" style="background:#166534;color:#fff;font-weight:bold" onclick="openFiscalSettingsModal()">⚙️ Konfiguro Parametrat & Certifikatën</button>
      <button class="btn" onclick="openFiscalSettingsModal('cert')">🔐 Certifikata AKSHI</button>
