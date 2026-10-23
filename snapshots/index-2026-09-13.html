@@ -4655,23 +4655,17 @@ async function serverUserDelete(id){let me=null;try{me=serverUser}catch(e){}if(m
 function copyInitialCredential(){let p='';try{p=document.getElementById('initialCredentialValue')?.textContent||''}catch(e){}if(!p)return toast('Nuk ka kredencial për kopjim');let done=ok=>toast(ok?'U kopjua — ngjiteni te Fjalëkalimi':'Kopjimi dështoi — shkruajeni manualisht, me kujdes');if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(p).then(()=>done(true)).catch(()=>fallbackCopyInitial(p,done))}else fallbackCopyInitial(p,done)}
 function fallbackCopyInitial(p,done){try{let ta=document.createElement('textarea');ta.value=p;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();ta.setSelectionRange(0,p.length);let ok=false;try{ok=document.execCommand('copy')}catch(e){ok=false}ta.remove();done(!!ok)}catch(e){done(false)}}
 function accountRecovery(){
+  let online='';try{online=serverBaseUrl()}catch(e){}
   try{document.getElementById('modal').classList.add('above-lock')}catch(e){}
-  forgotStep1();
+  if(online){forgotStep1();return}
+  if(hasLocalAdmin()){
+    modal('Keni harruar fjalëkalimin?',`<div class="card"><p>Fjalëkalimin jua rivendos <b>administratori</b> — kontaktojeni atë (te <b>Përdoruesit</b> hap llogarinë tuaj, shkruan fjalëkalim të përkohshëm dhe shtyp <b>Ruaj</b>; ju do ta ndërroni në hyrjen tjetër).</p></div>`,`<button class="btn primary" onclick="closeModal()">E kuptova</button>`);
+    return;
+  }
+  modal('Rikuperimi i qasjes',`<div class="card"><p><b>Nuk u gjet asnjë administrator aktiv në këtë pajisje.</b> Ky veprim rivendos <b>vetëm llogarinë admin</b> me kredencial të ri — përdoruesit e tjerë dhe të dhënat e biznesit (stok, fatura, pagesa) <b>ruhen</b>.</p><div class="field"><label>Shkruaj RIVENDOS për konfirmim</label><input id="recConfirm" autocomplete="off"></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="executeAccountRecovery()">Rivendos qasjen</button>`);
 }
 function forgotStep1(){
-  modal('Keni harruar fjalëkalimin?',`
-    <div class="card" style="border-left:4px solid var(--brand);margin-bottom:14px;background:#f6faf8">
-      <h3 style="margin-top:0;color:var(--brand)">⚡ Rikuperim i menjëhershëm i Administratorit</h3>
-      <p>Nëse jeni bllokuar ose keni harruar fjalëkalimin, rivendoseni llogarinë <b>admin</b> me kredencialin zyrtar <b>Biobes2026!1</b> pa pritur emailin dhe pa prekur të dhënat.</p>
-      <button class="btn primary" style="width:100%;padding:10px" onclick="executeAccountRecovery()">⚡ Rivendos Administratorin (Biobes2026!1) dhe Hyr</button>
-    </div>
-    <div class="card">
-      <h3>📧 Ose dërgoni kod me email</h3>
-      <p>Shkruaj <b>username-in tënd</b> — do të marrësh një <b>kod 6-shifror me email</b> (nëse serveri qendror është aktiv).</p>
-      <div class="field"><label>Username-i yt</label><input id="fgUser" value="admin" autocomplete="username"></div>
-      <div id="fgServerErrorBox"></div>
-    </div>
-  `,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="forgotSendCode(this)">Dërgo kodin</button>`);
+  modal('Keni harruar fjalëkalimin?',`<div class="card"><p>Shkruaj <b>username-in tënd</b> — do të marrësh një <b>kod 6-shifror me email</b> (në emailin që ke të regjistruar te llogaria).</p><div class="field"><label>Username-i yt</label><input id="fgUser" value="admin" autocomplete="username"></div><p class="hint">Kodi 6-shifror dërgohet në adresën e-mail të regjistruar të përdoruesit. S'ke email të regjistruar? Kontakto administratorin.</p><div id="fgServerErrorBox"></div></div>`,`<button class="btn" onclick="closeModal()">Anulo</button><button class="btn primary" onclick="forgotSendCode(this)">Dërgo kodin</button>`);
 }
 let forgotSending=false;
 async function forgotSendCode(btn){
@@ -4681,10 +4675,10 @@ async function forgotSendCode(btn){
   forgotSending=true;
   let bt=null,btT='';
   try{bt=btn||null;if(bt){btT=bt.textContent;bt.disabled=true;bt.textContent='Po dërgohet…'}}catch(e){}
-  let __fto=5000;
+  let __fto=8000;
   try{if(window.__forgotTimeoutMs)__fto=window.__forgotTimeoutMs}catch(e){}
   try{
-    toast('Po verifikohet me serverin…');
+    toast('Po dërgohet kodi në email…');
     let r=null;
     try{
       r=await Promise.race([
@@ -4697,10 +4691,10 @@ async function forgotSendCode(btn){
       let box=document.getElementById('fgServerErrorBox');
       if(box){
         box.innerHTML=`<div style="margin-top:12px;padding:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#991b1b;font-size:13px">
-          <b>⚠️ ${esc(err)}:</b> Serveri qendror nuk është i lidhur me bazën e të dhënave për të dërguar email.<br>
-          Mund të hyni menjëherë duke klikuar butonin e mëposhtëm:
+          <b>⚠️ ${esc(err)}:</b> Serveri qendror nuk mund të dërgojë email aktualisht.<br>
+          Nëse dëshironi ta rivendosni fjalëkalimin lokalisht pa pritur emailin:
           <div style="margin-top:8px">
-            <button type="button" class="btn primary small" onclick="executeAccountRecovery()">⚡ Rivendos Administratorin në Biobes2026!1 dhe Hyr</button>
+            <button type="button" class="btn primary small" onclick="executeAccountRecovery()">Rivendos fjalëkalimin e administratorit</button>
           </div>
         </div>`;
       }
@@ -4714,7 +4708,12 @@ async function forgotSendCode(btn){
     try{if(bt){bt.disabled=false;bt.textContent=btT}}catch(e){}
   }
 }
-function forgotStep2(u){try{window._fgUser=u}catch(e){}modal('Vendos fjalëkalim të ri',`<div class="card"><p>Kodi 6-shifror iu dërgua <b>${esc(u)}</b> (nëse emaili ekziston). Skadon pas 15 minutash.</p><div class="field"><label>Kodi 6-shifror</label><input id="fgCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></div><div class="field"><label>Fjalëkalimi i ri (min 8)</label><input id="fgPass1" type="password"></div><div class="field"><label>Përsërit fjalëkalimin</label><input id="fgPass2" type="password"></div></div>`,`<button class="btn" onclick="forgotStep1()">Mbrapsht</button><button class="btn primary" onclick="forgotResetPassword()">Vendos fjalëkalimin</button>`)}
+function forgotStep2(u){
+  try{window._fgUser=u}catch(e){}
+  let userObj=state.users.find(x=>(x.username||'').toLowerCase()===String(u||'').toLowerCase());
+  let mailInfo=userObj&&userObj.email?` te adresa <b>${esc(userObj.email)}</b>`:'';
+  modal('Vendos fjalëkalim të ri',`<div class="card"><p>Kodi 6-shifror iu dërgua <b>${esc(u)}</b>${mailInfo} (nëse emaili ekziston). Skadon pas 15 minutash.</p><div class="field"><label>Kodi 6-shifror</label><input id="fgCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></div><div class="field"><label>Fjalëkalimi i ri (min 8)</label><input id="fgPass1" type="password"></div><div class="field"><label>Përsërit fjalëkalimin</label><input id="fgPass2" type="password"></div></div>`,`<button class="btn" onclick="forgotStep1()">Mbrapsht</button><button class="btn primary" onclick="forgotResetPassword()">Vendos fjalëkalimin</button>`);
+}
 let forgotResetting=false;
 async function forgotResetPassword(){if(forgotResetting)return;let u='';try{u=window._fgUser||''}catch(e){}let c='',a='',b='';try{c=(document.getElementById('fgCode')?.value||'').trim();a=document.getElementById('fgPass1')?.value||'';b=document.getElementById('fgPass2')?.value||''}catch(e){}if(!u)return toast('Fillo nga e para: shkruaj username-in');if(!/^\d{6}$/.test(c))return toast('Kodi duhet 6 shifra');if(a!==b||a.length<8)return toast('Fjalëkalimi min 8 karaktere (dhe i njëjtë në të dy fushat)');forgotResetting=true;try{let r=null;try{r=await apiCall('/api/auth/reset',{method:'POST',body:JSON.stringify({username:u,code:c,password:a})})}catch(e){}if(!r||!r.ok){toast((r&&r.data&&r.data.error)||'Nuk u arrit — provo përsëri');return}closeModal();showLogin();toast('Fjalëkalimi u vendos — hyni me të riun')}finally{forgotResetting=false}}
 function hasLocalAdmin(){try{let roles=securityState().roles;return state.users.some(u=>{if(u.active===false)return false;let r=roles.find(x=>x.id===u.role);if(!r)return false;let P=r.permissions||{};return(P['*']||[]).includes('*')||(P.users||[]).includes('*')||(P.users||[]).includes('manage')})}catch(e){return true}}
@@ -4728,9 +4727,9 @@ async function executeAccountRecovery(){
   if(!Array.isArray(state.users))state.users=[];
   let a=state.users.find(x=>x&&(x.username||'').toLowerCase()==='admin');
   if(a){
-    Object.assign(a,{name:'Administrator',role:'ROLE-ADMIN',active:true,passwordHash:h.hash,passwordSalt:h.salt,passwordIterations:h.iterations,mustChangePassword:false,failedAttempts:0,lockedUntil:null});
+    Object.assign(a,{name:'Administrator',email:a.email||'admin@biobes.al',role:'ROLE-ADMIN',active:true,passwordHash:h.hash,passwordSalt:h.salt,passwordIterations:h.iterations,mustChangePassword:false,failedAttempts:0,lockedUntil:null});
   }else{
-    a={id:'USR-ADMIN',username:'admin',name:'Administrator',role:'ROLE-ADMIN',active:true,passwordHash:h.hash,passwordSalt:h.salt,passwordIterations:h.iterations,mustChangePassword:false,failedAttempts:0,lockedUntil:null,createdAt:new Date().toISOString()};
+    a={id:'USR-ADMIN',username:'admin',name:'Administrator',email:'admin@biobes.al',role:'ROLE-ADMIN',active:true,passwordHash:h.hash,passwordSalt:h.salt,passwordIterations:h.iterations,mustChangePassword:false,failedAttempts:0,lockedUntil:null,createdAt:new Date().toISOString()};
     state.users.push(a);
   }
   save();
@@ -4830,9 +4829,10 @@ async function ensureInitialAdmin(){
   let adm=state.users.find(x=>x&&(x.username||'').toLowerCase()==='admin');
   let defaultPass='Biobes2026!1',h=await hashPassword(defaultPass);
   if(!adm){
-    state.users.push({id:'USR-ADMIN',username:'admin',name:'Administrator',role:'ROLE-ADMIN',active:true,passwordHash:h.hash,passwordSalt:h.salt,passwordIterations:h.iterations,mustChangePassword:false,failedAttempts:0,lockedUntil:null,createdAt:new Date().toISOString()});
+    state.users.push({id:'USR-ADMIN',username:'admin',name:'Administrator',email:'admin@biobes.al',role:'ROLE-ADMIN',active:true,passwordHash:h.hash,passwordSalt:h.salt,passwordIterations:h.iterations,mustChangePassword:false,failedAttempts:0,lockedUntil:null,createdAt:new Date().toISOString()});
     save();
   }else{
+    if(!adm.email)adm.email='admin@biobes.al';
     adm.active=true;
     adm.role='ROLE-ADMIN';
     adm.lockedUntil=null;
@@ -4942,7 +4942,7 @@ async function loginUser(){
 function showLogin(){
   if(document.getElementById('loginLock')||sessionUser())return;
   let __fc='';try{__fc=window.__freshAdminCred||''}catch(e){}
-  document.body.insertAdjacentHTML('beforeend',`<div id="loginLock" class="login-lock"><div class="login-card"><h2>BioBES ERP</h2><p>Hyni me llogarinë tuaj</p><div class="field"><label>Përdoruesi</label><input id="loginName" value="admin" autocomplete="username"></div><div class="field"><label>Fjalëkalimi</label><div style="position:relative;display:flex;align-items:center"><input id="loginPass" type="password" value="Biobes2026!1" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginUser()" style="padding-right:36px;width:100%"><button type="button" onclick="let inp=document.getElementById('loginPass');if(inp.type==='password'){inp.type='text';this.textContent='🔒'}else{inp.type='password';this.textContent='👁️'}" style="position:absolute;right:8px;background:none;border:none;cursor:pointer;font-size:16px;color:#718079;padding:4px" title="Shfaq/Fshih fjalëkalimin">👁️</button></div></div><p id="loginError" class="doc-missing"></p><button class="btn primary" onclick="loginUser()">Hyr</button><div style="margin-top:12px;padding:8px;background:#f3f7f5;border:1px solid #dfe6e2;border-radius:6px;font-size:11px;color:#456052;text-align:center">Kredencialet e paracaktuara: <b>admin</b> / <b>Biobes2026!1</b><div style="margin-top:4px"><a href="javascript:void(0)" onclick="document.getElementById('loginName').value='admin';document.getElementById('loginPass').value='Biobes2026!1';loginUser()" style="color:var(--brand);text-decoration:underline;font-weight:bold">⚡ Hyr direkt si Administrator</a></div></div><div id="initialCredentialBox" hidden></div><p style="text-align:center"><a class="link" onclick="accountRecovery()">Keni harruar fjalëkalimin?</a></p></div></div>`);
+  document.body.insertAdjacentHTML('beforeend',`<div id="loginLock" class="login-lock"><div class="login-card"><h2>BioBES ERP</h2><p>Hyni me llogarinë tuaj</p><div class="field"><label>Përdoruesi</label><input id="loginName" autocomplete="username"></div><div class="field"><label>Fjalëkalimi</label><input id="loginPass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginUser()"></div><p id="loginError" class="doc-missing"></p><button class="btn primary" onclick="loginUser()">Hyr</button><div id="initialCredentialBox" hidden></div><p style="text-align:center"><a class="link" onclick="accountRecovery()">Keni harruar fjalëkalimin?</a></p></div></div>`);
 }
 function revealInitialCredential(){let p=sessionStorage.getItem('biobesInitialCredential'),box=document.getElementById('initialCredentialBox');if(!p||!box)return;box.innerHTML=`<div class="card" style="border-color:#e1a93b;background:#fff9e8"><b>Kredencial njëpërdorimësh — ruajeni tani</b><p>Përdoruesi: <code>admin</code></p><p>Fjalëkalimi: <code id="initialCredentialValue">${esc(p)}</code></p><button class="btn small" onclick="copyInitialCredential()">Kopjo</button></div>`;sessionStorage.removeItem('biobesInitialCredential')}
 
@@ -4961,17 +4961,54 @@ return '<h3>🛡️ Mbrojtje & Rikuperim</h3>'
 function resetBootGuard(){try{localStorage.setItem('__biobesBootCrashes','0')}catch(e){}toast('Crash-counter u zerua');usersSecurityCenter()}
 function openKnownGood(){window.location.href='index.known-good.html'}
 function downloadDatedSnapshot(){fetch((window.location.pathname||'index.html').split('?')[0]).then(function(r){if(!r.ok)throw 0;return r.blob()}).then(function(b){let d=new Date().toISOString().slice(0,10);let a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='index-'+d+'.html';document.body.appendChild(a);a.click();setTimeout(function(){try{URL.revokeObjectURL(a.href);a.remove()}catch(e){}},1500);toast('Snapshot-i u shkarkua: index-'+d+'.html')}).catch(function(){toast('Snapshot-i nuk u shkarkua dot')})}
-function userEditForm(id=''){let u=state.users.find(x=>x.id===id);modal(u?'Ndrysho përdoruesin':'Përdorues i ri','<div class="form-grid"><div class="field" style="grid-column:1/-1"><label>Emri i plotë</label><input id="ueName" value="'+esc(u?u.name:'')+'"></div><div class="field"><label>Login (username)</label><input id="ueUser" value="'+esc(u?u.username:'')+'"></div><div class="field"><label>Fjalëkalimi</label><input id="uePass" type="password" placeholder="'+(u?'Bosh = pa ndryshim':'I detyrueshëm')+'"></div><div class="field"><label>Roli</label><select id="ueRole">'+opts(securityState().roles,x=>x.name,u?u.role:'')+'</select></div><div class="field"><label>Aktiv</label><input id="ueActive" type="checkbox" '+(!u||u.active!==false?'checked':'')+'></div>'+(u?'<div class="field"><label>Hyrja e fundit</label><div style="padding:8px 0">'+esc(u.lastLogin||'—')+'</div></div>':'')+'</div>'+(u?'<h3 style="margin-top:14px">Të drejtat e aksesit</h3><p class="hint">Nga roli: <b>'+esc((securityState().roles.find(x=>x.id===u.role)||{}).name||(u.role==='ROLE-USER'?'Përdorues':u.role))+'</b></p>'+odooRightsTable(u.role):'<p class="hint">Ruajeni përdoruesin — të drejtat e aksesit shfaqen këtu.</p>'),'<button class="btn" onclick="usersSecurityCenter()">Mbrapsht</button>'+(u?'<button class="btn" onclick="toggleLocalUser(\''+u.id+'\')">'+(u.active!==false?'Arkivo':'Aktivizo')+'</button><button class="btn danger" onclick="deleteLocalUser(\''+u.id+'\')">Fshi</button><button class="btn" onclick="cloneLocalUser(\''+u.id+'\')">Kopjo</button>':'')+'<button class="btn primary" onclick="saveUserSecurity(\''+id+'\')">Ruaj</button>')}
-async function saveUserSecurity(id){try{let username=$val('ueUser').trim(),name=$val('ueName').trim(),pass=$val('uePass');if(!username||!name||!$val('ueRole'))return toast('Plotësoni username, emrin dhe rolin');if(state.users.some(x=>x.id!==id&&x.username.toLowerCase()===username.toLowerCase()))return toast('Username ekziston');let u=state.users.find(x=>x.id===id);if(!u){if(!pass)return toast('Vendosni fjalëkalimin e përkohshëm');u={id:uid('USR'),createdAt:new Date().toISOString()};state.users.push(u)}if(pass){let h=await hashPassword(pass);Object.assign(u,{passwordHash:h.hash,passwordSalt:h.salt,passwordIterations:h.iterations,mustChangePassword:true})}Object.assign(u,{username,name,role:$val('ueRole'),active:$id('ueActive')?.checked??true});securityAudit(id?'USER_EDIT':'USER_CREATE',username);save();closeModal();usersSecurityCenter();toast('Përdoruesi u ruajt')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
+function userEditForm(id=''){
+  let u=state.users.find(x=>x.id===id);
+  modal(u?'Ndrysho përdoruesin':'Përdorues i ri',
+    '<div class="form-grid">'
+    +'<div class="field" style="grid-column:1/-1"><label>Emri i plotë</label><input id="ueName" value="'+esc(u?u.name:'')+'" placeholder="p.sh. Arben Hoxha"></div>'
+    +'<div class="field"><label>Login (username)</label><input id="ueUser" value="'+esc(u?u.username:'')+'"></div>'
+    +'<div class="field"><label>Fjalëkalimi</label><input id="uePass" type="password" placeholder="'+(u?'Bosh = pa ndryshim':'I detyrueshëm')+'"></div>'
+    +'<div class="field"><label>Email (ku dërgohet kodi i rivendosjes)</label><input id="ueMail" type="email" value="'+esc(u?u.email:'')+'" placeholder="emri@shembull.com"></div>'
+    +'<div class="field"><label>Roli</label><select id="ueRole">'+opts(securityState().roles,x=>x.name,u?u.role:'')+'</select></div>'
+    +'<div class="field"><label>Aktiv</label><input id="ueActive" type="checkbox" '+(!u||u.active!==false?'checked':'')+'></div>'
+    +(u?'<div class="field"><label>Hyrja e fundit</label><div style="padding:8px 0">'+esc(u.lastLogin||'—')+'</div></div>':'')
+    +'</div>'
+    +(u?'<h3 style="margin-top:14px">Të drejtat e aksesit</h3><p class="hint">Nga roli: <b>'+esc((securityState().roles.find(x=>x.id===u.role)||{}).name||(u.role==='ROLE-USER'?'Përdorues':u.role))+'</b></p>'+odooRightsTable(u.role):'<p class="hint">Ruajeni përdoruesin — të drejtat e aksesit shfaqen këtu.</p>'),
+    '<button class="btn" onclick="usersSecurityCenter()">Mbrapsht</button>'
+    +(u?'<button class="btn" onclick="toggleLocalUser(\''+u.id+'\')">'+(u.active!==false?'Arkivo':'Aktivizo')+'</button><button class="btn danger" onclick="deleteLocalUser(\''+u.id+'\')">Fshi</button><button class="btn" onclick="cloneLocalUser(\''+u.id+'\')">Kopjo</button>':'')
+    +'<button class="btn primary" onclick="saveUserSecurity(\''+id+'\')">Ruaj</button>'
+  );
+}
+async function saveUserSecurity(id){
+  try{
+    let username=$val('ueUser').trim(),name=$val('ueName').trim(),pass=$val('uePass'),email=($val('ueMail')||'').trim();
+    if(!username||!name||!$val('ueRole'))return toast('Plotësoni username, emrin dhe rolin');
+    if(state.users.some(x=>x.id!==id&&x.username.toLowerCase()===username.toLowerCase()))return toast('Username ekziston');
+    let u=state.users.find(x=>x.id===id);
+    if(!u){
+      if(!pass)return toast('Vendosni fjalëkalimin e përkohshëm');
+      u={id:uid('USR'),createdAt:new Date().toISOString()};
+      state.users.push(u);
+    }
+    if(pass){
+      let h=await hashPassword(pass);
+      Object.assign(u,{passwordHash:h.hash,passwordSalt:h.salt,passwordIterations:h.iterations,mustChangePassword:true});
+    }
+    Object.assign(u,{username,name,email,role:$val('ueRole'),active:$id('ueActive')?.checked??true});
+    securityAudit(id?'USER_EDIT':'USER_CREATE',username);
+    save();closeModal();usersSecurityCenter();toast('Përdoruesi u ruajt');
+  }catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}
+}
 function toggleLocalUser(id){let u=state.users.find(x=>x.id===id);if(!u)return;if(u.active!==false&&u.role==='ROLE-ADMIN'&&!state.users.some(x=>x.id!==id&&x.role==='ROLE-ADMIN'&&x.active!==false))return toast('Nuk mund t\u00eb \u00e7aktivizohet admini i fundit');u.active=!(u.active!==false);securityAudit('USER_TOGGLE',u.username);save();usersSecurityCenter()}
 function deleteLocalUser(id){let i=state.users.findIndex(x=>x.id===id);if(i<0)return;let u=state.users[i];let meId=null;try{let s=sessionUser();meId=s&&s.user?s.user:(activeUser()?activeUser().id:null)}catch(e){}if(meId&&u.id===meId)return toast('S\u2019mund ta fshini veten');if(u.role==='ROLE-ADMIN'&&!state.users.some(x=>x.id!==id&&x.role==='ROLE-ADMIN'&&x.active!==false))return toast('Nuk mund t\u00eb fshihet admini i fundit');if(!confirm('Ta fshij p\u00ebrdoruesin "'+u.username+'"? Ky veprim nuk kthehet.'))return;state.users.splice(i,1);securityAudit('USER_DELETE',u.username);save();usersSecurityCenter();toast('P\u00ebrdoruesi u fshi')}
+function cloneLocalUser(id){let s=state.users.find(x=>x.id===id);if(!s)return;userEditForm('');try{$set('ueName',(s.name||'')+' (kopje)');$set('ueUser',(s.username||'')+'_kopje');$set('ueMail',s.email||'');$set('ueRole',s.role);$set('ueActive',s.active!==false);$id('uePass')?.focus()}catch(e){}}
 function userForm(id=''){if(serverBaseUrl()&&serverToken)return serverUserForm(id);return userEditForm(id)}
-function odooLocalUsersTable(sec){return tableCard(['Përdoruesi','Roli','Hyrja e fundit','Statusi','Veprime'],state.users.map(u=>['<a style="cursor:pointer" onclick="userForm(\''+u.id+'\')"><b>'+esc(u.name||u.username)+'</b></a><br><span class="hint">@'+esc(u.username)+'</span>',esc(sec.roles.find(r=>r.id===u.role)?sec.roles.find(r=>r.id===u.role).name:(u.role==='ROLE-USER'?'Përdorues':u.role)),esc(u.lastLogin||'—'),u.active!==false?'<span style="display:inline-block;padding:2px 10px;border-radius:10px;background:#e6f4ea;color:#1e7e34;font-size:12px">Aktiv</span>':'<span style="display:inline-block;padding:2px 10px;border-radius:10px;background:#f1f1f1;color:#666;font-size:12px">Joaktiv</span>','<button class="btn small" onclick="userForm(\''+u.id+'\')">Hap</button>']))}
+function odooLocalUsersTable(sec){return tableCard(['Përdoruesi','Email','Roli','Hyrja e fundit','Statusi','Veprime'],state.users.map(u=>['<a style="cursor:pointer" onclick="userForm(\''+u.id+'\')"><b>'+esc(u.name||u.username)+'</b></a><br><span class="hint">@'+esc(u.username)+'</span>',esc(u.email||'—'),esc(sec.roles.find(r=>r.id===u.role)?sec.roles.find(r=>r.id===u.role).name:(u.role==='ROLE-USER'?'Përdorues':u.role)),esc(u.lastLogin||'—'),u.active!==false?'<span style="display:inline-block;padding:2px 10px;border-radius:10px;background:#e6f4ea;color:#1e7e34;font-size:12px">Aktiv</span>':'<span style="display:inline-block;padding:2px 10px;border-radius:10px;background:#f1f1f1;color:#666;font-size:12px">Joaktiv</span>','<button class="btn small" onclick="userForm(\''+u.id+'\')">Hap</button>']))}
 function roleEditForm(id=''){let r=securityState().roles.find(x=>x.id===id)||{id:'ROLE-'+Date.now(),name:'',permissions:{}};modal(id?'Të drejtat e rolit':'Rol i ri',`<div class="field"><label>Emri i rolit</label><input id="reName" value="${esc(r.name)}"></div><div class="table-wrap"><table><thead><tr><th>Moduli</th>${SECURITY_ACTIONS.map(a=>`<th>${ACTION_LABELS[a]||a}</th>`).join('')}</tr></thead><tbody>${MODULE_GROUPS.map(g=>`<tr><td colspan="12" style="background:#f6f6f6"><b>${g[0]}</b></td></tr>`+g[1].map(m=>`<tr><td>${MODULE_LABELS[m]||m}</td>${SECURITY_ACTIONS.map(a=>`<td><input class="role-perm" type="checkbox" data-m="${m}" data-a="${a}" ${(r.permissions[m]||[]).includes(a)?'checked':''}></td>`).join('')}</tr>`).join('')).join('')}</tbody></table></div>`,`<button class="btn" onclick="goBackModal()">Mbyll</button><button class="btn primary" onclick="saveRoleSecurity('${r.id}','${id}')">Ruaj rolin</button>`)}
 function saveRoleSecurity(id,old){try{let name=$val('reName').trim();if(!name)return toast('Vendosni emrin');let permissions={};document.querySelectorAll('.role-perm:checked').forEach(x=>(permissions[x.dataset.m]||(permissions[x.dataset.m]=[])).push(x.dataset.a));let roles=securityState().roles,r=roles.find(x=>x.id===id);if(r)Object.assign(r,{name,permissions});else roles.push({id,name,permissions});securityAudit(old?'ROLE_EDIT':'ROLE_CREATE',name);save();closeModal();usersSecurityCenter();toast('Roli u ruajt')}catch(e){console.error(e);toast('Gabim gjatë ruajtjes: '+e.message)}}
 </script>
 <script>
-const IMPORT_SCHEMAS={products:['code','name','unit','purchasePrice','salePrice','category'],suppliers:['code','name','nipt','eori','contact','address','region','city','country','phone','email','website','bank','iban','currency','paymentTerms'],customers:['code','name','vat','eori','contact','address','city','country','phone','email','bank','iban','currency','paymentTerms'],warehouses:['code','name'],racks:['code','name','warehouse'],machines:['code','name','status'],cashRegisters:['code','name','currency','active'],bankAccounts:['code','bank','iban','currency','ledgerAccount','openingBalance','active'],purchaseInvoices:['supplierInvoiceNo','invoiceDate','supplier','weighing','billable','price','currency','exchangeRate','vat'],salesInvoices:['invoiceNumber','date','customer','order','currency','exchangeRate','product','net','gross','price','vat'],orders:['id','date','customer','product','qty','sample'],packagings:['id','date','order','product','sourceLot','internalLot','customerLot','bags','bagWeight'],shipments:['id','date','order','customer','net','gross','bags','pallets','plate','carrier','seal'],payments:['id','date','supplier','invoice','method','amount','currency','exchangeRate'],customerPayments:['id','date','customer','invoice','method','amount','currency','rate'],users:['username','name','role','active']};
+const IMPORT_SCHEMAS={products:['code','name','unit','purchasePrice','salePrice','category'],suppliers:['code','name','nipt','eori','contact','address','region','city','country','phone','email','website','bank','iban','currency','paymentTerms'],customers:['code','name','vat','eori','contact','address','city','country','phone','email','bank','iban','currency','paymentTerms'],warehouses:['code','name'],racks:['code','name','warehouse'],machines:['code','name','status'],cashRegisters:['code','name','currency','active'],bankAccounts:['code','bank','iban','currency','ledgerAccount','openingBalance','active'],purchaseInvoices:['supplierInvoiceNo','invoiceDate','supplier','weighing','billable','price','currency','exchangeRate','vat'],salesInvoices:['invoiceNumber','date','customer','order','currency','exchangeRate','product','net','gross','price','vat'],orders:['id','date','customer','product','qty','sample'],packagings:['id','date','order','product','sourceLot','internalLot','customerLot','bags','bagWeight'],shipments:['id','date','order','customer','net','gross','bags','pallets','plate','carrier','seal'],payments:['id','date','supplier','invoice','method','amount','currency','exchangeRate'],customerPayments:['id','date','customer','invoice','method','amount','currency','rate'],users:['username','name','email','role','active']};
 function importLabel(k){return({products:'Artikuj',suppliers:'Furnitorë',customers:'Klientë',warehouses:'Magazina',racks:'Rafte',machines:'Makineri',cashRegisters:'Arka',bankAccounts:'Banka',purchaseInvoices:'Fatura blerjeje',salesInvoices:'Fatura shitjeje',orders:'Porosi',packagings:'Paketime',shipments:'Ngarkesa',payments:'Pagesa furnitorësh',customerPayments:'Arkëtime',users:'Përdorues'})[k]||k}
 function importCenter(){if(!requirePermission('import','import'))return;modal('Import nga Excel — Template për çdo modul',`<p>Shkarkoni template-in, plotësojeni pa ndryshuar titujt dhe importojeni. Importi shfaq kontrollin para ruajtjes.</p><div class="security-grid">${Object.keys(IMPORT_SCHEMAS).map(k=>`<div class="card"><b>${importLabel(k)}</b><div class="actions"><button class="btn small" onclick="downloadImportTemplate('${k}')">Shkarko Template XLSX</button><button class="btn small primary" onclick="pickModuleImport('${k}')">Importo Excel</button></div></div>`).join('')}</div><input id="moduleImportFile" type="file" accept=".xlsx,.csv" hidden>`,`<button class="btn" onclick="closeModal()">Mbyll</button>`)}
 function downloadImportTemplate(k){let h=IMPORT_SCHEMAS[k],example=h.map(x=>({unit:'kg',currency:'ALL',active:true,date:new Date().toISOString().slice(0,10)}[x]??''));makeXlsx('TEMPLATE-'+k+'.xlsx',h,[example]);securityAudit('TEMPLATE_DOWNLOAD',k)}
